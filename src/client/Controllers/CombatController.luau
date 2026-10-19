@@ -1,0 +1,405 @@
+--[[
+	CombatController  (ModuleScript)
+	Location: StarterPlayer/StarterPlayerScripts/Client/Controllers/CombatController
+
+	Client side of combat. It only REQUESTS actions; the server decides outcomes.
+	  * Attack / Kick buttons -> MeleeController (punch & kick combos, weapons)
+	  * Dive (Shift), Step back (X) and the counter window after it, Guard
+	  * Target selection for "sic 'em": the living enemy best aligned with the camera
+	  * Nightmare commands: Attack(target) / Follow / Retreat / ToggleSummon
+	  * Red outline Highlight on the focused target while the Attack command is active
+]]
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Net = require(Shared:WaitForChild("Net"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local CombatController = {}
+
+local localPlayer = Players.LocalPlayer
+local TARGET_RANGE = 90
+
+local controllers
+local combatAction: RemoteEvent
+local nightmareCommand: RemoteEvent
+local guarding = false
+local currentTarget: Model? = nil
+local targetHighlight: Highlight? = nil
+
+function CombatController:Init(registry)
+	controllers = registry
+	combatAction = Net.Get("CombatAction")
+	nightmareCommand = Net.Get("NightmareCommand")
+end
+
+local function isAlive(model: Model?): boolean
+	local humanoid = model and model.Parent and model:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.Health > 0 and not model:GetAttribute("Defeated")
+end
+
+function CombatController:SetTarget(model: Model?)
+	currentTarget = model
+	if targetHighlight then
+		targetHighlight:Destroy()
+		targetHighlight = nil
+	end
+	if model then
+		targetHighlight = Instance.new("Highlight")
+		targetHighlight.FillTransparency = 1
+		targetHighlight.OutlineColor = Color3.fromRGB(255, 70, 70)
+		targetHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		targetHighlight.Adornee = model
+		targetHighlight.Parent = Workspace:FindFirstChild("ClientEffects") or Workspace
+	end
+end
+
+function CombatController:GetTarget(): Model?
+	return currentTarget
+end
+
+function CombatController:FindBestTarget(): Model?
+	local character = localPlayer.Character
+	local myRoot = character and character:FindFirstChild("HumanoidRootPart")
+	local camera = Workspace.CurrentCamera
+	if not myRoot or not camera then
+		return nil
+	end
+	local cameraLook = camera.CFrame.LookVector
+
+	local best, bestScore = nil, -math.huge
+	local candidates = CollectionService:GetTagged("Enemy")
+	for _, model in controllers.PvPController:GetOpponentModels() do
+		table.insert(candidates, model)
+	end
+	for _, enemy in candidates do
+		local root = enemy:FindFirstChild("HumanoidRootPart")
+		if root and isAlive(enemy) then
+			local distance = (root.Position - myRoot.Position).Magnitude
+			if distance <= TARGET_RANGE then
+				local toEnemy = (root.Position - camera.CFrame.Position).Unit
+				local alignment = cameraLook:Dot(toEnemy)
+				if alignment > 0.35 then
+					local score = alignment * 2 - distance / TARGET_RANGE
+					if score > bestScore then
+						best, bestScore = enemy, score
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+-- A quick flat slide of your own character (the step back; MeleeController has its own).
+local function slide(root: BasePart, direction: Vector3, distance: number, duration: number)
+	local attachment = root:FindFirstChild("RootAttachment")
+	if not attachment then
+		return
+	end
+	local mover = Instance.new("LinearVelocity")
+	mover.Attachment0 = attachment
+	mover.MaxForce = 1e5
+	mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	mover.PrimaryTangentAxis = Vector3.xAxis
+	mover.SecondaryTangentAxis = Vector3.zAxis
+	mover.RelativeTo = Enum.ActuatorRelativeTo.World
+	mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * (distance / duration)
+	mover.Parent = root
+	task.delay(duration, function()
+		mover:Destroy()
+	end)
+end
+
+local lastStepBack = -math.huge
+local counterUsed = true
+
+-- True (once) if a punch / kick right now should be a COUNTER: a step back happened
+-- within the counter window and hasn't been cashed in yet. MeleeController asks.
+function CombatController:TakeCounter(): boolean
+	if counterUsed or os.clock() - lastStepBack > Config.Handler.StepBack.CounterWindow then
+		return false
+	end
+	counterUsed = true
+	return true
+end
+
+-- Attack button (LMB / R2 / ATTACK): punches, or the equipped weapon (MeleeController).
+function CombatController:BasicAttack()
+	if guarding then
+		return
+	end
+	controllers.MeleeController:Press("P")
+end
+
+-- Kick button (right-click / gamepad X / KICK).
+function CombatController:Kick()
+	if guarding then
+		return
+	end
+	controllers.MeleeController:Press("K")
+end
+
+-- STEP BACK (X, or Shift while moving backwards): a quick hop straight back, still facing
+-- the fight. Punch or kick straight after it to COUNTER (TakeCounter).
+function CombatController:StepBack()
+	if controllers.WorkshopController:IsOpen() then
+		return
+	end
+	local character = localPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or humanoid.Health <= 0 or not root or character:GetAttribute("Ragdolled") then
+		return
+	end
+	local cfg = Config.Handler.StepBack
+	local now = os.clock()
+	if now - lastStepBack < cfg.Cooldown or (character:GetAttribute("Stamina") or 0) < cfg.StaminaCost or character:GetAttribute("GuardBroken") then
+		return
+	end
+	lastStepBack = now
+	counterUsed = false
+
+	-- back = away from whatever you're fighting (lock-on target), else toward the camera
+	local target = controllers.LockOnController:GetTarget()
+	local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+	local camera = Workspace.CurrentCamera
+	local away = (targetRoot and Util.FlatUnit(root.Position - targetRoot.Position))
+		or (camera and Util.FlatUnit(-camera.CFrame.LookVector))
+		or Util.FlatUnit(-root.CFrame.LookVector)
+		or -Vector3.zAxis
+	root.CFrame = CFrame.lookAt(root.Position, root.Position - away)
+	slide(root, away, cfg.Distance, cfg.Duration)
+	-- keep facing the fight while sliding (holding S would otherwise turn you around)
+	if humanoid.AutoRotate then
+		humanoid.AutoRotate = false
+		task.delay(cfg.Duration + 0.1, function()
+			if humanoid.Parent and not controllers.LockOnController:IsLocked() then
+				humanoid.AutoRotate = true
+			end
+		end)
+	end
+	controllers.HandlerAnimator:Play("StepBack")
+	controllers.EffectsController:Afterimage(character)
+	combatAction:FireServer("StepBack")
+end
+
+-- Dodge = the DIVE: a low, fast leap in the direction you're moving (forward if you're
+-- standing still). The client moves its own character instantly (responsive); the server
+-- decides stamina, cooldown and invulnerability (i-frames cover the airborne part).
+local lastDodge = -math.huge
+function CombatController:Dodge()
+	if controllers.WorkshopController:IsOpen() then
+		return
+	end
+	local character = localPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local attachment = root and root:FindFirstChild("RootAttachment")
+	if not humanoid or humanoid.Health <= 0 or not attachment or character:GetAttribute("Ragdolled") then
+		return
+	end
+	-- Pulling BACK while pressing dodge = the step back instead of a dive (that's how
+	-- controllers and phones get it).
+	local moving = Util.FlatUnit(humanoid.MoveDirection)
+	local camera = Workspace.CurrentCamera
+	local lockTarget = controllers.LockOnController:GetTarget()
+	local lockRoot = lockTarget and lockTarget:FindFirstChild("HumanoidRootPart")
+	local forward = lockRoot and Util.FlatUnit(lockRoot.Position - root.Position) or (camera and Util.FlatUnit(camera.CFrame.LookVector))
+	if moving and forward and moving:Dot(forward) < -0.6 then
+		self:StepBack()
+		return
+	end
+	local cfg = Config.Handler.Dodge
+	local now = os.clock()
+	if now - lastDodge < cfg.Cooldown or (character:GetAttribute("Stamina") or 0) < cfg.StaminaCost or character:GetAttribute("GuardBroken") then
+		return
+	end
+	lastDodge = now
+
+	local direction = Util.FlatUnit(humanoid.MoveDirection) or Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+	-- face the dive, launch upward a little, and carry forward for the dive's duration.
+	-- The body faces the way it rolls until it's back up: "Diving" tells lock-on not to
+	-- turn it toward the target, and AutoRotate is held off.
+	root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
+	character:SetAttribute("Diving", true)
+	humanoid.AutoRotate = false
+	task.delay(cfg.Duration + cfg.RollDuration, function()
+		character:SetAttribute("Diving", nil)
+		if humanoid.Parent and not controllers.LockOnController:IsLocked() then
+			humanoid.AutoRotate = true
+		end
+	end)
+	humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+	root.AssemblyLinearVelocity = direction * cfg.Speed + Vector3.new(0, cfg.Hop, 0)
+	local mover = Instance.new("LinearVelocity")
+	mover.Attachment0 = attachment
+	mover.MaxForce = 1e5
+	mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	mover.PrimaryTangentAxis = Vector3.xAxis
+	mover.SecondaryTangentAxis = Vector3.zAxis
+	mover.RelativeTo = Enum.ActuatorRelativeTo.World
+	mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * cfg.Speed
+	mover.Parent = root
+	-- then the roll: slower, low to the floor, back on your feet at the end
+	local baseHip = humanoid:GetAttribute("BaseHipHeight") or humanoid.HipHeight
+	humanoid:SetAttribute("BaseHipHeight", baseHip)
+	task.delay(cfg.Duration, function()
+		if mover.Parent then
+			mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * cfg.RollSpeed
+		end
+		if humanoid.Parent then
+			humanoid.HipHeight = baseHip * 0.7
+		end
+	end)
+	task.delay(cfg.Duration + cfg.RollDuration, function()
+		mover:Destroy()
+		if humanoid.Parent then
+			humanoid.HipHeight = baseHip
+		end
+	end)
+
+	controllers.HandlerAnimator:Play("Dive")
+	controllers.EffectsController:Afterimage(character)
+	combatAction:FireServer("Dodge", direction)
+end
+
+function CombatController:SetGuard(wanted: boolean)
+	if wanted and controllers.WorkshopController:IsOpen() then
+		return
+	end
+	if guarding == wanted then
+		return
+	end
+	guarding = wanted
+	combatAction:FireServer("Guard", wanted)
+end
+
+function CombatController:IsGuarding(): boolean
+	return guarding
+end
+
+function CombatController:UseAbility(slot: number)
+	if controllers.WorkshopController:IsOpen() then
+		return
+	end
+	local nightmare = controllers.ClientState:GetMyNightmare()
+	if not nightmare then
+		controllers.HUDController:Toast("Your Nightmare isn't here!", nil, 1.5)
+		return
+	end
+	local abilityId = nightmare:GetAttribute(("Ability%dId"):format(slot))
+	if not abilityId or abilityId == "" then
+		controllers.HUDController:Toast("No ability in that slot — equip a part with one.", nil, 2)
+		return
+	end
+	local readyAt = nightmare:GetAttribute(("Ability%dReadyAt"):format(slot)) or 0
+	if Workspace:GetServerTimeNow() < readyAt then
+		return
+	end
+	-- If nothing is targeted, aim the ability at whatever we're looking at.
+	if not currentTarget then
+		local target = self:FindBestTarget()
+		if target then
+			self:SetTarget(target)
+			nightmareCommand:FireServer("Attack", target)
+		end
+	end
+	combatAction:FireServer("Ability", slot)
+end
+
+function CombatController:CommandAttackTarget()
+	local target = self:FindBestTarget()
+	if not target then
+		controllers.HUDController:Toast("No enemy in sight — look toward one.", nil, 1.5)
+		return
+	end
+	if not controllers.ClientState:GetMyNightmare() then
+		controllers.HUDController:Toast("Your Nightmare isn't here!", nil, 1.5)
+		return
+	end
+	self:SetTarget(target)
+	nightmareCommand:FireServer("Attack", target)
+end
+
+function CombatController:CommandFollow()
+	self:CommandDefend()
+end
+
+function CombatController:CommandDefend()
+	self:SetTarget(nil)
+	nightmareCommand:FireServer("Defend")
+end
+
+function CombatController:CommandAggressive()
+	self:SetTarget(nil)
+	nightmareCommand:FireServer("Aggressive")
+end
+
+-- T: flip between DEFEND and AGGRESSIVE.
+function CombatController:ToggleStance()
+	local nightmare = controllers.ClientState:GetMyNightmare()
+	if nightmare and nightmare:GetAttribute("Command") == "Aggressive" then
+		self:CommandDefend()
+	else
+		self:CommandAggressive()
+	end
+end
+
+function CombatController:Ultimate()
+	if controllers.WorkshopController:IsOpen() then
+		return
+	end
+	local nightmare = controllers.ClientState:GetMyNightmare()
+	if not nightmare then
+		return
+	end
+	local ultimateId = nightmare:GetAttribute("UltimateId")
+	if not ultimateId or ultimateId == "" then
+		controllers.HUDController:Toast("This build has no Ultimate. Cores (and Void Wings) grant one.", nil, 2)
+		return
+	end
+	local energy = nightmare:GetAttribute("UltimateEnergy") or 0
+	if energy < Config.Ultimate.EnergyMax then
+		controllers.HUDController:Toast(("Ultimate charging: %d%%"):format(energy), nil, 1.5)
+		return
+	end
+	combatAction:FireServer("Ultimate")
+end
+
+function CombatController:CommandRetreat()
+	self:SetTarget(nil)
+	nightmareCommand:FireServer("Retreat")
+end
+
+function CombatController:ToggleSummon()
+	nightmareCommand:FireServer("ToggleSummon")
+end
+
+function CombatController:Start()
+	-- Drop the highlight once the focused target dies or the order changes.
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed < 0.2 or not currentTarget then
+			return
+		end
+		elapsed = 0
+		local nightmare = controllers.ClientState:GetMyNightmare()
+		local commandActive = nightmare and nightmare:GetAttribute("Command") == "Attack"
+		if controllers.PossessionController:IsPossessing() then
+			commandActive = true -- keep the highlight while you're driving
+		end
+		if not isAlive(currentTarget) or (nightmare and not commandActive) then
+			self:SetTarget(nil)
+		end
+	end)
+end
+
+return CombatController

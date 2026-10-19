@@ -1,0 +1,5 @@
+# tool binary (kept in the dated zip backups; START ROJO.bat runs it)
+rojo.exe
+# Roblox Studio lock/backup files
+*.rbxl.lock
+*.rbxlx.lock

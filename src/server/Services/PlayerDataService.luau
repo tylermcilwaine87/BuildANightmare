@@ -1,0 +1,635 @@
+--[[
+	PlayerDataService  (ModuleScript)
+	Location: ServerScriptService/Server/Services/PlayerDataService
+
+	Owns every player's profile. The authoritative copy lives ONLY on the server.
+
+	PERSISTENCE (Phase 2)
+	  * DataStoreService, one key per player ("Player_<UserId>").
+	  * Every read/write uses UpdateAsync, never SetAsync.
+	  * SESSION LOCKING: the profile stores { JobId, Time } of the server using it.
+	    - Load waits while another live server holds the lock (e.g. a fast rejoin), and
+	      takes over a lock older than Config.Data.SessionLockTimeout (crashed server).
+	    - Saves are refused if another server owns the lock, so a stale server can never
+	      overwrite newer data.
+	  * Retries with exponential backoff on every DataStore call.
+	  * Autosave every Config.Data.AutosaveInterval seconds, save + release on leave,
+	    and save everything in game:BindToClose on shutdown.
+	  * SCHEMA VERSIONING: Migrate() upgrades old profiles step by step.
+	  * VALIDATION: loaded data is type-checked and repaired. Unknown part ids are KEPT
+	    in the inventory (never deleted because a definition changed), just not shown.
+	  * If loading fails on a live server, the player is kicked with a friendly message.
+	    A blank profile is NEVER substituted, because it would overwrite their real save.
+	  * In Studio without API access, a temporary in-memory profile is used and nothing
+	    is written (Output explains how to enable saving).
+
+	Public API: Get(player), WaitFor(player, timeout), Snapshot(player), SaveNow(player),
+	            IsPersistent(player)
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local DataStoreService = game:GetService("DataStoreService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
+local BuildValidator = require(Shared:WaitForChild("BuildValidator"))
+local Util = require(Shared:WaitForChild("Util"))
+local LevelUnlocks = require(Shared:WaitForChild("LevelUnlocks"))
+local MeleeDefinitions = require(Shared:WaitForChild("MeleeDefinitions"))
+local SettingsDefinitions = require(Shared:WaitForChild("SettingsDefinitions"))
+
+local PlayerDataService = {}
+PlayerDataService.SCHEMA_VERSION = 10
+
+type Session = {
+	Data: any,
+	Persistent: boolean,
+	Loaded: boolean,
+	Saving: boolean,
+	LastSave: number,
+	Released: boolean?, -- final save started (player leaving / server closing)
+}
+
+local sessions: { [Player]: Session } = {}
+local store = nil
+local storeError = nil
+local shuttingDown = false
+
+local DATA = Config.Data
+
+------------------------------------------------------------------------------------------
+-- Defaults, migration & validation
+------------------------------------------------------------------------------------------
+local function defaultBuilds()
+	local builds = {}
+	for index = 1, Config.Builds.SlotCount do
+		local template = Config.StarterBuilds[index] or Config.StarterBuilds[1]
+		local build = BuildValidator.Sanitize(template)
+		build.Name = template.Name
+		builds[index] = build
+	end
+	return builds
+end
+
+local function makeDefaultProfile()
+	local inventory = table.clone(Config.StarterInventory)
+	if Config.Dev.GrantAllPartsInStudio and RunService:IsStudio() then
+		for id, def in PartDefinitions.ById do
+			if def.Equippable then
+				inventory[id] = math.max(inventory[id] or 0, 2)
+			end
+		end
+	end
+
+	local discovered = {}
+	for id in inventory do
+		discovered[id] = true
+	end
+
+	local tutorial = { Step = 1, Done = false }
+	if Config.Dev.SkipTutorialInStudio and RunService:IsStudio() then
+		tutorial = { Step = 99, Done = true }
+	end
+
+	return {
+		Version = PlayerDataService.SCHEMA_VERSION,
+		Inventory = inventory,
+		Discovered = discovered,
+		Builds = defaultBuilds(),
+		ActiveBuild = 1,
+		Level = 1,
+		XP = 0,
+		Coins = 0,
+		Essence = 0,
+		Pity = { Legendary = 0 },
+		Bosses = {},
+		Tutorial = tutorial,
+		Stats = { BossWins = 0 },
+		ArenaTokens = 0,
+		PvP = { Wins = 0, Losses = 0, Draws = 0 },
+		Settings = { AllowDuels = true },
+		Mutations = {}, -- { [partId] = { [mutationId] = count } } (also counted in Inventory)
+		MutationBook = {}, -- { [mutationId] = { Found = n, Parts = { [partId] = true } } }
+		-- { Daily/Weekly = { Key, List = { { Id, Progress, Done } } } } (ChallengeService)
+		Challenges = {},
+		Ranked = { Rating = 1000, Peak = 1000, Wins = 0, Losses = 0, Draws = 0, Games = 0 }, -- RankDefinitions
+		Showcase = { Likes = 0 }, -- likes your showcased Nightmares have received
+		LikesGiven = { Day = "", To = {} }, -- who you liked today (one like per player per day)
+		Relics = {}, -- { [relicId] = true } hidden relics found along the routes (WorldDefinitions)
+		Loadout = { "Magnet" }, -- weapons taken into a fight (MeleeDefinitions, max LoadoutSlots)
+		Combos = {}, -- { [comboId] = true } signature combos discovered (MeleeDefinitions.Combos)
+		Runs = { Charge = true }, -- { [runId] = true } run styles owned (MeleeDefinitions.Runs)
+		RunStyle = "Charge",
+		CreatedAt = os.time(),
+	}
+end
+
+-- Each step upgrades exactly one version.
+local MIGRATIONS = {
+	[1] = function(data)
+		-- v1 (Phase 1) had only Inventory/Builds/ActiveBuild.
+		data.Level = data.Level or 1
+		data.XP = data.XP or 0
+		data.Coins = data.Coins or 0
+		data.Essence = data.Essence or 0
+		data.Pity = data.Pity or { Legendary = 0 }
+		data.Bosses = data.Bosses or {}
+		-- Existing players skip the tutorial.
+		data.Tutorial = data.Tutorial or { Step = 99, Done = true }
+		data.Stats = data.Stats or { BossWins = 0 }
+		data.Discovered = data.Discovered or {}
+		for id in data.Inventory or {} do
+			data.Discovered[id] = true
+		end
+		data.Version = 2
+		return data
+	end,
+	[2] = function(data)
+		-- v3 (Phase 3): everyone gets the new Quadruped starter legs.
+		data.Inventory = data.Inventory or {}
+		data.Discovered = data.Discovered or {}
+		if (data.Inventory.MangyHoundLegs or 0) < 1 then
+			data.Inventory.MangyHoundLegs = 1
+		end
+		data.Discovered.MangyHoundLegs = true
+		data.Version = 3
+		return data
+	end,
+	[3] = function(data)
+		-- v4 (Phase 4): PvP stats, Arena Tokens, settings.
+		data.ArenaTokens = data.ArenaTokens or 0
+		data.PvP = data.PvP or { Wins = 0, Losses = 0, Draws = 0 }
+		data.Settings = data.Settings or { AllowDuels = true }
+		data.Version = 4
+		return data
+	end,
+	[4] = function(data)
+		-- v5 (Phase 5): boss wins are tracked per difficulty. A BestTime was only ever
+		-- recorded for Normal (never Tutorial) victories, so it proves a Normal win and
+		-- keeps Hard unlocked for players who already beat the boss.
+		for _, record in data.Bosses or {} do
+			if type(record) == "table" and record.Modes == nil and record.BestTime then
+				record.Modes = { Normal = { Wins = math.max(1, (record.Wins or 1) - 1), BestTime = record.BestTime } }
+			end
+		end
+		data.Version = 5
+		return data
+	end,
+	[5] = function(data)
+		-- v6 (Phase 5): mutated parts and the Mutation Book.
+		data.Mutations = data.Mutations or {}
+		data.MutationBook = data.MutationBook or {}
+		data.Version = 6
+		return data
+	end,
+	[6] = function(data)
+		-- v7 (Phase 5): daily / weekly challenges.
+		data.Challenges = data.Challenges or {}
+		data.Version = 7
+		return data
+	end,
+	[7] = function(data)
+		-- v8 (Phase 6): ranked PvP rating.
+		data.Ranked = data.Ranked or { Rating = 1000, Peak = 1000, Wins = 0, Losses = 0, Draws = 0, Games = 0 }
+		data.Version = 8
+		return data
+	end,
+	[8] = function(data)
+		-- v9 (Phase 6): the Nightmare Showcase (likes).
+		data.Showcase = data.Showcase or { Likes = 0 }
+		data.LikesGiven = data.LikesGiven or { Day = "", To = {} }
+		data.Version = 9
+		return data
+	end,
+	[9] = function(data)
+		-- v10 (map rebuild): relics found along the boss routes.
+		data.Relics = data.Relics or {}
+		data.Version = 10
+		return data
+	end,
+}
+
+local function migrate(data)
+	data.Version = data.Version or 1
+	while data.Version < PlayerDataService.SCHEMA_VERSION do
+		local step = MIGRATIONS[data.Version]
+		if not step then
+			error("No migration from profile version " .. tostring(data.Version))
+		end
+		data = step(data)
+	end
+	return data
+end
+
+local function isNonNegativeInteger(x)
+	return Util.IsFiniteNumber(x) and x >= 0 and x % 1 == 0
+end
+
+-- Repairs anything malformed without discarding legitimate items.
+local function validate(data)
+	local default = makeDefaultProfile()
+	for key, value in default do
+		if type(data[key]) ~= type(value) then
+			data[key] = value
+		end
+	end
+
+	for id, count in data.Inventory do
+		if type(id) ~= "string" or not isNonNegativeInteger(count) then
+			data.Inventory[id] = nil
+		end
+	end
+	for _, key in { "Level", "XP", "Coins", "Essence", "ArenaTokens" } do
+		if not isNonNegativeInteger(data[key]) then
+			data[key] = default[key]
+		end
+	end
+	data.Level = math.clamp(data.Level, 1, Config.Progression.MaxLevel)
+
+	-- Settings: keep AllowDuels; drop any other key that isn't a valid setting.
+	for key, value in data.Settings do
+		if key ~= "AllowDuels" and SettingsDefinitions.Sanitize(key, value) == nil then
+			data.Settings[key] = nil
+		end
+	end
+
+	for id, found in data.Relics do
+		if type(id) ~= "string" or found ~= true then
+			data.Relics[id] = nil
+		end
+	end
+
+	data.Loadout = MeleeDefinitions.CleanLoadout(data.Loadout)
+	for id, value in data.Combos do
+		if type(id) ~= "string" or value ~= true then
+			data.Combos[id] = nil
+		end
+	end
+	for id, value in data.Runs do
+		if not MeleeDefinitions.RunsById[id] or value ~= true then
+			data.Runs[id] = nil
+		end
+	end
+	data.Runs.Charge = true
+	if not data.Runs[data.RunStyle] then
+		data.RunStyle = "Charge"
+	end
+
+	if not isNonNegativeInteger(data.Showcase.Likes) then
+		data.Showcase.Likes = 0
+	end
+	if type(data.LikesGiven.Day) ~= "string" or type(data.LikesGiven.To) ~= "table" then
+		data.LikesGiven = { Day = "", To = {} }
+	end
+
+	-- Ranked record: whole, non-negative numbers only.
+	for _, key in { "Rating", "Peak", "Wins", "Losses", "Draws", "Games" } do
+		if not isNonNegativeInteger(data.Ranked[key]) then
+			data.Ranked[key] = default.Ranked[key]
+		end
+	end
+
+	-- Mutated copies: drop malformed entries and never claim more mutated copies than
+	-- the part's total count (keeps Inventory the single source of "how many you own").
+	for partId, byMutation in data.Mutations do
+		if type(partId) ~= "string" or type(byMutation) ~= "table" then
+			data.Mutations[partId] = nil
+			continue
+		end
+		local remaining = data.Inventory[partId] or 0
+		for mutationId, count in byMutation do
+			if type(mutationId) ~= "string" or not isNonNegativeInteger(count) or count == 0 then
+				byMutation[mutationId] = nil
+			else
+				byMutation[mutationId] = math.min(count, remaining)
+				remaining -= byMutation[mutationId]
+			end
+		end
+	end
+	if not isNonNegativeInteger(data.Pity.Legendary) then
+		data.Pity.Legendary = 0
+	end
+
+	for index = 1, Config.Builds.SlotCount do
+		local build = BuildValidator.Sanitize(data.Builds[index])
+		if not build or not build.Parts.Core or not build.Parts.Head or not build.Parts.Legs then
+			build = default.Builds[index]
+		end
+		if build.Name == "" then
+			build.Name = default.Builds[index].Name
+		end
+		data.Builds[index] = build
+	end
+	if not isNonNegativeInteger(data.ActiveBuild) or data.ActiveBuild < 1 or data.ActiveBuild > Config.Builds.SlotCount then
+		data.ActiveBuild = 1
+	end
+	return data
+end
+
+------------------------------------------------------------------------------------------
+-- DataStore helpers
+------------------------------------------------------------------------------------------
+local function keyFor(player: Player): string
+	return DATA.KeyPrefix .. player.UserId
+end
+
+local function withRetries(label: string, fn)
+	local delaySeconds = 1
+	local lastError
+	for attempt = 1, DATA.WriteRetries do
+		local ok, result = pcall(fn)
+		if ok then
+			return true, result
+		end
+		lastError = result
+		warn(("[PlayerData] %s failed (attempt %d/%d): %s"):format(label, attempt, DATA.WriteRetries, tostring(result)))
+		-- Studio without API access fails with 403 every time: don't make the tester wait.
+		if RunService:IsStudio() and string.find(tostring(result), "403") then
+			break
+		end
+		if attempt < DATA.WriteRetries then
+			task.wait(delaySeconds)
+			delaySeconds *= 2
+		end
+	end
+	return false, lastError
+end
+
+-- Returns: data | nil, reason ("locked" | "error")
+local function loadFromStore(player: Player)
+	local key = keyFor(player)
+	for _ = 1, DATA.LoadRetries do
+		local lockedElsewhere = false
+		local loaded = nil
+		local ok, err = withRetries("Load " .. key, function()
+			store:UpdateAsync(key, function(old)
+				lockedElsewhere = false
+				if old and old.SessionLock and old.SessionLock.JobId ~= game.JobId and os.time() - (old.SessionLock.Time or 0) < DATA.SessionLockTimeout then
+					lockedElsewhere = true
+					return nil -- cancel the write; another server is still using this profile
+				end
+				local data = old and validate(migrate(old)) or makeDefaultProfile()
+				data.SessionLock = { JobId = game.JobId, Time = os.time() }
+				loaded = data
+				return data
+			end)
+		end)
+		if not ok then
+			return nil, "error", err
+		end
+		if not lockedElsewhere and loaded then
+			loaded.SessionLock = nil
+			return loaded
+		end
+		if not player.Parent then
+			return nil, "left"
+		end
+		task.wait(DATA.LoadRetryDelay)
+	end
+	return nil, "locked"
+end
+
+local function writeToStore(player: Player, session: Session, release: boolean): boolean
+	if not session.Persistent or not session.Loaded then
+		return true
+	end
+	if not release and (session.Saving or session.Released) then
+		return false -- (a released session must never be re-locked by a late autosave)
+	end
+	session.Saving = true
+	local snapshot = Util.DeepCopy(session.Data)
+	local key = keyFor(player)
+	local refused = false
+
+	local ok = withRetries("Save " .. key, function()
+		store:UpdateAsync(key, function(old)
+			refused = false
+			if old and old.SessionLock and old.SessionLock.JobId ~= game.JobId then
+				refused = true -- another server took over; never overwrite its newer data
+				return nil
+			end
+			snapshot.SessionLock = (not release) and { JobId = game.JobId, Time = os.time() } or nil
+			return snapshot
+		end)
+	end)
+
+	session.Saving = false
+	if refused then
+		warn(("[PlayerData] Save of %s refused: session owned by another server."):format(key))
+		return false
+	end
+	if ok then
+		session.LastSave = os.clock()
+	end
+	return ok
+end
+
+------------------------------------------------------------------------------------------
+-- Lifecycle
+------------------------------------------------------------------------------------------
+local function onPlayerAdded(player: Player)
+	if sessions[player] then
+		return
+	end
+
+	if not store then
+		if RunService:IsStudio() then
+			warn("[PlayerData] DataStores unavailable in Studio (" .. tostring(storeError) .. "). Using a TEMPORARY profile. To test saving: publish the place, then Home > Game Settings > Security > enable 'Enable Studio Access to API Services'.")
+			sessions[player] = { Data = makeDefaultProfile(), Persistent = false, Loaded = true, Saving = false, LastSave = os.clock() }
+		else
+			player:Kick("Nightmare data servers are unavailable right now. Please rejoin in a minute.")
+		end
+		return
+	end
+
+	local data, reason, err = loadFromStore(player)
+	if not player.Parent then
+		return
+	end
+	if not data then
+		if RunService:IsStudio() then
+			warn(("[PlayerData] Load failed in Studio (%s %s). Using a TEMPORARY profile; nothing will be saved."):format(tostring(reason), tostring(err or "")))
+			sessions[player] = { Data = makeDefaultProfile(), Persistent = false, Loaded = true, Saving = false, LastSave = os.clock() }
+			return
+		end
+		if reason == "locked" then
+			player:Kick("Your Nightmares are still being saved on another server. Please rejoin in a minute.")
+		else
+			player:Kick("Couldn't load your Nightmares (Roblox data error). Your save is safe. Please rejoin.")
+		end
+		return
+	end
+
+	-- Studio test players (Player1, Player2... have UserId <= 0) may have a saved profile
+	-- from an earlier test that's stuck mid-tutorial. Real accounts are left alone.
+	if Config.Dev.SkipTutorialInStudio and RunService:IsStudio() and player.UserId <= 0 then
+		data.Tutorial = { Step = 99, Done = true }
+	end
+
+	sessions[player] = { Data = data, Persistent = true, Loaded = true, Saving = false, LastSave = os.clock() }
+end
+
+-- Final save when a player leaves. Order matters:
+--  1. wait a moment: other services' PlayerRemoving handlers still change this profile
+--     (a forfeited duel records the loss / rating change, leaderboards read it). Saving
+--     first would lose those changes, e.g. quitting a ranked match would dodge the loss.
+--  2. block new autosaves and wait for one already in flight; otherwise it could land
+--     AFTER the release and re-lock the profile, so the player couldn't rejoin.
+--  3. release-save.
+local RELEASE_DELAY = 0.5
+local function onPlayerRemoving(player: Player)
+	local session = sessions[player]
+	if not session or session.Released then
+		return
+	end
+	task.wait(RELEASE_DELAY)
+	if session.Released then
+		return -- BindToClose took over the final save while we waited
+	end
+	session.Released = true
+	local deadline = os.clock() + 10
+	while session.Saving and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	writeToStore(player, session, true)
+	if sessions[player] == session then
+		sessions[player] = nil
+	end
+end
+
+function PlayerDataService:Init()
+	local ok, result = pcall(function()
+		local name = DATA.StoreName .. (RunService:IsStudio() and (DATA.StudioStoreSuffix or "") or "")
+		return DataStoreService:GetDataStore(name)
+	end)
+	if ok then
+		store = result
+	else
+		storeError = result
+	end
+end
+
+function PlayerDataService:Start()
+	Players.PlayerAdded:Connect(onPlayerAdded)
+	for _, player in Players:GetPlayers() do
+		task.spawn(onPlayerAdded, player)
+	end
+	Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+	-- Autosave loop.
+	task.spawn(function()
+		while not shuttingDown do
+			task.wait(DATA.AutosaveInterval)
+			for player, session in sessions do
+				if os.clock() - session.LastSave >= DATA.AutosaveInterval * 0.9 then
+					task.spawn(writeToStore, player, session, false)
+				end
+			end
+		end
+	end)
+
+	game:BindToClose(function()
+		shuttingDown = true
+		local pending = 0
+		for player, session in sessions do
+			pending += 1
+			if session.Released then
+				-- onPlayerRemoving is already releasing it: wait for that save to finish
+				task.spawn(function()
+					local waitUntil = os.clock() + 25
+					while sessions[player] == session and os.clock() < waitUntil do
+						task.wait(0.2)
+					end
+					pending -= 1
+				end)
+				continue
+			end
+			session.Released = true
+			task.spawn(function()
+				local deadline = os.clock() + 5
+				while session.Saving and os.clock() < deadline do
+					task.wait(0.1) -- let an in-flight autosave finish first
+				end
+				writeToStore(player, session, true)
+				pending -= 1
+			end)
+		end
+		local deadline = os.clock() + 25
+		while pending > 0 and os.clock() < deadline do
+			task.wait(0.2)
+		end
+	end)
+end
+
+------------------------------------------------------------------------------------------
+-- API
+------------------------------------------------------------------------------------------
+function PlayerDataService:Get(player: Player)
+	local session = sessions[player]
+	return session and session.Data or nil
+end
+
+function PlayerDataService:IsPersistent(player: Player): boolean
+	local session = sessions[player]
+	return session ~= nil and session.Persistent
+end
+
+-- Yields until the profile is loaded (or the player leaves / times out).
+function PlayerDataService:WaitFor(player: Player, timeout: number?)
+	local deadline = os.clock() + (timeout or 60)
+	while not sessions[player] and player.Parent and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	return self:Get(player)
+end
+
+-- Saves immediately (used right after rewards so loot is committed promptly).
+function PlayerDataService:SaveNow(player: Player)
+	local session = sessions[player]
+	if session then
+		task.spawn(writeToStore, player, session, false)
+	end
+end
+
+-- A copy of everything the client needs to render menus. Never hand out the real table.
+function PlayerDataService:Snapshot(player: Player)
+	local session = sessions[player]
+	if not session then
+		return nil
+	end
+	local data = session.Data
+	return {
+		Inventory = Util.DeepCopy(data.Inventory),
+		Discovered = Util.DeepCopy(data.Discovered),
+		Builds = Util.DeepCopy(data.Builds),
+		ActiveBuild = data.ActiveBuild,
+		PowerBudget = LevelUnlocks.PvEBudget(data.Level),
+		Persistence = session.Persistent,
+		Level = data.Level,
+		XP = data.XP,
+		XPToNext = Config.Progression.XPForLevel(data.Level),
+		Coins = data.Coins,
+		Essence = data.Essence,
+		Pity = Util.DeepCopy(data.Pity),
+		Bosses = Util.DeepCopy(data.Bosses),
+		Tutorial = Util.DeepCopy(data.Tutorial),
+		ArenaTokens = data.ArenaTokens,
+		PvP = Util.DeepCopy(data.PvP),
+		Settings = Util.DeepCopy(data.Settings),
+		Mutations = Util.DeepCopy(data.Mutations),
+		MutationBook = Util.DeepCopy(data.MutationBook),
+		Challenges = Util.DeepCopy(data.Challenges),
+		Ranked = Util.DeepCopy(data.Ranked),
+		Showcase = Util.DeepCopy(data.Showcase),
+		Relics = Util.DeepCopy(data.Relics),
+		Loadout = Util.DeepCopy(data.Loadout),
+		Combos = Util.DeepCopy(data.Combos),
+		Runs = Util.DeepCopy(data.Runs),
+		RunStyle = data.RunStyle,
+	}
+end
+
+return PlayerDataService
