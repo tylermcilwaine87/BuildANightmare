@@ -144,7 +144,8 @@ function HandlerService:IsInvulnerable(player: Player): boolean
 end
 
 -- Returns true if the dodge was accepted (stamina spent, i-frames granted).
-function HandlerService:TryDodge(player: Player): boolean
+local DODGE_POSES = { Dive = true, DodgeLeft = true, DodgeRight = true }
+function HandlerService:TryDodge(player: Player, pose: string?): boolean
 	local state = states[player]
 	local humanoid = getHumanoid(player)
 	if not state or not humanoid or humanoid.Health <= 0 then
@@ -164,7 +165,8 @@ function HandlerService:TryDodge(player: Player): boolean
 	state.InvulnerableUntil = now + H.Dodge.InvulnerableTime
 	state.PerfectCredited = false
 	self:Spend(state, H.Dodge.StaminaCost)
-	self.Services.MeleeService:StampPose(player.Character, "Dive") -- other players see the roll
+	-- other players see the same roll: the forward dive or a side dive
+	self.Services.MeleeService:StampPose(player.Character, DODGE_POSES[pose] and pose or "Dive")
 	self.Services.TutorialService:Notify(player, "Dodged")
 	return true
 end

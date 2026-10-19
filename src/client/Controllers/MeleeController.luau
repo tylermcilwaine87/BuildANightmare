@@ -324,12 +324,6 @@ function MeleeController:Fire(input: string)
 
 	controllers.HandlerAnimator:Play(move.Pose)
 	combatAction:FireServer("Melee", seq, flag)
-	-- the air cut by a heavy strike, just before it lands
-	if move.Heavy and not move.Weapon then
-		task.delay(math.max(move.HitTime - 0.12, 0), function()
-			controllers.AudioController:Play("PunchWhoosh", root.Position)
-		end)
-	end
 
 	if move.Lash then
 		-- the chain leaves just before the arm finishes its snap

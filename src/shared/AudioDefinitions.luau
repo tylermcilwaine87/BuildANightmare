@@ -30,6 +30,9 @@ AudioDefinitions.Sounds = {
 	-- landed heavy strike, e.g. the Overhand, plays PunchHeavy INSTEAD of Hit / HeavyHit)
 	PunchWhoosh = { Id = "", Volume = 0.45, Pitch = { 0.9, 1.1 }, Spatial = true, Cooldown = 0.05 },
 	PunchHeavy = { Id = "", Volume = 0.85, Pitch = { 0.9, 1.0 }, Spatial = true, Cooldown = 0.08 },
+	-- animation markers: a foot planting hard into a strike / dodge, landing from the air
+	Footstep = { Id = "", Volume = 0.35, Pitch = { 0.9, 1.15 }, Spatial = true, Cooldown = 0.05 },
+	Land = { Id = "", Volume = 0.6, Pitch = { 0.9, 1.05 }, Spatial = true, Cooldown = 0.1 },
 	Block = { Id = "", Volume = 0.6, Pitch = { 0.95, 1.05 }, Spatial = true, Cooldown = 0.1 },
 	GuardBreak = { Id = "", Volume = 0.8, Spatial = true },
 	Stagger = { Id = "", Volume = 0.8, Spatial = true },

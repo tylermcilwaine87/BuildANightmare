@@ -224,20 +224,37 @@ function CombatController:Dodge()
 	lastDodge = now
 
 	local direction = Util.FlatUnit(humanoid.MoveDirection) or Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
-	-- face the dive, launch upward a little, and carry forward for the dive's duration.
-	-- The body faces the way it rolls until it's back up: "Diving" tells lock-on not to
-	-- turn it toward the target, and AutoRotate is held off.
-	root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
+	-- Facing someone and dodging sideways: the SIDE DIVE (stay facing them, roll over the
+	-- shoulder). Otherwise the forward dive roll, facing the way you go.
+	local slot, motion = "Dive", cfg
+	local opponent = lockRoot or self:NearestOpponentAhead(root)
+	if opponent then
+		local toward = Util.FlatUnit(opponent.Position - root.Position)
+		local side = toward and toward:Cross(Vector3.yAxis) -- (points to your right)
+		local amount = side and direction:Dot(side) or 0
+		if math.abs(amount) > 0.55 then
+			slot = amount > 0 and "DodgeRight" or "DodgeLeft"
+			motion = cfg.Side
+			direction = side * math.sign(amount)
+			root.CFrame = CFrame.lookAt(root.Position, root.Position + toward)
+		end
+	end
+	if slot == "Dive" then
+		-- face the dive, launch upward a little, and carry forward for the dive's duration
+		root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
+	end
+	-- The body keeps its facing until it's back up: "Diving" tells lock-on not to turn it,
+	-- and AutoRotate is held off.
 	character:SetAttribute("Diving", true)
 	humanoid.AutoRotate = false
-	task.delay(cfg.Duration + cfg.RollDuration, function()
+	task.delay(motion.Duration + motion.RollDuration, function()
 		character:SetAttribute("Diving", nil)
 		if humanoid.Parent and not controllers.LockOnController:IsLocked() then
 			humanoid.AutoRotate = true
 		end
 	end)
 	humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
-	root.AssemblyLinearVelocity = direction * cfg.Speed + Vector3.new(0, cfg.Hop, 0)
+	root.AssemblyLinearVelocity = direction * motion.Speed + Vector3.new(0, motion.Hop, 0)
 	local mover = Instance.new("LinearVelocity")
 	mover.Attachment0 = attachment
 	mover.MaxForce = 1e5
@@ -245,29 +262,77 @@ function CombatController:Dodge()
 	mover.PrimaryTangentAxis = Vector3.xAxis
 	mover.SecondaryTangentAxis = Vector3.zAxis
 	mover.RelativeTo = Enum.ActuatorRelativeTo.World
-	mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * cfg.Speed
+	mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * motion.Speed
 	mover.Parent = root
 	-- then the roll: slower, low to the floor, back on your feet at the end
 	local baseHip = humanoid:GetAttribute("BaseHipHeight") or humanoid.HipHeight
 	humanoid:SetAttribute("BaseHipHeight", baseHip)
-	task.delay(cfg.Duration, function()
+	task.delay(motion.Duration, function()
 		if mover.Parent then
-			mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * cfg.RollSpeed
+			mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * motion.RollSpeed
 		end
 		if humanoid.Parent then
 			humanoid.HipHeight = baseHip * 0.7
 		end
 	end)
-	task.delay(cfg.Duration + cfg.RollDuration, function()
+	task.delay(motion.Duration + motion.RollDuration, function()
 		mover:Destroy()
 		if humanoid.Parent then
 			humanoid.HipHeight = baseHip
 		end
 	end)
 
-	controllers.HandlerAnimator:Play("Dive")
+	-- a side dive circles AROUND them: the body stays turned toward them and the dive keeps
+	-- steering sideways relative to them, so you come out of the roll squared up and still
+	-- in range to counter (instead of sliding off in a straight line)
+	if motion == cfg.Side and opponent then
+		local startTime = os.clock()
+		local sideSign = direction:Dot(root.CFrame.RightVector) >= 0 and 1 or -1
+		local connection
+		connection = RunService.Heartbeat:Connect(function()
+			local elapsed = os.clock() - startTime
+			if elapsed > motion.Duration + motion.RollDuration + 0.15 or not opponent.Parent or not root.Parent then
+				connection:Disconnect()
+				return
+			end
+			local at = Vector3.new(opponent.Position.X, root.Position.Y, opponent.Position.Z)
+			if (at - root.Position).Magnitude > 0.5 then
+				root.CFrame = CFrame.lookAt(root.Position, at)
+			end
+			if mover.Parent then
+				local speed = elapsed < motion.Duration and motion.Speed or motion.RollSpeed
+				local side = root.CFrame.RightVector * sideSign
+				mover.PlaneVelocity = Vector2.new(side.X, side.Z) * speed
+			end
+		end)
+	end
+
+	controllers.HandlerAnimator:Play(slot)
 	controllers.EffectsController:Afterimage(character)
-	combatAction:FireServer("Dodge", direction)
+	combatAction:FireServer("Dodge", direction, slot)
+end
+
+-- The closest enemy / opposing body within 14 studs in front of you (60 degree cone around
+-- where your CAMERA looks: you aim with the camera, and your body turns to face wherever
+-- you walk), or nil: "facing someone" for the side dodge when you aren't locked on.
+function CombatController:NearestOpponentAhead(root: BasePart): BasePart?
+	local best, bestDistance = nil, 14
+	local camera = Workspace.CurrentCamera
+	local look = Util.FlatUnit(camera and camera.CFrame.LookVector or root.CFrame.LookVector)
+	for _, tag in { "Enemy", "Nightmare" } do
+		for _, model in CollectionService:GetTagged(tag) do
+			local other = model:FindFirstChild("HumanoidRootPart")
+			if other and model ~= localPlayer.Character and model:GetAttribute("OwnerUserId") ~= localPlayer.UserId then
+				local offset = other.Position - root.Position
+				local flat = Util.FlatUnit(offset)
+				local distance = offset.Magnitude
+				if flat and look and distance < bestDistance and flat:Dot(look) > 0.5 then
+					best, bestDistance = other, distance
+				end
+			end
+		end
+	end
+	return best
 end
 
 function CombatController:SetGuard(wanted: boolean)

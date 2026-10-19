@@ -119,7 +119,7 @@ function CombatService:Start()
 		elseif action == "BuyRun" or action == "SetRun" then
 			self.Services.MeleeService:HandleRun(player, action, arg)
 		elseif action == "Dodge" then
-			self.Services.HandlerService:TryDodge(player)
+			self.Services.HandlerService:TryDodge(player, type(arg2) == "string" and arg2 or nil)
 		elseif action == "StepBack" then
 			self.Services.HandlerService:TryStepBack(player)
 		elseif action == "Guard" then

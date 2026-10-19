@@ -45,6 +45,9 @@ local JOINTS = { "Root", "Waist", "Neck", "LeftShoulder", "RightShoulder", "Left
 local UPPER_BODY = { "Waist", "Neck", "LeftShoulder", "RightShoulder", "LeftElbow", "RightElbow" }
 
 local rigs = {} -- [Model] = { motors = {}, pose = { Def, Start }?, isLocal }
+-- MarkerReached(character, slot, markerName): a move reached one of its event markers
+local markerEvent = Instance.new("BindableEvent")
+HandlerAnimator.MarkerReached = markerEvent.Event
 local tracks = {} -- [slot] = AnimationTrack (uploaded animations on YOUR character)
 
 local function smooth(t: number): number
@@ -278,6 +281,19 @@ local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 		end
 	end
 	local def = pose.Def
+	-- event markers (Hit, Whoosh, Step...) at their exact frames: the same moments an
+	-- animation asset's KeyframeMarkers fire, so effects stay in sync either way
+	if def.Markers and not pose.Scrub then
+		local last = pose.LastT or -1
+		if t > last then
+			for _, marker in def.Markers do
+				if marker[1] > last and marker[1] <= t then
+					markerEvent:Fire(rig.model, pose.Slot, marker[2])
+				end
+			end
+			pose.LastT = t
+		end
+	end
 	if t > def.Duration then
 		rig.pose = nil
 		return
@@ -327,7 +343,7 @@ local function applyAll()
 		end
 		if rig and def and type(at) == "number" then
 			local time = at >= 0 and math.clamp(at, 0, def.Duration) or (now % (def.Duration + 0.5))
-			rig.pose = { Def = def, Start = now - math.min(time, def.Duration) }
+			rig.pose = { Def = def, Start = now - math.min(time, def.Duration), Scrub = true }
 		end
 	end
 	for model, rig in rigs do
@@ -352,7 +368,7 @@ local function playPose(model: Model?, slot: string)
 				from[joint] = motor.Transform
 			end
 		end
-		rig.pose = { Def = pose, Start = os.clock(), From = from }
+		rig.pose = { Def = pose, Start = os.clock(), From = from, Slot = slot }
 	end
 end
 
@@ -564,8 +580,9 @@ function studioKeyframes(slot: string): string?
 	local name = (def and def.Code) or slot
 	if studioIds[name] == nil then
 		studioIds[name] = false
+		-- (Animations holds per-rig folders, e.g. Animations/Handler/Jab)
 		local folder = Shared:FindFirstChild("Animations")
-		local sequence = folder and folder:FindFirstChild(name)
+		local sequence = folder and folder:FindFirstChild(name, true)
 		if sequence and sequence:IsA("KeyframeSequence") then
 			local ok, result = pcall(KeyframeSequenceProvider.RegisterKeyframeSequence, KeyframeSequenceProvider, sequence)
 			if ok and type(result) == "string" then
@@ -600,6 +617,17 @@ function HandlerAnimator:Play(slot: string, speed: number?)
 					track = loaded
 					track.Priority = Enum.AnimationPriority.Action2
 					tracks[slot] = track
+					-- the asset's KeyframeMarkers drive the same MarkerReached events
+					local pose = POSES[(def and def.Code) or slot]
+					local names = {}
+					for _, marker in pose and pose.Markers or {} do
+						names[marker[2]] = true
+					end
+					for name in names do -- (once per name: a signal fires at every marker of it)
+						track:GetMarkerReachedSignal(name):Connect(function()
+							markerEvent:Fire(character, slot, name)
+						end)
+					end
 				end
 			end
 		end
@@ -661,6 +689,19 @@ end
 function HandlerAnimator:Init() end
 
 function HandlerAnimator:Start()
+	-- Studio: every move's server hit time (MeleeDefinitions HitTime) must be the frame its
+	-- animation's "Hit" marker sits on, or the damage lands before/after the fist does
+	if IS_STUDIO then
+		for id, move in Melee.Moves do
+			local slot = SLOTS[move.Pose]
+			local pose = POSES[(slot and slot.Code) or move.Pose]
+			for _, marker in pose and pose.Markers or {} do
+				if marker[2] == "Hit" and math.abs(marker[1] - move.HitTime) > 0.011 then
+					warn(("[HandlerAnimator] %s: HitTime %.2f but the animation's Hit marker is at %.2f"):format(id, move.HitTime, marker[1]))
+				end
+			end
+		end
+	end
 	if localPlayer.Character then
 		task.spawn(onLocalCharacter, localPlayer.Character)
 	end

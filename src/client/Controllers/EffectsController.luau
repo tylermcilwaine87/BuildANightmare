@@ -474,6 +474,46 @@ function EffectsController:Impact(data)
 	end
 end
 
+-- Dust kicked up off the floor at `position` (a footstep plant, a landing, a body hitting
+-- the ground): a few soft puffs rolling outward, tinted to whatever the floor is. `size`
+-- ~0.5 for a step, ~1 for a landing, 2+ for a heavy body or a boss stomp.
+local DUST_PARAMS = RaycastParams.new()
+DUST_PARAMS.FilterType = Enum.RaycastFilterType.Exclude
+function EffectsController:Dust(position: Vector3, size: number)
+	local level = controllers.SettingsController:Get("ImpactEffects")
+	if level == "Minimal" or (level == "Reduced" and size < 1) then
+		return -- (reduced effects: skip the little ones)
+	end
+	DUST_PARAMS.FilterDescendantsInstances = { effectsFolder, localPlayer.Character }
+	local hit = Workspace:Raycast(position + Vector3.new(0, 1.5, 0), Vector3.new(0, -6, 0), DUST_PARAMS)
+	if not hit then
+		return
+	end
+	local floorColor = hit.Instance:IsA("Terrain") and Color3.fromRGB(120, 112, 100) or hit.Instance.Color
+	local color = floorColor:Lerp(Color3.fromRGB(200, 195, 185), 0.45)
+	local count = math.clamp(math.floor(3 + size * 3), 3, 12)
+	for i = 1, count do
+		local angle = (i / count) * math.pi * 2 + math.random() * 0.6
+		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local start = size * (0.4 + math.random() * 0.4)
+		local puff = newEffectPart({
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * start,
+			CFrame = CFrame.new(hit.Position + out * size * 0.3 + Vector3.new(0, start * 0.3, 0)),
+			Color = color,
+			Material = Enum.Material.SmoothPlastic,
+			Transparency = 0.35,
+		})
+		local life = 0.45 + size * 0.15 + math.random() * 0.2
+		TweenService:Create(puff, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = Vector3.one * start * 2.6,
+			CFrame = CFrame.new(hit.Position + out * size * (1.4 + math.random()) + Vector3.new(0, size * (0.4 + math.random() * 0.5), 0)),
+			Transparency = 1,
+		}):Play()
+		Debris:AddItem(puff, life + 0.05)
+	end
+end
+
 function EffectsController:Projectile(data)
 	local chunk = newEffectPart({
 		Size = Vector3.new(1.8, 1.4, 1.6),
@@ -601,6 +641,29 @@ function EffectsController:Start()
 	effectsFolder = Instance.new("Folder")
 	effectsFolder.Name = "ClientEffects"
 	effectsFolder.Parent = Workspace
+
+	-- Animation event markers (HandlerAnimator.MarkerReached), on every character you see:
+	--   Whoosh          the strike cutting the air (sound at the body)
+	--   StepL / StepR   a foot planting hard (dust + footstep sound at that foot)
+	--   Land            landing from a jump / dive / drop kick (bigger dust + thud)
+	controllers.HandlerAnimator.MarkerReached:Connect(function(character: Model, _slot, name: string)
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then
+			return
+		end
+		local audio = controllers.AudioController
+		if name == "Whoosh" then
+			audio:Play("PunchWhoosh", root.Position)
+		elseif name == "StepL" or name == "StepR" then
+			local foot = character:FindFirstChild(name == "StepL" and "LeftFoot" or "RightFoot")
+			local at = foot and foot.Position or root.Position
+			self:Dust(at, 0.5)
+			audio:Play("Footstep", at)
+		elseif name == "Land" then
+			self:Dust(root.Position, 1.1)
+			audio:Play("Land", root.Position)
+		end
+	end)
 
 	Net.Get("CombatFeedback").OnClientEvent:Connect(function(kind, data)
 		if type(data) ~= "table" then

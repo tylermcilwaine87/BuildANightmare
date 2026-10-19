@@ -162,6 +162,17 @@ Config.Handler = {
 		Duration = 0.42, -- how long the dive carries you
 		RollSpeed = 22, -- then you roll forward along the floor...
 		RollDuration = 0.4, -- ...for this long, and come up on your feet
+		-- Facing an opponent (locked on, or one right in front of you), left / right dodges
+		-- are a SIDE DIVE instead: low and sideways, a shoulder roll, circling AROUND them
+		-- and still facing them (about 9 studs of arc: at close range that's ~75 degrees round
+		-- to their flank, still in reach). Same stamina, cooldown and i-frames.
+		Side = {
+			Speed = 22,
+			Hop = 12,
+			Duration = 0.3,
+			RollSpeed = 10,
+			RollDuration = 0.27,
+		},
 	},
 	Guard = {
 		Startup = 0.15, -- guard isn't active instantly

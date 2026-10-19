@@ -49,7 +49,38 @@ local function stance(t: number, changes)
 	return key
 end
 
-return {
+-- A set of joint changes mirrored left <-> right: Left*/Right* joints swap, and every Y
+-- (twist) and Z (sideways) angle flips, as does RootPos X. (X angles, forward/back,
+-- stay.) Mirrored moves are built as stance(t, mirror(changes)), so they still start and
+-- end in the orthodox stance.
+local function mirror(changes)
+	local out = {}
+	for joint, v in changes do
+		local name = joint
+		if joint:sub(1, 4) == "Left" then
+			name = "Right" .. joint:sub(5)
+		elseif joint:sub(1, 5) == "Right" then
+			name = "Left" .. joint:sub(6)
+		end
+		if joint == "RootPos" then
+			out[name] = { -v[1], v[2], v[3] }
+		else
+			out[name] = { v[1], -v[2], -v[3] }
+		end
+	end
+	return out
+end
+
+-- Builds a move from (t, changes) pairs, optionally mirrored.
+local function keys(list, mirrored: boolean?)
+	local out = {}
+	for _, entry in list do
+		table.insert(out, stance(entry[1], mirrored and mirror(entry[2] or {}) or entry[2]))
+	end
+	return out
+end
+
+local POSES = {
 	------------------------------------------------------------------------------------
 	-- Movement
 	------------------------------------------------------------------------------------
@@ -105,6 +136,7 @@ return {
 	-- to cover the chin, the fist snaps all the way out at head height, then straight back.
 	Jab = {
 		Duration = 0.34,
+		Markers = { { 0.04, "Whoosh" }, { 0.11, "Hit" } },
 		Keys = {
 			stance(0),
 			stance(0.04, { RootPos = { 0, -0.18, 0.05 }, Root = { -7, -8, 0 }, LeftShoulder = { 70, 0, -10 }, LeftElbow = { 85, 0, 0 } }),
@@ -119,6 +151,7 @@ return {
 	-- length of the arm into the target; the lead hand stays home on the chin.
 	Cross = {
 		Duration = 0.4,
+		Markers = { { 0.05, "Whoosh" }, { 0.14, "Hit" }, { 0.14, "StepL" } },
 		Keys = {
 			stance(0),
 			stance(0.05, { RootPos = { 0, -0.2, 0.08 }, Root = { -7, -18, 0 }, Waist = { -2, -6, 0 }, RightShoulder = { 58, 0, 18 }, RightElbow = { 110, 0, 0 } }),
@@ -132,6 +165,7 @@ return {
 	-- whole body turns it through like a door slamming; the lead foot pivots on its ball.
 	Hook = {
 		Duration = 0.46,
+		Markers = { { 0.07, "Whoosh" }, { 0.17, "Hit" } },
 		Keys = {
 			stance(0),
 			stance(0.07, { RootPos = { 0.15, -0.22, 0 }, Root = { -7, 28, 0 }, Waist = { -2, 28, 0 }, LeftShoulder = { 84, 0, 38 }, LeftElbow = { 92, 0, 0 } }),
@@ -174,6 +208,7 @@ return {
 	-- carries on down through the target.)
 	Overhand = {
 		Duration = 0.86,
+		Markers = { { 0.24, "Whoosh" }, { 0.34, "Hit" }, { 0.34, "StepL" } },
 		Keys = {
 			stance(0),
 			-- load: sink and coil, the fist stays home by the jaw
@@ -274,6 +309,7 @@ return {
 	-- the fall onto the back, a sit-up and back onto the feet.
 	DropKick = {
 		Duration = 1.3,
+		Markers = { { 0.12, "Whoosh" }, { 0.26, "Hit" }, { 0.82, "Land" } },
 		Keys = {
 			{ T = 0, RootPos = { 0, -0.5, 0 }, Root = { -22, 0, 0 }, Neck = { 10, 0, 0 }, LeftHip = { 55, 0, 0 }, RightHip = { 50, 0, 0 }, LeftKnee = { -85, 0, 0 }, RightKnee = { -80, 0, 0 }, LeftShoulder = { -45, 0, -20 }, RightShoulder = { -45, 0, 20 }, LeftElbow = { 30, 0, 0 }, RightElbow = { 30, 0, 0 } },
 			{ T = 0.12, RootPos = { 0, 0.4, 0 }, Root = { 40, 0, 0 }, Neck = { -15, 0, 0 }, LeftHip = { 70, 0, 0 }, RightHip = { 70, 0, 0 }, LeftKnee = { -75, 0, 0 }, RightKnee = { -70, 0, 0 }, LeftShoulder = { 60, 0, -30 }, RightShoulder = { 60, 0, 30 }, LeftElbow = { 40, 0, 0 }, RightElbow = { 40, 0, 0 } },
@@ -472,3 +508,31 @@ return {
 	HoldWhip = { Hold = true, Keys = { { T = 0, RightShoulder = { 15, 0, 10 }, RightElbow = { 25, 0, 0 } } } },
 	HoldSpear = { Hold = true, Keys = { { T = 0, RightShoulder = { 125, 0, 22 }, RightElbow = { 100, 0, 0 } } } },
 }
+
+------------------------------------------------------------------------------------------
+-- Directional dodges (facing an opponent: you dodge sideways and keep your eyes on them)
+------------------------------------------------------------------------------------------
+-- SIDE DIVE: load onto the outside leg (a small counter-lean), launch off it laid out
+-- sideways and low, tuck and roll over the near shoulder (the body turns a full circle
+-- around its own front-to-back axis), land in a crouch still facing them, rise into the
+-- guard. Root +Z leans left, so a left roll runs Z 0 -> 360.
+local SIDE_DIVE = {
+	{ 0 },
+	-- load: weight onto the right (outside) leg, leaning into it before pushing off
+	{ 0.07, { RootPos = { 0.25, -0.55, 0 }, Root = { -10, -12, -12 }, RightHip = { 10, 0, -14 }, RightKnee = { -62, 0, 0 }, LeftHip = { 30, 0, 10 }, LeftKnee = { -50, 0, 0 } } },
+	-- launch: laid out sideways in the air, the push-off leg trailing, chin tucked
+	{ 0.17, { RootPos = { -0.7, 0, 0 }, Root = { -6, -12, 62 }, Waist = { 0, 6, 10 }, Neck = { -20, 0, -20 }, LeftHip = { 40, 0, -10 }, LeftKnee = { -70, 0, 0 }, RightHip = { 10, 0, 30 }, RightKnee = { -30, 0, 0 } } },
+	-- the shoulder meets the floor: tucked tight
+	{ 0.29, { RootPos = { -1.3, -1.5, 0 }, Root = { -20, -12, 140 }, Neck = { -35, 0, 0 }, LeftHip = { 100, 0, 0 }, LeftKnee = { -120, 0, 0 }, RightHip = { 100, 0, 0 }, RightKnee = { -120, 0, 0 } } },
+	-- over the back
+	{ 0.4, { RootPos = { -1.5, -1.6, 0 }, Root = { -20, -12, 240 }, Neck = { -35, 0, 0 }, LeftHip = { 100, 0, 0 }, LeftKnee = { -120, 0, 0 }, RightHip = { 100, 0, 0 }, RightKnee = { -120, 0, 0 } } },
+	-- land: feet under, crouched, still facing them
+	{ 0.52, { RootPos = { -1.2, -0.9, 0 }, Root = { -14, -12, 335 }, Neck = { -15, 0, 0 }, LeftHip = { 70, 0, -10 }, LeftKnee = { -100, 0, 0 }, RightHip = { 40, 0, 10 }, RightKnee = { -90, 0, 0 } } },
+	-- rise
+	{ 0.68, { RootPos = { -0.5, -0.45, 0 }, Root = { -8, -12, 358 }, LeftHip = { 40, 0, 0 }, LeftKnee = { -55, 0, 0 }, RightHip = { 0, 0, 0 }, RightKnee = { -50, 0, 0 } } },
+	{ 0.8, { Root = { -6, -12, 360 } } },
+}
+POSES.DodgeLeft = { Duration = 0.8, Keys = keys(SIDE_DIVE), Markers = { { 0.07, "StepR" }, { 0.52, "Land" } } }
+POSES.DodgeRight = { Duration = 0.8, Keys = keys(SIDE_DIVE, true), Markers = { { 0.07, "StepL" }, { 0.52, "Land" } } }
+
+return POSES

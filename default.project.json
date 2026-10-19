@@ -7,6 +7,12 @@
         "$path": "src/shared"
       }
     },
+    "ServerStorage": {
+      "$ignoreUnknownInstances": true,
+      "DevTools": {
+        "$path": "tools"
+      }
+    },
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
