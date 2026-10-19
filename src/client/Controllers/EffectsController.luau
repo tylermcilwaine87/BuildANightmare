@@ -665,6 +665,26 @@ function EffectsController:Start()
 		end
 	end)
 
+	-- ...and the same markers on keyframed Nightmare attacks (NightmareAnimator)
+	controllers.NightmareAnimator.MarkerReached:Connect(function(model: Model, _action, name: string)
+		local root = model and model:FindFirstChild("HumanoidRootPart")
+		if not root then
+			return
+		end
+		local audio = controllers.AudioController
+		if name == "Whoosh" then
+			audio:Play("PunchWhoosh", root.Position)
+		elseif name == "StepL" or name == "StepR" then
+			local leg = model:FindFirstChild(name == "StepL" and "Legs_L" or "Legs_R")
+			local at = Vector3.new((leg or root).Position.X, root.Position.Y, (leg or root).Position.Z)
+			self:Dust(at - Vector3.new(0, root.Size.Y / 2, 0), 0.8)
+			audio:Play("Footstep", at)
+		elseif name == "Land" then
+			self:Dust(root.Position - Vector3.new(0, root.Size.Y / 2, 0), 1.4)
+			audio:Play("Land", root.Position)
+		end
+	end)
+
 	Net.Get("CombatFeedback").OnClientEvent:Connect(function(kind, data)
 		if type(data) ~= "table" then
 			return

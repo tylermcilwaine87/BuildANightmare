@@ -62,6 +62,16 @@ AnimationDefinitions.Handler = {
 	MagnetPull = { Id = "", Code = "MagnetPull", Note = "Magnet: held out, braced, dragging them in" },
 	GetUpFront = { Id = "", Code = "GetUpFront", Note = "knocked down face-first: push up, knees under, stand" },
 	GetUpBack = { Id = "", Code = "GetUpBack", Note = "knocked onto your back: sit up, feet under, stand" },
+	DodgeLeft = { Id = "", Code = "DodgeLeft", Note = "Shift + left while facing someone: side dive, shoulder roll, still facing them" },
+	DodgeRight = { Id = "", Code = "DodgeRight", Note = "Shift + right while facing someone: side dive (mirror of DodgeLeft)" },
+}
+
+-- NIGHTMARE attacks, per body plan: "Nightmare_<Archetype>_<Action>" (the server's
+-- ActionName). With no Id the keyframes in NightmarePoses play (and, in Studio, the
+-- editable KeyframeSequence of the same name in Shared/Animations). Publish that
+-- KeyframeSequence and paste its Id here to use it everywhere.
+AnimationDefinitions.Nightmare = {
+	Nightmare_Biped_Heavy = { Id = "", Note = "Biped heavy haymaker: coil, lunge, over and through" },
 }
 
 return AnimationDefinitions

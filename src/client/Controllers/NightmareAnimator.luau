@@ -23,8 +23,20 @@
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local AnimationDefinitions = require(Shared:WaitForChild("AnimationDefinitions"))
+local POSES = require(script.Parent:WaitForChild("NightmarePoses"))
 
 local NightmareAnimator = {}
+
+-- MarkerReached(model, actionName, markerName): a keyframed attack reached an event marker
+local markerEvent = Instance.new("BindableEvent")
+NightmareAnimator.MarkerReached = markerEvent.Event
+local IS_STUDIO = RunService:IsStudio()
 
 local CULL_DISTANCE = 160
 local STRIKE_TIME = 0.12
@@ -100,6 +112,7 @@ local function track(model: Model)
 		state.windup = model:GetAttribute("ActionWindup") or 0.25
 		state.duration = model:GetAttribute("ActionDuration") or 0.6
 		state.actionStart = os.clock()
+		NightmareAnimator:PlayKeyframed(state)
 	end))
 	table.insert(state.connections, model.AncestryChanged:Connect(function(_, parent)
 		if not parent then
@@ -127,9 +140,165 @@ local function swingCurve(t: number, windup: number): (number, number)
 	return 0.35 * (1 - p), 1 - p
 end
 
+-- Joints an AnimationTrack is driving right now (the procedural layer leaves them alone so
+-- the animation shows; tails / wings / anything it doesn't key keep their procedural sway).
+local currentSkip = nil
 local function setTransform(motor: Motor6D?, cframe: CFrame)
-	if motor then
+	if motor and not (currentSkip and currentSkip[motor.Name]) then
 		motor.Transform = cframe
+	end
+end
+
+------------------------------------------------------------------------------------------
+-- Keyframed attacks (NightmarePoses): an animation asset through the Animator when one
+-- exists (published Id, or the editable KeyframeSequence previewed in Studio), else the
+-- same keyframes evaluated here. Played at the speed that lands its "Hit" frame on the
+-- server's hit (the attack's windup).
+------------------------------------------------------------------------------------------
+local function smooth(t: number): number
+	return t * t * (3 - 2 * t)
+end
+
+local function angleAt(def, joint: string, t: number): (number, number, number)
+	local keys = def.Keys
+	local prev, nextKey = keys[1], keys[#keys]
+	for i = 1, #keys - 1 do
+		if t >= keys[i].T and t <= keys[i + 1].T then
+			prev, nextKey = keys[i], keys[i + 1]
+			break
+		end
+	end
+	local a = prev[joint] or { 0, 0, 0 }
+	local b = nextKey[joint] or { 0, 0, 0 }
+	local span = nextKey.T - prev.T
+	local k = span > 0 and smooth(math.clamp((t - prev.T) / span, 0, 1)) or 1
+	return a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, a[3] + (b[3] - a[3]) * k
+end
+
+-- every joint a pose keys anywhere (+ which one carries a position)
+local poseJoints = setmetatable({}, { __mode = "k" })
+local function jointsOf(def)
+	local joints = poseJoints[def]
+	if not joints then
+		joints = {}
+		for _, key in def.Keys do
+			for name in key do
+				if name ~= "T" and not name:match("Pos$") then
+					joints[name] = true
+				end
+			end
+		end
+		poseJoints[def] = joints
+	end
+	return joints
+end
+
+local function hitTime(def): number
+	for _, marker in def.Markers or {} do
+		if marker[2] == "Hit" then
+			return marker[1]
+		end
+	end
+	return def.Duration * 0.45
+end
+
+-- The asset id for archetype/action: published (AnimationDefinitions.Nightmare) or, in
+-- Studio, the KeyframeSequence Shared/Animations/.../Nightmare_<Archetype>_<Action>.
+local assetIds = {}
+local function assetId(archetype: string, action: string): string?
+	local key = "Nightmare_" .. archetype .. "_" .. action
+	local published = AnimationDefinitions.Nightmare and AnimationDefinitions.Nightmare[key]
+	if published and published.Id ~= "" then
+		return published.Id
+	end
+	if not IS_STUDIO or not Config.Dev.PreviewKeyframesInStudio then
+		return nil
+	end
+	if assetIds[key] == nil then
+		assetIds[key] = false
+		local folder = Shared:FindFirstChild("Animations")
+		local sequence = folder and folder:FindFirstChild(key, true)
+		if sequence and sequence:IsA("KeyframeSequence") then
+			local ok, result = pcall(KeyframeSequenceProvider.RegisterKeyframeSequence, KeyframeSequenceProvider, sequence)
+			assetIds[key] = ok and result or false
+		end
+	end
+	return assetIds[key] or nil
+end
+
+function NightmareAnimator:PlayKeyframed(state)
+	local model = state.model
+	if state.track then
+		state.track:Stop(0.1)
+		state.track = nil
+	end
+	state.pose = nil
+	if not CollectionService:HasTag(model, "Nightmare") then
+		return
+	end
+	local archetype = model:GetAttribute("Archetype") or "Biped"
+	local library = POSES[archetype]
+	local def = library and library[state.action]
+	if not def then
+		return
+	end
+	local speed = state.windup > 0.01 and hitTime(def) / state.windup or 1
+	local id = assetId(archetype, state.action)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if id and humanoid then
+		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+		local animation = Instance.new("Animation")
+		animation.AnimationId = id
+		local ok, track = pcall(animator.LoadAnimation, animator, animation)
+		if ok and track then
+			track.Priority = Enum.AnimationPriority.Action2
+			for _, marker in def.Markers or {} do
+				track:GetMarkerReachedSignal(marker[2]):Once(function()
+					markerEvent:Fire(model, state.action, marker[2])
+				end)
+			end
+			track:Play(0.06, 1, speed)
+			state.track = track
+			state.trackJoints = jointsOf(def)
+			return
+		end
+	end
+	state.pose = { Def = def, Start = os.clock(), Speed = speed, LastT = -1 }
+end
+
+-- Applies a code-evaluated keyframed attack over the procedural pose (after it).
+local function applyPose(state, now: number)
+	local pose = state.pose
+	local def = pose.Def
+	local t = (now - pose.Start) * pose.Speed
+	for _, marker in def.Markers or {} do
+		if marker[1] > pose.LastT and marker[1] <= t then
+			markerEvent:Fire(state.model, state.action, marker[2])
+		end
+	end
+	pose.LastT = t
+	if t > def.Duration then
+		state.pose = nil
+		return
+	end
+	for joint in jointsOf(def) do
+		local motor = state.motors[joint]
+		if motor then
+			local x, y, z = angleAt(def, joint, t)
+			local cframe = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+			local hasPos = false
+			for _, key in def.Keys do
+				if key[joint .. "Pos"] then
+					hasPos = true
+					break
+				end
+			end
+			if hasPos then
+				local px, py, pz = angleAt(def, joint .. "Pos", t)
+				cframe = CFrame.new(px, py, pz) * cframe
+			end
+			motor.Transform = cframe
+		end
 	end
 end
 
@@ -139,6 +308,10 @@ end
 local function animate(state, root: BasePart, dt: number, now: number)
 	local model = state.model
 	local motors = state.motors
+	if state.track and not state.track.IsPlaying then
+		state.track = nil
+	end
+	currentSkip = state.track and state.trackJoints or nil
 
 	local velocity = root.AssemblyLinearVelocity
 	local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
@@ -276,6 +449,12 @@ local function animate(state, root: BasePart, dt: number, now: number)
 
 	-- Tail
 	setTransform(motors.Joint_Tail, CFrame.Angles(0, math.sin(now * 2.2 + state.seed) * 0.25 + math.sin(state.walkPhase) * 0.2 * move, 0))
+
+	-- a keyframed attack overrides the joints it keys (the rest keep their procedural motion)
+	currentSkip = nil
+	if state.pose then
+		applyPose(state, now)
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -315,9 +494,20 @@ function NightmareAnimator:Start()
 		end
 		local cameraPosition = camera.CFrame.Position
 		local now = os.clock()
+		-- Studio scrubbing: workspace attributes NMScrubAction = "Heavy", NMScrubTime = 0.45
+		-- hold every Nightmare on that frame of its body plan's keyframed attack
+		local scrubAction, scrubTime = IS_STUDIO and Workspace:GetAttribute("NMScrubAction"), Workspace:GetAttribute("NMScrubTime")
 		for model, state in tracked do
 			local root = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart")
 			if root and (root.Position - cameraPosition).Magnitude <= CULL_DISTANCE then
+				if type(scrubAction) == "string" and type(scrubTime) == "number" and CollectionService:HasTag(model, "Nightmare") then
+					local library = POSES[model:GetAttribute("Archetype") or "Biped"]
+					local def = library and library[scrubAction]
+					if def then
+						state.action = scrubAction
+						state.pose = { Def = def, Start = now - scrubTime, Speed = 1, LastT = math.huge }
+					end
+				end
 				animate(state, root, dt, now)
 			end
 		end

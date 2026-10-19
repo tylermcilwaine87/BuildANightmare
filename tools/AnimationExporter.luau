@@ -65,10 +65,34 @@ local function freshRequire(module: ModuleScript)
 	return require(module:Clone())
 end
 
--- The pose libraries by rig kind.
+-- Nightmare skeleton (NightmareAssembler): Motor6D name -> { part, parent part }. Slots a
+-- Nightmare doesn't have are simply absent at play time.
+local NIGHTMARE_RIG = {
+	Joint_Core = { "Core_Root", "HumanoidRootPart" },
+	Joint_Head = { "Head_Root", "Core_Root" },
+	Joint_RightArm = { "RightArm_Root", "Core_Root" },
+	Joint_LeftArm = { "LeftArm_Root", "Core_Root" },
+	Joint_Legs = { "Legs_Root", "Core_Root" },
+	Sub_Legs_L = { "Legs_L", "Legs_Root" },
+	Sub_Legs_R = { "Legs_R", "Legs_Root" },
+	Joint_Back = { "Back_Root", "Core_Root" },
+	Joint_Tail = { "Tail_Root", "Core_Root" },
+}
+
+-- The pose libraries by rig kind. Nightmare animations are named
+-- Nightmare_<Archetype>_<Action> (what NightmareAnimator / AnimationDefinitions look up).
 local SOURCES = {
 	Handler = function()
 		return freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.HandlerPoses), HANDLER_RIG, "Root", "RootPos"
+	end,
+	Nightmare = function()
+		local library = {}
+		for archetype, moves in freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.NightmarePoses) do
+			for action, def in moves do
+				library["Nightmare_" .. archetype .. "_" .. action] = def
+			end
+		end
+		return library, NIGHTMARE_RIG, "Joint_Core", "Joint_CorePos"
 	end,
 }
 
@@ -169,5 +193,6 @@ function Exporter.Export(kind: string, names: { string }, sourceOverride)
 end
 
 Exporter.HandlerRig = HANDLER_RIG
+Exporter.NightmareRig = NIGHTMARE_RIG
 Exporter.Sources = SOURCES
 return Exporter
