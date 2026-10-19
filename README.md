@@ -1,4 +1,30 @@
-# BUILD A NIGHTMARE — v0.9.3 (size, armour & knockdowns)
+# BUILD A NIGHTMARE — v0.10.0 (combat overhaul, Stage 1)
+
+## Combat overhaul: Stage 1 demonstration (v0.10.0)
+
+Every Stage 1 move is a real, editable **KeyframeSequence** in `src/shared/Animations/` (in Studio: `ReplicatedStorage > Shared > Animations`). In Studio the game plays them through Roblox's **Animator** (registered locally; nothing is published). Each was checked in a playtest: at its key frames the asset puts the fist / foot / head within **0.000–0.017 studs** of the tuned version. Event markers inside each animation (`Hit`, `Whoosh`, `StepL/R`, `Land`) drive sound and dust on the exact frame. In Studio, a check warns if any move's server hit time doesn't sit on its `Hit` marker.
+
+| Animation | Used by | Asset (editable) | Status | Hit synchronisation |
+|---|---|---|---|---|
+| Jab, Cross, Hook, Overhand (the P-P-P-P combo) | Your character (R15) | `Handler.rbxm` → Jab / Cross / Hook / Overhand | Custom, keyframed, measured; not published | Server hit 0.11 / 0.14 / 0.17 / 0.34 s = `Hit` markers; measured hits 0.10–0.35 s |
+| DropKick | Your character | `Handler.rbxm` → DropKick | Custom (earlier build, now an asset with markers) | Hit 0.26 s, Land 0.82 s |
+| DodgeLeft / DodgeRight (side dive) | Your character | `Handler.rbxm` → DodgeLeft / DodgeRight | Custom, new | Launch → shoulder roll → land facing them (measured: 0° off, range held at about 7) |
+| Biped heavy haymaker | Any Biped Nightmare | `Nightmare.rbxm` → Nightmare_Biped_Heavy | Custom, new | Plays at the speed that lands its Hit frame on the server's windup (measured hits 0.47–0.48 s for a 0.45 s windup) |
+| Get-up after a knockdown | Every Nightmare / enemy | `Nightmare.rbxm` → Nightmare_Common_GetUp | Custom, new | Starts when the ragdoll ends |
+| Scrap Titan ground slam | Scrap Titan | `ScrapTitan.rbxm` → Boss_ScrapTitan_Slam | Custom, new (the Titan got hip + knee joints) | A real leap timed so the body lands on the impact frame (measured: takeoff 0.82 s, on the ground at impact) |
+
+- **Side dodge:** when you're facing an opponent (locked on, or one in front of your camera), Shift + left/right is a side dive. You launch off the outside foot, roll over the shoulder and come up squared up to them. It circles about 9 studs around them, so you stay in counter range. Shift + forward is still the dive roll; Shift + back is the step-back.
+- **Scrap Titan's Ground Slam:** a physical leaping double-fist slam: squat, spring, airborne, both fists into the floor. It throws everyone in the circle outward from the impact (a knockdown, then the get-up). On impact: a ground shockwave, rolling dust, flying chunks of floor (real physics, they never trip players), and camera shake plus a punch-in scaled by how close you are.
+- **Get-ups:** floored Nightmares and enemies no longer pop straight upright. They push up off the floor and rise.
+- **Effects setting:** Settings → *Impact effects* (Full / Reduced / Minimal) scales dust, debris and shockwaves. *Camera shake* and *Hit flashes* still have their own settings.
+- **Sound:** slots `PunchWhoosh`, `PunchHeavy`, `Footstep`, `Land`, `BossSlam` in `AudioDefinitions.luau` (empty until you add sound ids).
+
+### Making / changing animations (dev workflow)
+1. Tune the move's keyframes in `HandlerPoses` / `NightmarePoses` / `BossPoses`. Check them in a playtest with the scrub attributes: `ScrubPose` / `ScrubTime` for your character, `NMScrubAction` / `NMScrubTime` for Nightmares and bosses. You can also tune live with `ScrubPose = "Lab"`.
+2. Export (edit mode, command bar):
+   `require(game.ServerStorage.DevTools.AnimationExporter:Clone()).Export("Handler", {"Jab", ...})` (or `"Nightmare"`, `"ScrapTitan"`)
+3. Right-click the selected folder → Save / Export → Save to File → `src/shared/Animations/<Kind>.rbxm`.
+4. To edit in the Animation Editor, or to publish one: copy a KeyframeSequence into `ServerStorage.RBX_ANIMSAVES.<RigName>` on a matching rig, Load, edit, then Publish to Roblox. Paste the id into `AnimationDefinitions` (Handler / Nightmare / Boss) and it plays everywhere, including live servers. Until then, live servers play the same keyframes from code.
 
 ## Size, armour & knockdowns (v0.9.3)
 

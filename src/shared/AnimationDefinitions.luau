@@ -74,4 +74,9 @@ AnimationDefinitions.Nightmare = {
 	Nightmare_Biped_Heavy = { Id = "", Note = "Biped heavy haymaker: coil, lunge, over and through" },
 }
 
+-- BOSS attacks: "Boss_<BossId>_<Action>" (BossPoses; same rules as above).
+AnimationDefinitions.Boss = {
+	Boss_ScrapTitan_Slam = { Id = "", Note = "Scrap Titan leaping double-fist ground slam" },
+}
+
 return AnimationDefinitions

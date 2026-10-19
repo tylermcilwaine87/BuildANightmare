@@ -85,6 +85,22 @@ local SOURCES = {
 	Handler = function()
 		return freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.HandlerPoses), HANDLER_RIG, "Root", "RootPos"
 	end,
+	ScrapTitan = function()
+		local library = {}
+		for action, def in freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.BossPoses).ScrapTitan do
+			library["Boss_ScrapTitan_" .. action] = def
+		end
+		return library, {
+			Joint_Core = { "Core_Root", "HumanoidRootPart" },
+			Joint_Head = { "Head_Root", "Core_Root" },
+			Joint_RightArm = { "RightArm_Root", "Core_Root" },
+			Joint_LeftArm = { "LeftArm_Root", "Core_Root" },
+			Sub_Legs_L = { "Legs_L", "Core_Root" },
+			Knee_L = { "Shin_L", "Legs_L" },
+			Sub_Legs_R = { "Legs_R", "Core_Root" },
+			Knee_R = { "Shin_R", "Legs_R" },
+		}, "Joint_Core", "Joint_CorePos"
+	end,
 	Nightmare = function()
 		local library = {}
 		for archetype, moves in freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.NightmarePoses) do

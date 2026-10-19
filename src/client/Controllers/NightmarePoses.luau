@@ -22,6 +22,24 @@
 ]]
 
 return {
+	-- Any body (Nightmares, enemies, bosses: everything has Joint_Core; legs / arms / head
+	-- are used where they exist).
+	Common = {
+		-- GET UP after a knockdown: the server stands the body upright when the ragdoll
+		-- ends; this starts it low and folded over, pushing up off its arms, then rising
+		-- onto its legs into its stance, instead of popping straight up.
+		GetUp = {
+			Duration = 1.0,
+			Markers = { { 0.35, "StepL" }, { 0.7, "StepR" } },
+			Keys = {
+				{ T = 0, Joint_CorePos = { 0, -2.2, 0.4 }, Joint_Core = { -58, 0, 8 }, Joint_Head = { 32, 0, 0 }, Joint_RightArm = { 42, 0, 22 }, Joint_LeftArm = { 42, 0, -22 }, Sub_Legs_L = { 85, 0, 0 }, Sub_Legs_R = { 70, 0, 0 } },
+				{ T = 0.35, Joint_CorePos = { 0, -1.5, 0.25 }, Joint_Core = { -38, 0, 4 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 26, 0, 16 }, Joint_LeftArm = { 30, 0, -16 }, Sub_Legs_L = { 62, 0, 0 }, Sub_Legs_R = { 70, 0, 0 } },
+				{ T = 0.7, Joint_CorePos = { 0, -0.55, 0.05 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 10, 0, 8 }, Joint_LeftArm = { 10, 0, -8 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { 18, 0, 0 } },
+				{ T = 1.0 },
+			},
+		},
+	},
+
 	Biped = {
 		-- HEAVY HAYMAKER: the Nightmare coils back, sinking and twisting away with the right
 		-- arm drawn high behind it, then lunges in off the back leg, the core whipping round

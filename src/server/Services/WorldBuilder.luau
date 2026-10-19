@@ -39,6 +39,9 @@ WorldBuilder.CollisionGroups = {
 	-- A boss that just landed on someone (pounce / eruption): passes through players and
 	-- Nightmares for a moment so physics can't shove anyone through the floor.
 	BossPhasing = "BossPhasing",
+	-- Client-side impact debris (EffectsController): bounces off the world, never trips or
+	-- blocks players, Nightmares or enemies.
+	Effects = "Effects",
 }
 
 local RGB = Color3.fromRGB
@@ -54,6 +57,9 @@ local function setupCollisionGroups()
 	PhysicsService:CollisionGroupSetCollidable("Nightmares", "Nightmares", false)
 	PhysicsService:CollisionGroupSetCollidable("BossPhasing", "Characters", false)
 	PhysicsService:CollisionGroupSetCollidable("BossPhasing", "Nightmares", false)
+	for _, other in { "Characters", "Nightmares", "Enemies", "BossPhasing" } do
+		PhysicsService:CollisionGroupSetCollidable("Effects", other, false)
+	end
 end
 
 -- Base lighting / sky / clouds. The client's WorldController blends the per-region look

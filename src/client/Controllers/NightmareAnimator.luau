@@ -30,6 +30,21 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local AnimationDefinitions = require(Shared:WaitForChild("AnimationDefinitions"))
 local POSES = require(script.Parent:WaitForChild("NightmarePoses"))
+local BOSS_POSES = require(script.Parent:WaitForChild("BossPoses"))
+
+-- The keyframed-attack library for a model, and the asset name prefix:
+-- bosses by BossId (BossPoses), Nightmares by body plan (NightmarePoses).
+local function libraryFor(model: Model)
+	local bossId = model:GetAttribute("BossId")
+	if bossId then
+		return BOSS_POSES[bossId], "Boss_" .. bossId
+	end
+	if CollectionService:HasTag(model, "Nightmare") then
+		local archetype = model:GetAttribute("Archetype") or "Biped"
+		return POSES[archetype], "Nightmare_" .. archetype
+	end
+	return nil, nil
+end
 
 local NightmareAnimator = {}
 
@@ -105,6 +120,22 @@ local function track(model: Model)
 	table.insert(state.connections, model.DescendantAdded:Connect(function(d)
 		if d:IsA("Motor6D") then
 			state.motors[d.Name] = d
+		end
+	end))
+	-- the knockdown ends: get up properly instead of popping straight upright
+	table.insert(state.connections, model:GetAttributeChangedSignal("Ragdolled"):Connect(function()
+		if model:GetAttribute("Ragdolled") then
+			if state.track then
+				state.track:Stop(0)
+				state.track = nil
+			end
+			state.pose = nil
+			return
+		end
+		local def = POSES.Common and POSES.Common.GetUp
+		if def then
+			state.action = "GetUp"
+			state.pose = { Def = def, Start = os.clock(), Speed = 1, LastT = -1 }
 		end
 	end))
 	table.insert(state.connections, model:GetAttributeChangedSignal("ActionSeq"):Connect(function()
@@ -202,12 +233,12 @@ local function hitTime(def): number
 	return def.Duration * 0.45
 end
 
--- The asset id for archetype/action: published (AnimationDefinitions.Nightmare) or, in
--- Studio, the KeyframeSequence Shared/Animations/.../Nightmare_<Archetype>_<Action>.
+-- The asset id for prefix/action: published (AnimationDefinitions.Nightmare / .Boss) or, in
+-- Studio, the KeyframeSequence Shared/Animations/.../<prefix>_<Action>.
 local assetIds = {}
-local function assetId(archetype: string, action: string): string?
-	local key = "Nightmare_" .. archetype .. "_" .. action
-	local published = AnimationDefinitions.Nightmare and AnimationDefinitions.Nightmare[key]
+local function assetId(prefix: string, action: string): string?
+	local key = prefix .. "_" .. action
+	local published = (AnimationDefinitions.Nightmare and AnimationDefinitions.Nightmare[key]) or (AnimationDefinitions.Boss and AnimationDefinitions.Boss[key])
 	if published and published.Id ~= "" then
 		return published.Id
 	end
@@ -233,17 +264,13 @@ function NightmareAnimator:PlayKeyframed(state)
 		state.track = nil
 	end
 	state.pose = nil
-	if not CollectionService:HasTag(model, "Nightmare") then
-		return
-	end
-	local archetype = model:GetAttribute("Archetype") or "Biped"
-	local library = POSES[archetype]
+	local library, prefix = libraryFor(model)
 	local def = library and library[state.action]
 	if not def then
 		return
 	end
 	local speed = state.windup > 0.01 and hitTime(def) / state.windup or 1
-	local id = assetId(archetype, state.action)
+	local id = assetId(prefix, state.action)
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if id and humanoid then
 		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
@@ -500,8 +527,8 @@ function NightmareAnimator:Start()
 		for model, state in tracked do
 			local root = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart")
 			if root and (root.Position - cameraPosition).Magnitude <= CULL_DISTANCE then
-				if type(scrubAction) == "string" and type(scrubTime) == "number" and CollectionService:HasTag(model, "Nightmare") then
-					local library = POSES[model:GetAttribute("Archetype") or "Biped"]
+				if type(scrubAction) == "string" and type(scrubTime) == "number" then
+					local library = libraryFor(model)
 					local def = library and library[scrubAction]
 					if def then
 						state.action = scrubAction

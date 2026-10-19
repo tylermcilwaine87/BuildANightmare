@@ -33,6 +33,8 @@ AudioDefinitions.Sounds = {
 	-- animation markers: a foot planting hard into a strike / dodge, landing from the air
 	Footstep = { Id = "", Volume = 0.35, Pitch = { 0.9, 1.15 }, Spatial = true, Cooldown = 0.05 },
 	Land = { Id = "", Volume = 0.6, Pitch = { 0.9, 1.05 }, Spatial = true, Cooldown = 0.1 },
+	-- a boss's full-weight slam / landing: deep ground boom + rubble
+	BossSlam = { Id = "", Volume = 1, Pitch = { 0.9, 1.0 }, Spatial = true, Cooldown = 0.2 },
 	Block = { Id = "", Volume = 0.6, Pitch = { 0.95, 1.05 }, Spatial = true, Cooldown = 0.1 },
 	GuardBreak = { Id = "", Volume = 0.8, Spatial = true },
 	Stagger = { Id = "", Volume = 0.8, Spatial = true },

@@ -152,6 +152,60 @@ function Context:Impact(position: Vector3, radius: number)
 	BossService.Services.TelegraphService:Impact(position, radius, "Hostile")
 end
 
+-- A heavyweight landing / slam at `position`: every nearby client gets the ground
+-- shockwave, dust, flying debris and a camera jolt scaled by distance (EffectsController
+-- "Slam"). `power` ~1 for a slam, more for bigger.
+function Context:SlamFX(position: Vector3, radius: number, power: number?)
+	Net.FireNearby(BossService.WorldFX, position, Config.Performance.EffectRadius + radius, "Slam", { Position = position, Radius = radius, Power = power or 1 })
+end
+
+-- Physically leaps the boss so it lands at `landing` (on the arena floor) after `airTime`
+-- seconds: a real ballistic jump under the place's gravity, not a teleport.
+function Context:Leap(landing: Vector3, airTime: number)
+	local root, humanoid = self.Root, self.Humanoid
+	if root.Anchored or self.Model:GetAttribute("Ragdolled") then
+		return
+	end
+	local standY = self.Arena.GroundY + humanoid.HipHeight + root.Size.Y / 2
+	local from = root.Position
+	local offset = Vector3.new(landing.X - from.X, standY - from.Y, landing.Z - from.Z)
+	local gravity = Workspace.Gravity
+	local velocity = Vector3.new(offset.X / airTime, (offset.Y + 0.5 * gravity * airTime * airTime) / airTime, offset.Z / airTime)
+	-- The flight is the same ballistic arc (gravity, apex ~6 studs) but driven frame by
+	-- frame on an anchored body rather than by free physics: clients draw free-physics
+	-- bodies ~0.3 s behind (Roblox's interpolation), which put the fists-into-the-floor
+	-- frame of the animation in mid-air on screen. Anchored CFrames arrive as fast as the
+	-- attack's own signal, so body, animation and impact land together for everyone.
+	local start, facing = from, root.CFrame.Rotation
+	root.Anchored = true
+	local began = os.clock()
+	local connection
+	connection = RunService.Heartbeat:Connect(function()
+		local t = math.min(os.clock() - began, airTime)
+		local position = start + Vector3.new(velocity.X * t, velocity.Y * t - 0.5 * gravity * t * t, velocity.Z * t)
+		if root.Parent then
+			root.CFrame = CFrame.new(position) * facing
+		end
+		if t >= airTime then
+			connection:Disconnect()
+			if root.Parent then
+				root.Anchored = false
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
+		end
+	end)
+	-- landing on top of someone: ghosted against players / Nightmares through the flight and
+	-- a moment after (as PlaceAt does), so physics can't crush anyone through the floor
+	root.CollisionGroup = "BossPhasing"
+	self.PhaseToken = (self.PhaseToken or 0) + 1
+	local token = self.PhaseToken
+	task.delay(airTime + 0.8, function()
+		if self.PhaseToken == token and root.Parent then
+			root.CollisionGroup = "Enemies"
+		end
+	end)
+end
+
 function Context:Projectile(from: Vector3, to: Vector3, duration: number)
 	BossService.Services.TelegraphService:Projectile(from, to, duration)
 end
@@ -160,6 +214,12 @@ local function damage(self, targets, amount: number, opts)
 	opts = opts or {}
 	local combat = BossService.Services.CombatService
 	for _, target in targets do
+		-- a slam throws everyone OUTWARD from where it landed (not just away from the boss)
+		local hitDirection
+		if typeof(opts.Radial) == "Vector3" then
+			local p = target:GetPivot().Position
+			hitDirection = Util.FlatUnit(p - opts.Radial) or Util.FlatUnit(p - self.Root.Position)
+		end
 		combat:ApplyDamage({
 			Attacker = self.Model,
 			Target = target,
@@ -167,6 +227,7 @@ local function damage(self, targets, amount: number, opts)
 			AttackPower = 100,
 			Knockback = opts.Knockback,
 			Heavy = opts.Heavy,
+			HitDirection = hitDirection,
 			Unblockable = opts.Unblockable,
 			Status = opts.Status, -- e.g. "Shock" (Storm Beast), "Weaken" (Abyssal Maw)
 			Source = "Boss:" .. self.Definition.Id,
@@ -1143,6 +1204,7 @@ function BossService:Init(services)
 	self.BossEvent = Net.Get("BossEvent")
 	self.RewardNotification = Net.Get("RewardNotification")
 	self.PlayerFX = Net.Get("PlayerFX")
+	self.WorldFX = Net.Get("WorldFX")
 end
 
 function BossService:Start()

@@ -112,9 +112,22 @@ function ScrapTitan.BuildModel(groundCF: CFrame, hitboxSize: Vector3)
 	piece(model, core, "Pelvis", V(7, 2.5, 5), at(0, -4, 0), dark, Mat.Metal)
 	piece(model, core, "Chimney", V(4, 1.2, 1.2), at(3, 6.5, 1.5) * CFrame.Angles(0, 0, math.rad(90)), dark, Mat.Metal, Enum.PartType.Cylinder)
 	for _, side in { -1, 1 } do
-		piece(model, core, "Leg", V(2.6, 6, 2.6), at(2.5 * side, -7, 0), rust, Mat.CorrodedMetal)
-		piece(model, core, "Foot", V(3.4, 1, 4.2), at(2.5 * side, -9.6, -0.6), dark, Mat.Metal)
 		piece(model, core, "Shoulder", V(3.2, 3.2, 3.2), at(5.6 * side, 4.2, 0), metal, Mat.Metal, Enum.PartType.Ball)
+	end
+	-- Legs: jointed at the hip (Sub_Legs_L/R, like a Biped Nightmare's) and the knee
+	-- (Knee_L/R), so it can squat, leap and land instead of sliding around on stilts.
+	for _, side in { -1, 1 } do
+		local tag = side < 0 and "L" or "R"
+		local hip = at(2.5 * side, -4.2, 0)
+		local thigh = helper(model, "Legs_" .. tag, hip)
+		motor("Sub_Legs_" .. tag, core, thigh, hip)
+		piece(model, thigh, "Thigh", V(2.8, 3.2, 2.8), hip * CFrame.new(0, -1.5, 0), rust, Mat.CorrodedMetal)
+		piece(model, thigh, "KneeCap", V(2.4, 2.4, 2.4), hip * CFrame.new(0, -3.1, -0.3), dark, Mat.Metal, Enum.PartType.Ball)
+		local kneeCF = hip * CFrame.new(0, -3.1, 0)
+		local shin = helper(model, "Shin_" .. tag, kneeCF)
+		motor("Knee_" .. tag, thigh, shin, kneeCF)
+		piece(model, shin, "Leg", V(2.4, 2.6, 2.4), kneeCF * CFrame.new(0, -1.3, 0), rust, Mat.CorrodedMetal)
+		piece(model, shin, "Foot", V(3.4, 1, 4.2), kneeCF * CFrame.new(0, -2.3, -0.6), dark, Mat.Metal)
 	end
 
 	-- Head
@@ -225,6 +238,15 @@ Attacks.Swipe = {
 	end,
 }
 
+-- GROUND SLAM (signature): a real leap. It squats with both fists rising, springs at the
+-- marked spot (a ballistic jump timed to land on the impact), and brings its whole weight
+-- down: both fists into the floor, a ground shockwave throwing everyone in the circle
+-- OUTWARD from the impact, dust and debris flying, the camera jolting by distance. It
+-- holds the landing (punish window). Keyframed animation: BossPoses.ScrapTitan.Slam (its
+-- Hit marker lands on the impact; the leap leaves the floor at its "spring" key).
+local SLAM_RADIUS = 11
+local FIST_REACH = 7 -- the fists land this far in front of where its body lands
+local SLAM_AIR = 0.5 -- seconds in the air (the animation's spring -> impact, at base speed)
 Attacks.GroundSlam = {
 	Weight = function(_, distance)
 		return distance < 18 and 25 or 35
@@ -234,13 +256,22 @@ Attacks.GroundSlam = {
 			local position = ctx:GroundPosition(victim)
 			ctx:Face(position)
 			local windup = ctx:WindupTime(windupBase)
-			ctx:Circle(position, 11, windup)
+			ctx:Circle(position, SLAM_RADIUS, windup)
 			ctx:Action("Slam", windup, windup + 0.6)
-			if not ctx:Wait(windup) then
+			-- spring off the floor so it lands with its fists on the mark at the impact
+			local air = math.min(SLAM_AIR * windup / 1.3, windup - 0.2)
+			if not ctx:Wait(windup - air) then
 				return false
 			end
-			ctx:Impact(position, 11)
-			ctx:DamageCircle(position, 11, 28, { Heavy = true, Knockback = 40 })
+			local toward = (position - ctx.Root.Position) * Vector3.new(1, 0, 1)
+			local landing = toward.Magnitude > FIST_REACH and position - toward.Unit * FIST_REACH or ctx.Root.Position
+			ctx:Leap(ctx:ClampToArena(landing), air)
+			if not ctx:Wait(air) then
+				return false
+			end
+			ctx:Impact(position, SLAM_RADIUS)
+			ctx:SlamFX(position, SLAM_RADIUS, 1)
+			ctx:DamageCircle(position, SLAM_RADIUS, 28, { Heavy = true, Knockback = 40, Radial = position })
 			return true
 		end
 		if not slam(target, 1.3) then
@@ -319,6 +350,11 @@ Attacks.MagnetPull = {
 ScrapTitan.Attacks = Attacks
 
 function ScrapTitan.ChooseAttack(ctx, distance: number)
+	-- Studio testing: workspace attribute ForceBossAttack = "GroundSlam" repeats that attack
+	local forced = game:GetService("RunService"):IsStudio() and workspace:GetAttribute("ForceBossAttack")
+	if forced and Attacks[forced] then
+		return forced, Attacks[forced]
+	end
 	local total = 0
 	local weights = {}
 	for name, attack in Attacks do

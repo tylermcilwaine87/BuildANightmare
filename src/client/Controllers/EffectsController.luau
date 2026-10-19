@@ -514,6 +514,88 @@ function EffectsController:Dust(position: Vector3, size: number)
 	end
 end
 
+-- A heavyweight slam / landing (WorldFX "Slam" from a boss): layered so it reads as one
+-- crushing moment without hiding the fight:
+--   a low ground shockwave rolling out past the circle
+--   dust bursting at the impact and rolling out around it
+--   chunks of floor thrown up (real physics, they bounce and settle, then go)
+--   the camera jolting and punching in, scaled by how close you are
+-- (Impact effects setting: Reduced = fewer chunks; Minimal = no debris or dust ring.)
+function EffectsController:Slam(data)
+	local position, radius, power = data.Position, data.Radius or 10, data.Power or 1
+	local level = controllers.SettingsController:Get("ImpactEffects")
+
+	-- shockwave: a flat ring hugging the floor
+	local ring = newEffectPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.4, radius * 0.6, radius * 0.6),
+		CFrame = CFrame.new(position + Vector3.new(0, 0.25, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = Color3.fromRGB(235, 215, 180),
+		Material = Enum.Material.SmoothPlastic,
+		Transparency = 0.35,
+	})
+	TweenService:Create(ring, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.15, radius * 3.2, radius * 3.2),
+		Transparency = 1,
+	}):Play()
+	Debris:AddItem(ring, 0.5)
+
+	-- dust: a big burst at the impact, then rolling out around it
+	self:Dust(position, 2.6 * power)
+	if level ~= "Minimal" then
+		for i = 1, 8 do
+			local angle = i / 8 * math.pi * 2
+			self:Dust(position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius * 0.65, 1.3 * power)
+		end
+	end
+
+	-- debris: chunks of the floor kicked up
+	local chunks = level == "Minimal" and 0 or level == "Reduced" and 4 or 10
+	DUST_PARAMS.FilterDescendantsInstances = { effectsFolder }
+	local floor = Workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -6, 0), DUST_PARAMS)
+	local color = floor and not floor.Instance:IsA("Terrain") and floor.Instance.Color or Color3.fromRGB(110, 100, 90)
+	local material = floor and not floor.Instance:IsA("Terrain") and floor.Instance.Material or Enum.Material.Slate
+	for _ = 1, chunks do
+		local angle = math.random() * math.pi * 2
+		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local size = 0.5 + math.random() * 1.1
+		local chunk = Instance.new("Part")
+		chunk.Size = Vector3.new(size, size * (0.5 + math.random() * 0.5), size * (0.6 + math.random() * 0.4))
+		chunk.CFrame = CFrame.new(position + out * (1 + math.random() * radius * 0.4) + Vector3.new(0, 0.8, 0)) * CFrame.Angles(math.random() * 6, math.random() * 6, 0)
+		chunk.Color = color
+		chunk.Material = material
+		chunk.CanQuery = false
+		chunk.CanTouch = false
+		chunk.CastShadow = false
+		chunk.CollisionGroup = "Effects"
+		chunk.Parent = effectsFolder
+		chunk.AssemblyLinearVelocity = out * (14 + math.random() * 22) * power + Vector3.new(0, 30 + math.random() * 28, 0)
+		chunk.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 18
+		task.delay(1.8, function()
+			if chunk.Parent then
+				TweenService:Create(chunk, TweenInfo.new(0.5), { Transparency = 1 }):Play()
+			end
+		end)
+		Debris:AddItem(chunk, 2.4)
+	end
+
+	-- the camera: by distance
+	local character = localPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root then
+		local distance = (root.Position - position).Magnitude
+		local reach = radius * 3.5
+		if distance < reach then
+			local closeness = 1 - distance / reach
+			self:Shake(0.3 + 0.3 * closeness, (0.35 + 0.65 * closeness) * power)
+			if distance < radius * 1.6 then
+				self:ImpactPunch(0.8 * power)
+			end
+		end
+	end
+	controllers.AudioController:Play("BossSlam", position)
+end
+
 function EffectsController:Projectile(data)
 	local chunk = newEffectPart({
 		Size = Vector3.new(1.8, 1.4, 1.6),
@@ -749,6 +831,8 @@ function EffectsController:Start()
 			self:ShieldBubble(data.Target, data.Duration or 5)
 		elseif kind == "UltimateBanner" then
 			self:UltimateBanner(data)
+		elseif kind == "Slam" and typeof(data.Position) == "Vector3" then
+			self:Slam(data)
 		elseif kind == "MagnetBeam" then
 			self:MagnetBeam(data.From, data.To, data.Time)
 		elseif kind == "SpearThrow" and typeof(data.From) == "Vector3" and typeof(data.To) == "Vector3" then

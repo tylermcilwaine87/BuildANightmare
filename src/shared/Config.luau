@@ -9,7 +9,7 @@
 
 local Config = {}
 
-Config.Version = "0.9.3 (size, armour & knockdowns)"
+Config.Version = "0.10.0 (combat overhaul, Stage 1)"
 
 Config.Dev = {
 	-- DEV ONLY: in Studio, every player gets 2 of every part so the whole builder can be
@@ -208,7 +208,7 @@ Config.Ragdoll = {
 	-- something bigger does less and barely moves it. (ratio = your size / theirs)
 	HandlerBody = Vector3.new(3, 5.2, 2),
 	SizeDamage = { Exponent = 0.4, Min = 0.8, Max = 1.4 }, -- damage x ratio^Exponent (not vs bosses: their health is tuned)
-	SizeThrow = { Exponent = 0.8, Min = 0.45, Max = 2.0 }, -- knockback / launch x ratio^Exponent
+	SizeThrow = { Exponent = 0.8, Min = 0.45, Max = 1.6 }, -- knockback / launch x ratio^Exponent (capped: dramatic, not absurd)
 	SizeChance = { Exponent = 0.5, Min = 0.6, Max = 1.5 }, -- knockdown chance x ratio^Exponent
 
 	-- RESISTANCE: the chance a knockdown-worthy hit actually knocks the target down is
