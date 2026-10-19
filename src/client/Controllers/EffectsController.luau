@@ -596,6 +596,57 @@ function EffectsController:Slam(data)
 	controllers.AudioController:Play("BossSlam", position)
 end
 
+-- What a landed blow does AT the point of contact (on top of the victim's body reaction):
+--   Bite   a crunch: tooth-white and dark-red shards bursting out of the bite, a tight ring
+--   Slash  a spray of hot sparks along the claw's travel; much bigger off armour (a target
+--          with real Defence, a boss) with a metallic clang
+-- `direction` = the way the blow travelled. Scaled by the Impact effects setting.
+function EffectsController:HitBurst(position: Vector3, direction: Vector3?, style: string, armoured: boolean?)
+	local level = controllers.SettingsController:Get("ImpactEffects")
+	if level == "Minimal" then
+		return
+	end
+	local travel = (direction and direction.Magnitude > 0.01) and direction.Unit or Vector3.new(0, 0, -1)
+	local count, colors, speed, size
+	if style == "Bite" then
+		count, speed, size = 9, 16, 0.22
+		colors = { Color3.fromRGB(245, 240, 225), Color3.fromRGB(140, 20, 30), Color3.fromRGB(90, 10, 18) }
+		local ring = newEffectPart({
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * 0.8,
+			CFrame = CFrame.new(position),
+			Color = Color3.fromRGB(255, 235, 220),
+			Material = Enum.Material.Neon,
+			Transparency = 0.35,
+		})
+		TweenService:Create(ring, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.one * 3.2, Transparency = 1 }):Play()
+		Debris:AddItem(ring, 0.2)
+	else
+		count, speed, size = armoured and 16 or 8, armoured and 34 or 24, 0.14
+		colors = { Color3.fromRGB(255, 220, 120), Color3.fromRGB(255, 160, 50), Color3.fromRGB(255, 250, 220) }
+	end
+	if level == "Reduced" then
+		count = math.ceil(count / 2)
+	end
+	for i = 1, count do
+		local spread = Vector3.new(math.random() - 0.5, math.random() * 0.8 - 0.2, math.random() - 0.5) * (style == "Bite" and 1.6 or 0.9)
+		local velocity = (travel + spread).Unit * speed * (0.6 + math.random() * 0.6) + Vector3.new(0, 6, 0)
+		local bit = newEffectPart({
+			Size = Vector3.new(size, size, size * (style == "Bite" and 1 or 4)),
+			CFrame = CFrame.lookAt(position, position + velocity),
+			Color = colors[(i % #colors) + 1],
+			Material = style == "Bite" and Enum.Material.SmoothPlastic or Enum.Material.Neon,
+		})
+		local life = 0.25 + math.random() * 0.2
+		TweenService:Create(bit, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = CFrame.lookAt(position + velocity * life, position + velocity * life + velocity) - Vector3.new(0, 3 * life * life * 10, 0),
+			Transparency = 1,
+		}):Play()
+		Debris:AddItem(bit, life + 0.05)
+	end
+	controllers.AudioController:Play(style == "Bite" and "BiteImpact" or (armoured and "MetalSpark" or "ClawSlash"), position)
+end
+
 function EffectsController:Projectile(data)
 	local chunk = newEffectPart({
 		Size = Vector3.new(1.8, 1.4, 1.6),
@@ -764,6 +815,9 @@ function EffectsController:Start()
 		elseif name == "Land" then
 			self:Dust(root.Position - Vector3.new(0, root.Size.Y / 2, 0), 1.4)
 			audio:Play("Land", root.Position)
+		elseif name == "JawSnap" then
+			local head = model:FindFirstChild("Head_Jaw") or model:FindFirstChild("Head_Root") or root
+			audio:Play("BiteSnap", head.Position)
 		end
 	end)
 
@@ -781,6 +835,20 @@ function EffectsController:Start()
 			self:Flash(target)
 			local dir = typeof(data.Dir) == "Vector3" and data.Dir or nil
 			controllers.NightmareAnimator:Flinch(target, dir, data.Heavy)
+			-- contact effects for abilities that physically connect (bites crunch, claws spark)
+			local source = type(data.Source) == "string" and data.Source or ""
+			local root = target and target:FindFirstChild("HumanoidRootPart")
+			if root and (source == "Ability:Bite" or source == "Ability:Charged Bite") then
+				-- the bite lands on the side facing the biter
+				local attacker = typeof(data.Attacker) == "Instance" and data.Attacker:FindFirstChild("HumanoidRootPart")
+				local toward = attacker and (attacker.Position - root.Position) * Vector3.new(1, 0, 1)
+				local at = root.Position + (toward and toward.Magnitude > 0.1 and toward.Unit * math.min(root.Size.Z / 2, 1.5) or Vector3.zero) + Vector3.new(0, 0.8, 0)
+				self:HitBurst(at, dir and -dir or nil, "Bite")
+				self:Shake(0.12, 0.12)
+			elseif root and source == "Ability:Rusty Slash" then
+				local armoured = (target:GetAttribute("Defence") or 0) >= 10 or target:GetAttribute("BossId") ~= nil
+				self:HitBurst(root.Position + Vector3.new(0, 1, 0), dir, "Slash", armoured)
+			end
 			-- YOUR strike landed: a beat of hit-stop on you, and for a heavy one the camera
 			-- punches in toward the impact and jolts
 			local character = localPlayer.Character

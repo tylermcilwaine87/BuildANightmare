@@ -245,6 +245,17 @@ function NightmareSpawnService:Spawn(player: Player): Model?
 	for slot = 1, 2 do
 		model:SetAttribute(("Ability%dId"):format(slot), info.Abilities[slot] or "")
 		model:SetAttribute(("Ability%dReadyAt"):format(slot), 0)
+		-- which body slot the ability comes from (Head, RightArm, LeftArm, Tail...): the
+		-- animator uses it so the right limb performs it (a left-arm claw slashes left)
+		local source = ""
+		for _, partSlot in { "Head", "Core", "RightArm", "LeftArm", "Back", "Tail" } do
+			local def = PartDefinitions.Get(build.Parts[partSlot])
+			if def and info.Abilities[slot] and def.AbilityId == info.Abilities[slot] then
+				source = partSlot
+				break
+			end
+		end
+		model:SetAttribute(("Ability%dSource"):format(slot), source)
 	end
 
 	for _, d in model:GetDescendants() do

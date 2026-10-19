@@ -29,6 +29,7 @@ local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local AnimationDefinitions = require(Shared:WaitForChild("AnimationDefinitions"))
+local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local POSES = require(script.Parent:WaitForChild("NightmarePoses"))
 local BOSS_POSES = require(script.Parent:WaitForChild("BossPoses"))
 
@@ -265,10 +266,27 @@ function NightmareAnimator:PlayKeyframed(state)
 	end
 	state.pose = nil
 	local library, prefix = libraryFor(model)
-	local def = library and library[state.action]
+	-- Nightmares also share POSES.Common (any body plan: bites, slashes, get-ups...)
+	local common = CollectionService:HasTag(model, "Nightmare") and POSES.Common or nil
+	local function find(name: string)
+		if library and library[name] then
+			return library[name], prefix
+		elseif common and common[name] then
+			return common[name], "Nightmare_Common"
+		end
+		return nil, nil
+	end
+	local action = state.action
+	-- an arm ability performed by the LEFT limb plays the mirrored version
+	if model:GetAttribute("ActionSource") == "LeftArm" and find(action .. "_Left") then
+		action ..= "_Left"
+	end
+	local def
+	def, prefix = find(action)
 	if not def then
 		return
 	end
+	state.action = action
 	local speed = state.windup > 0.01 and hitTime(def) / state.windup or 1
 	local id = assetId(prefix, state.action)
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
@@ -362,7 +380,9 @@ local function animate(state, root: BasePart, dt: number, now: number)
 		local hasLeft = motors.Joint_LeftArm ~= nil
 		local action = state.action
 
-		local style = ACTION_ARMS[action] or "Both"
+		-- (an ability with no keyframed animation yet falls back to its type's motion)
+		local abilityDef = action:sub(1, 8) == "Ability_" and AbilityDefinitions.Get(action:sub(9))
+		local style = ACTION_ARMS[action] or (abilityDef and ACTION_ARMS["Ability_" .. abilityDef.Type]) or "Both"
 		if action == "IdleLook" then
 			headYaw = math.sin(actionTime / state.duration * math.pi * 2) * 0.7
 		elseif style == "Roar" then
@@ -529,7 +549,7 @@ function NightmareAnimator:Start()
 			if root and (root.Position - cameraPosition).Magnitude <= CULL_DISTANCE then
 				if type(scrubAction) == "string" and type(scrubTime) == "number" then
 					local library = libraryFor(model)
-					local def = library and library[scrubAction]
+					local def = (library and library[scrubAction]) or (POSES.Common and POSES.Common[scrubAction])
 					if def then
 						state.action = scrubAction
 						state.pose = { Def = def, Start = now - scrubTime, Speed = 1, LastT = math.huge }

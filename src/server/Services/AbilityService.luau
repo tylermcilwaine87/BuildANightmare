@@ -61,9 +61,18 @@ function AbilityService:Request(player: Player, slot: number)
 	brain.queuedAbility = { Slot = slot, Expires = os.clock() + Config.Nightmare.AbilityQueueTimeout }
 end
 
-local function damageTargets(self, brain, targets, def, knockback)
+-- `motion` (optional) = how the blow's force travels, for the victim's reaction:
+--   "Grip"  a bite that clamps and tears back: the victim is jerked TOWARD the attacker
+--   a Vector3 = that world direction (a slash sweeping across them)
+local function damageTargets(self, brain, targets, def, knockback, motion)
 	local combat = self.Services.CombatService
 	for _, target in targets do
+		local hitDirection
+		if motion == "Grip" then
+			hitDirection = Util.FlatUnit(brain.root.Position - target:GetPivot().Position)
+		elseif typeof(motion) == "Vector3" then
+			hitDirection = motion
+		end
 		combat:ApplyDamage({
 			Attacker = brain.model,
 			Target = target,
@@ -72,9 +81,47 @@ local function damageTargets(self, brain, targets, def, knockback)
 			Knockback = knockback or 0,
 			Stagger = def.Stagger or 15,
 			Status = def.Element and StatusDefinitions.ByElement[def.Element] or nil,
+			HitDirection = hitDirection,
 			Source = "Ability:" .. def.DisplayName,
 		})
 	end
+end
+
+-- A short physical lunge at the target during the windup (a bite closing in): the body
+-- travels at most `maxDistance` studs, stopping with its front just short of the target,
+-- arriving as the windup ends (the contact frame).
+local function lungeAt(brain, target: Model?, windup: number, maxDistance: number)
+	local root = brain.root
+	local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+	local attachment = root:FindFirstChild("FacingAttachment")
+	if not targetRoot or not attachment or root.Anchored then
+		return
+	end
+	local offset = (targetRoot.Position - root.Position) * Vector3.new(1, 0, 1)
+	local gap = offset.Magnitude - (brain.hitboxSize.Z / 2 + math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2 + 1)
+	local travel = math.clamp(gap, 0, maxDistance)
+	if travel < 0.3 then
+		return
+	end
+	local start, duration = windup * 0.4, windup * 0.6
+	task.delay(start, function()
+		if not root.Parent then
+			return
+		end
+		local velocity = Instance.new("LinearVelocity")
+		velocity.Attachment0 = attachment
+		velocity.MaxForce = 1e6
+		velocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+		velocity.PrimaryTangentAxis = Vector3.xAxis
+		velocity.SecondaryTangentAxis = Vector3.zAxis
+		velocity.RelativeTo = Enum.ActuatorRelativeTo.World
+		local direction = offset.Unit * (travel / duration)
+		velocity.PlaneVelocity = Vector2.new(direction.X, direction.Z)
+		velocity.Parent = root
+		task.delay(duration, function()
+			velocity:Destroy()
+		end)
+	end)
 end
 
 local function ignoreList(brain)
@@ -122,7 +169,12 @@ function AbilityService:Execute(brain, slot: number, target: Model?)
 			brain.root.CFrame = CFrame.lookAt(brain.root.Position, brain.root.Position + direction)
 		end
 	end
-	ai:PlayAction(brain, "Ability_" .. def.Type, windup, total)
+	-- Each ability plays ITS OWN animation ("Ability_<Id>", e.g. Ability_Bite; the animator
+	-- falls back to the ability type's generic motion if it has none yet), performed by the
+	-- limb it comes from (ActionSource: Head, RightArm, LeftArm, Tail...).
+	local source = brain.model:GetAttribute(("Ability%dSource"):format(slot)) or ""
+	brain.model:SetAttribute("ActionSource", source)
+	ai:PlayAction(brain, "Ability_" .. def.Id, windup, total)
 	self.Services.TutorialService:Notify(brain.owner, "AbilityUsed")
 	self.Services.ChallengeService:Notify(brain.owner, "AbilityUsed")
 
@@ -130,12 +182,24 @@ function AbilityService:Execute(brain, slot: number, target: Model?)
 	local hitbox = brain.hitboxSize
 
 	if def.Type == "Melee" then
+		if def.Lunge and target then
+			lungeAt(brain, target, windup, def.Lunge)
+		end
 		task.delay(windup, function()
 			if not stillValid(brain, castToken) then
 				return
 			end
+			-- how the blow lands on them: a bite grips and tears back; a sweep carries them
+			-- across the way the claw travels (a left-arm claw sweeps the other way)
+			local motion
+			if def.Motion == "Grip" then
+				motion = "Grip"
+			elseif def.Motion == "Sweep" then
+				local across = source == "LeftArm" and root.CFrame.RightVector or -root.CFrame.RightVector
+				motion = (across * 0.8 + root.CFrame.LookVector * 0.6).Unit
+			end
 			local cframe = root.CFrame * CFrame.new(0, 0, -(hitbox.Z / 2 + def.Range / 2))
-			damageTargets(self, brain, hitDetection:QueryBox(cframe, Vector3.new(def.Width, hitbox.Y + 2, def.Range), ignoreList(brain), root.Position), def, 15)
+			damageTargets(self, brain, hitDetection:QueryBox(cframe, Vector3.new(def.Width, hitbox.Y + 2, def.Range), ignoreList(brain), root.Position), def, def.Knockback or 15, motion)
 		end)
 	elseif def.Type == "AoE" then
 		local ground = root.Position - Vector3.new(0, hitbox.Y / 2 + brain.humanoid.HipHeight, 0)

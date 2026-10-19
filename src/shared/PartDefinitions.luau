@@ -288,12 +288,25 @@ define({
 	Stats = { MaxHealth = 10, AttackPower = 3 },
 	PowerCost = 5,
 	AbilityId = "Bite",
+	-- A real hinged JAW (sub-joint "Sub_Head_Jaw", hinge at the back of the jaw): the bite
+	-- animation drops it open, snaps it shut on contact. -X on the joint opens it.
+	Groups = { Jaw = { Pivot = V(0, 0.6, 0.3) } },
 	Visual = {
 		ball(2.2, V(0, 1.2, 0), RGB(230, 225, 205)),
-		block(V(1.6, 0.6, 1.4), V(0, 0.35, -0.25), RGB(215, 208, 185)),
 		ball(0.55, V(0.45, 1.35, -0.85), RGB(20, 18, 22)),
 		ball(0.55, V(-0.45, 1.35, -0.85), RGB(20, 18, 22)),
 		block(V(0.1, 0.8, 0.1), V(0.3, 1.85, -0.85), RGB(70, 60, 50), Mat.SmoothPlastic, { Rot = V(0, 0, 25) }),
+		-- inside of the mouth (only shows when the jaw drops) and the upper teeth
+		block(V(1.25, 0.32, 0.95), V(0, 0.52, -0.38), RGB(80, 22, 28)),
+		block(V(0.17, 0.24, 0.14), V(-0.42, 0.5, -0.86), RGB(245, 240, 225)),
+		block(V(0.17, 0.26, 0.14), V(-0.14, 0.49, -0.9), RGB(245, 240, 225)),
+		block(V(0.17, 0.26, 0.14), V(0.14, 0.49, -0.9), RGB(245, 240, 225)),
+		block(V(0.17, 0.24, 0.14), V(0.42, 0.5, -0.86), RGB(245, 240, 225)),
+		-- the jaw itself and its lower teeth
+		block(V(1.6, 0.6, 1.4), V(0, -0.25, -0.55), RGB(215, 208, 185), Mat.SmoothPlastic, { Group = "Jaw" }),
+		block(V(0.16, 0.22, 0.13), V(-0.3, 0.15, -1.15), RGB(245, 240, 225), Mat.SmoothPlastic, { Group = "Jaw" }),
+		block(V(0.16, 0.22, 0.13), V(0, 0.15, -1.18), RGB(245, 240, 225), Mat.SmoothPlastic, { Group = "Jaw" }),
+		block(V(0.16, 0.22, 0.13), V(0.3, 0.15, -1.15), RGB(245, 240, 225), Mat.SmoothPlastic, { Group = "Jaw" }),
 	},
 })
 
@@ -308,9 +321,16 @@ define({
 	AbilityId = "ChargedBite",
 	OnHit = { Status = "Shock", Chance = 1, ComboHit = 3 }, -- combo finisher shocks
 	Source = "The Storm Beast",
+	-- hinged metal jaw (Sub_Head_Jaw): it drops open crackling and slams shut on the bite
+	Groups = { Jaw = { Pivot = V(0, 0.5, 0.55) } },
 	Visual = {
 		block(V(2, 1.4, 1.9), V(0, 1.15, 0), RGB(80, 90, 110), Mat.Metal),
-		block(V(1.8, 0.5, 1.7), V(0, 0.25, -0.15), RGB(65, 72, 90), Mat.Metal, { Rot = V(-12, 0, 0) }),
+		-- the jaw (and its steel fangs)
+		block(V(1.8, 0.5, 1.7), V(0, -0.25, -0.7), RGB(65, 72, 90), Mat.Metal, { Rot = V(-12, 0, 0), Group = "Jaw" }),
+		wedge(V(0.22, 0.3, 0.22), V(-0.45, 0.1, -1.4), RGB(200, 205, 215), Mat.Metal, { Rot = V(0, 180, 0), Group = "Jaw" }),
+		wedge(V(0.22, 0.3, 0.22), V(0.45, 0.1, -1.4), RGB(200, 205, 215), Mat.Metal, { Rot = V(0, 180, 0), Group = "Jaw" }),
+		-- inside the mouth: a charged glow you only see when it opens
+		block(V(1.5, 0.3, 1.2), V(0, 0.45, -0.3), RGB(60, 150, 255), Mat.Neon, { Transparency = 0.25 }),
 		block(V(1.6, 0.2, 0.2), V(0, 0.62, -0.95), RGB(255, 240, 90), Mat.Neon),
 		block(V(0.5, 0.2, 0.1), V(0.5, 1.4, -0.96), RGB(90, 230, 255), Mat.Neon),
 		block(V(0.5, 0.2, 0.1), V(-0.5, 1.4, -0.96), RGB(90, 230, 255), Mat.Neon),

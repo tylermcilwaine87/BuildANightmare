@@ -21,10 +21,108 @@
 	animation is played at whatever speed puts it there: the attack's windup).
 ]]
 
+-- A move mirrored left <-> right (for an arm ability performed by the left limb): the
+-- Right/Left arm joints and the L/R leg joints swap, every Y (turn) and Z (sideways)
+-- angle flips, and so does any position's X.
+local function mirrorJoint(name: string): string
+	if name:find("Right") then
+		return (name:gsub("Right", "Left"))
+	elseif name:find("Left") then
+		return (name:gsub("Left", "Right"))
+	elseif name:sub(-2) == "_L" then
+		return name:sub(1, -3) .. "_R"
+	elseif name:sub(-2) == "_R" then
+		return name:sub(1, -3) .. "_L"
+	end
+	return name
+end
+local function mirrored(def)
+	local out = { Duration = def.Duration, Keys = {}, Markers = {} }
+	for _, key in def.Keys do
+		local k = { T = key.T }
+		for name, v in key do
+			if name ~= "T" then
+				k[mirrorJoint(name)] = name:match("Pos$") and { -v[1], v[2], v[3] } or { v[1], -v[2], -v[3] }
+			end
+		end
+		table.insert(out.Keys, k)
+	end
+	for _, marker in def.Markers or {} do
+		local name = marker[2] == "StepL" and "StepR" or marker[2] == "StepR" and "StepL" or marker[2]
+		table.insert(out.Markers, { marker[1], name })
+	end
+	return out
+end
+-- The same move stretched in time (a slower, heavier variant).
+local function scaled(def, factor: number)
+	local out = { Duration = def.Duration * factor, Keys = {}, Markers = {} }
+	for _, key in def.Keys do
+		local k = table.clone(key)
+		k.T = key.T * factor
+		table.insert(out.Keys, k)
+	end
+	for _, marker in def.Markers or {} do
+		table.insert(out.Markers, { marker[1] * factor, marker[2] })
+	end
+	return out
+end
+
+-- BITE (any Nightmare with a head; jaw-equipped heads open and snap their Sub_Head_Jaw).
+-- Ability windup 0.3 s = the Hit frame; the body also physically lunges ~3 studs at the
+-- target during the windup (AbilityService), so the jaws really reach them.
+local BITE = {
+	Duration = 0.7,
+	Markers = { { 0.22, "Whoosh" }, { 0.3, "Hit" }, { 0.3, "JawSnap" }, { 0.3, "StepL" } },
+	Keys = {
+		{ T = 0 },
+		-- prepare: rear back, head up, lips part, arms rise to grab
+		{ T = 0.12, Joint_CorePos = { 0, -0.3, 0.25 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 14, 0, 0 }, Sub_Head_Jaw = { -12, 0, 0 }, Joint_RightArm = { 35, 0, 12 }, Joint_LeftArm = { 35, 0, -12 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
+		-- lunge: neck and torso driving forward, jaw dropped wide, claws reaching
+		{ T = 0.22, Joint_CorePos = { 0, -0.25, -0.7 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Head_Jaw = { -48, 0, 0 }, Joint_RightArm = { 70, 0, 22 }, Joint_LeftArm = { 70, 0, -22 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+		-- SNAP: the jaws slam shut on them, claws clamp in
+		{ T = 0.3, Joint_CorePos = { 0, -0.35, -1.0 }, Joint_Core = { -26, 0, 0 }, Joint_Head = { -16, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Joint_RightArm = { 78, 0, 6 }, Joint_LeftArm = { 78, 0, -6 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+		-- tear: wrench the head one way...
+		{ T = 0.38, Joint_CorePos = { 0, -0.32, -0.85 }, Joint_Core = { -22, 8, 0 }, Joint_Head = { -14, 18, 6 }, Sub_Head_Jaw = { 2, 0, 0 }, Joint_RightArm = { 74, 0, 4 }, Joint_LeftArm = { 74, 0, -4 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
+		-- ...then the other, pulling back
+		{ T = 0.46, Joint_CorePos = { 0, -0.28, -0.6 }, Joint_Core = { -18, -8, 0 }, Joint_Head = { -12, -18, -6 }, Sub_Head_Jaw = { 2, 0, 0 }, Joint_RightArm = { 66, 0, 6 }, Joint_LeftArm = { 66, 0, -6 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+		-- release: jaw opens to let go, head comes up, body settles back
+		{ T = 0.56, Joint_CorePos = { 0, -0.12, 0.1 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 6, 0, 0 }, Sub_Head_Jaw = { -22, 0, 0 }, Joint_RightArm = { 30, 0, 10 }, Joint_LeftArm = { 30, 0, -10 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+		{ T = 0.7 },
+	},
+}
+
+-- RUSTY SLASH (authored for the RIGHT arm; the left-arm claw plays the mirror): coil the
+-- body away with the claw arm drawn back out to the side, then the hips and shoulders
+-- unwind and the claw rips across through the space in front at chest height, carries on
+-- across, and the body resets. Windup 0.3 s = the Hit frame (mid-sweep, in front).
+local RUSTY_SLASH = {
+	Duration = 0.7,
+	Markers = { { 0.14, "StepR" }, { 0.22, "Whoosh" }, { 0.3, "Hit" } },
+	Keys = {
+		{ T = 0 },
+		-- wind up: torso turned right and low, claw drawn back out wide, eyes on them
+		{ T = 0.14, Joint_CorePos = { 0.15, -0.22, 0.15 }, Joint_Core = { 4, -32, 0 }, Joint_Head = { 0, 26, 0 }, Joint_RightArm = { 40, 0, 72 }, Joint_LeftArm = { 42, 0, -12 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+		-- contact: unwinding hard, the claw sweeping through in front at chest height
+		{ T = 0.3, Joint_CorePos = { -0.1, -0.28, -0.55 }, Joint_Core = { -10, 22, 0 }, Joint_Head = { -6, -14, 0 }, Joint_RightArm = { 95, 0, -20 }, Joint_LeftArm = { 12, 0, -22 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+		-- follow-through: across and down to the far side
+		{ T = 0.42, Joint_CorePos = { -0.15, -0.3, -0.6 }, Joint_Core = { -12, 40, 0 }, Joint_Head = { -6, -26, 0 }, Joint_RightArm = { 78, 0, -66 }, Joint_LeftArm = { -10, 0, -26 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+		-- recover
+		{ T = 0.58, Joint_CorePos = { 0, -0.1, -0.2 }, Joint_Core = { -4, 12, 0 }, Joint_Head = { 0, -6, 0 }, Joint_RightArm = { 30, 0, -14 }, Joint_LeftArm = { 6, 0, -8 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+		{ T = 0.7 },
+	},
+}
+
 return {
 	-- Any body (Nightmares, enemies, bosses: everything has Joint_Core; legs / arms / head
 	-- are used where they exist).
 	Common = {
+		-- Abilities by id ("Ability_<Id>", the server's ActionName). "_Left" = mirrored for a
+		-- left-limb source.
+		Ability_Bite = BITE,
+		Ability_ChargedBite = scaled(BITE, 1.5), -- windup 0.45: the same bite, heavier
+		Ability_RustySlash = RUSTY_SLASH,
+		Ability_RustySlash_Left = mirrored(RUSTY_SLASH),
+
 		-- GET UP after a knockdown: the server stands the body upright when the ragdoll
 		-- ends; this starts it low and folded over, pushing up off its arms, then rising
 		-- onto its legs into its stance, instead of popping straight up.

@@ -21,11 +21,16 @@
 local AbilityDefinitions = {}
 
 AbilityDefinitions.ById = {
+	-- (Lunge: studs the body closes in during the windup so the jaws reach them.
+	--  Motion "Grip": the bite clamps and tears back, jerking the victim toward the biter;
+	--  "Sweep": the blow carries the victim across the way the claw travels.
+	--  Knockback overrides the Melee default of 15.)
 	Bite = {
 		DisplayName = "Bite",
 		Type = "Melee",
 		Description = "A quick, nasty chomp.",
 		Damage = 22, Range = 5, Width = 5, Windup = 0.3, Recovery = 0.4, Cooldown = 6,
+		Lunge = 3, Motion = "Grip", Knockback = 0,
 	},
 	ChargedBite = {
 		DisplayName = "Charged Bite",
@@ -33,6 +38,7 @@ AbilityDefinitions.ById = {
 		Element = "Electric",
 		Description = "A crackling bite that hits hard.",
 		Damage = 32, Range = 5, Width = 6, Windup = 0.45, Recovery = 0.45, Cooldown = 8,
+		Lunge = 3.5, Motion = "Grip", Knockback = 0,
 	},
 	FrostRam = {
 		DisplayName = "Frost Ram",
@@ -52,6 +58,7 @@ AbilityDefinitions.ById = {
 		Type = "Melee",
 		Description = "A wide, squeaky sweep.",
 		Damage = 18, Range = 6, Width = 9, Windup = 0.3, Recovery = 0.4, Cooldown = 5,
+		Motion = "Sweep",
 	},
 	TentacleLash = {
 		DisplayName = "Tentacle Lash",
@@ -197,6 +204,10 @@ end
 
 -- Order E (Ability 2) is taken from.
 AbilityDefinitions.SecondarySlotOrder = { "Core", "RightArm", "LeftArm", "Back", "Tail" }
+
+for id, def in AbilityDefinitions.ById do
+	def.Id = id
+end
 
 function AbilityDefinitions.Get(id: string?)
 	if type(id) ~= "string" then

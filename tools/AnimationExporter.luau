@@ -70,6 +70,7 @@ end
 local NIGHTMARE_RIG = {
 	Joint_Core = { "Core_Root", "HumanoidRootPart" },
 	Joint_Head = { "Head_Root", "Core_Root" },
+	Sub_Head_Jaw = { "Head_Jaw", "Head_Root" }, -- hinged jaw (bite heads)
 	Joint_RightArm = { "RightArm_Root", "Core_Root" },
 	Joint_LeftArm = { "LeftArm_Root", "Core_Root" },
 	Joint_Legs = { "Legs_Root", "Core_Root" },
