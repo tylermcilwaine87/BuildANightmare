@@ -160,7 +160,7 @@ local function canFight(character: Model?, humanoid: Humanoid?): boolean
 	if character:GetAttribute("Ragdolled") or character:GetAttribute("Diving") or character:GetAttribute("GuardBroken") then
 		return false
 	end
-	if controllers.WorkshopController:IsOpen() or controllers.PossessionController:IsPossessing() then
+	if controllers.WorkshopController:IsOpen() or controllers.PossessionController:IsPossessing() or controllers.GymController:IsActive() then
 		return false
 	end
 	return true

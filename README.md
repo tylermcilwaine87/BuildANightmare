@@ -1,4 +1,48 @@
-# BUILD A NIGHTMARE — v0.10.0 (combat overhaul, Stage 1)
+# BUILD A NIGHTMARE — v0.11.0 (the Nightmare Gym + a real Bite)
+
+## The Nightmare Gym: AFK training (v0.11.0)
+
+A real place in the world. **The lift** stands on the east side of the Forge, between the Mirror gate and the Colosseum: freight doors, hazard stripes, "NIGHTMARE GYM · SUBLEVEL B2". Walk up and press **E**.
+
+- **The way in:** the camera glides to the doors and they grind open. It pushes into the black lift shaft, where the server moves you and your Nightmare. You come out of the gym's own lift looking down the hall, the camera sweeps over it, then settles on your bay as your Nightmare walks in from the lift to its bag. **The way out** is the same in reverse: back into the gym's lift, out of the Forge's doors (they close behind you), and the camera returns to you.
+- **The hall** (an underground monster gym):
+  - **Bays:** six training bays, each with a gantry and heavy bag, a mirror, a mat, your Handler's bench, a reward screen and a reward crate.
+  - **Centre aisle:** reinforced, with a Nightmare-sized bench press, a dumbbell rack, a 500 kg dumbbell, a cable machine, reinforced dummies and the "Titan Bell".
+  - **Walls:** lockers, banners and trophy cabinets.
+  - **Display cases** showing each top tier's real odds.
+  - **A live statistics wall:** Nightmares training, rewards earned here, and the last big drop.
+  - **Overhead and air:** trusses, ducts, spinning fans, hanging lamps and steam.
+- **It actually trains.** While you're in, its AI is paused and it works the bag in a fighting guard:
+  - jab-jab-cross
+  - jab-cross-hook
+  - jab-hook-overhand
+  - a body hook into an uppercut
+  - single power overhands
+  - footwork with feints and slips
+  - a rest every 5–8 routines (hands on knees, breathing, shaking out)
+
+  Armless Nightmares do jaw work (bites) on the bag instead. The bag hangs at **your** Nightmare's shoulder height, and it stands where its punches land. In Studio the cross and overhand sink into the leather, and the jab and hook meet its surface.
+- **The bag swings for real.** It's a damped pendulum on every client, kicked by the strike markers in the animation, scaled per strike (`GymDefinitions.Strikes`). Measured in Studio: a combo knocks it about 1.6 studs off centre, then it settles back over a few seconds. Hits also bring dust from the leather, a thump, chain rattle on heavy shots, and a little camera shake.
+- **Camera director:** the camera changes angle when your Nightmare changes exercise (side, over the shoulder, three-quarter front, low hero, wide).
+- **Rewards** (`GymDefinitions`, all rolled on the server):
+  - **Timing:** one roll every 90 s of training.
+  - **Tiers and real odds at 1x luck:** Common 62%, Uncommon 24%, Rare 9.5%, Epic 3.6%, Legendary 0.8%, Mythic 0.09%, Secret 0.01%. The panel always shows the true % at your current luck.
+  - **Payouts:** Common pays coins, Uncommon pays coins plus essence, Rare/Epic/Legendary pay a part of that rarity. Mythic and Secret pay a mutated Legendary part, coins and a title ("Iron Will" / "Gym Phantom").
+  - **Saving:** anything Rare or better saves immediately. Lifetime time, rewards, best tier and titles are kept in the profile.
+- **Reveals:** Rare and better make the crate glow in the tier's colour. The camera eases in, the name appears as a silhouette and then in colour, the lid flips open and sparks burst out (bigger, with a flash, for Mythic and Secret). **Space** or **Skip** skips. Common and Uncommon tick in at the bottom of the screen and on your bay's screen.
+- **Boosts** (coins only, 15 min, real time): 2x Luck (250), 3x Luck (600), Fast Training x1.5 (200). Luck boosts don't stack: the strongest one applies. There's no Robux boost yet; that needs a Developer Product you create.
+- **Balance:** an hour in the gym is about 40 rolls, mostly coins. Fighting bosses stays the faster way to progress.
+- **Panel:** next-reward countdown, luck/speed, active boosts, this session (time, count, best), all-time totals and titles, recent rewards, the odds table, boosts, and **LEAVE THE GYM** (or press B on a controller). **Hide** (H) shrinks it to a small countdown bar.
+- **Sound slots** (empty until you add ids): `GymDoor`, `BagHit`, `BagHeavy`, `ChainRattle`, `GymReward`, `GymRevealRare`, `GymRevealMythic`, and the `GymAmbience` ambience.
+- **Studio test hook:** `game.ServerStorage.DevBridge:Invoke("GymService", "DevRollNow", player, "Mythic")` rolls the next reward now (optionally forcing its tier). It's Studio only.
+
+## The Bite, finished (v0.11.0)
+
+- **The lunge** is driven frame by frame on the server, so every player sees it on time: measured, it covers 3 studs by the hit frame (it was 0.1).
+- **The jaws reach the target.** The lunge stops where the **mouth** meets the target's body, and the bite only goes off once it can reach. Measured jaw-to-body gap at the hit: −0.1, +0.1 and −0.2 studs; before the fix it could be 3 studs of air.
+- **The jaw** gapes wide on the lunge, snaps shut on the hit frame, holds through the tear and opens on the release.
+- **Rusty Slash** is a real sweep. The claw tip goes from behind-right, to dead ahead on the hit frame, to across the left. The left-arm version is an exact mirror.
+- **Animation assets:** both are in `Nightmare.rbxm` (Ability_Bite, ChargedBite, RustySlash, RustySlash_Left).
 
 ## Combat overhaul: Stage 1 demonstration (v0.10.0)
 

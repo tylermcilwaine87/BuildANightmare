@@ -22,6 +22,8 @@
 	  PartyRequest       RemoteFunction  C->S  "Invite", userId | "Respond", inviteId, bool | "Leave" | "Kick", userId
 	  PartyEvent         RemoteEvent     S->one "Incoming" | "State" | "Result"
 	  ShowcaseRequest    RemoteFunction  C->S  "Inspect", userId | "Like", userId
+	  GymRequest         RemoteFunction  C->S  "Enter" | "Arrive" | "Leave" | "Buy", boostId
+	  GymEvent           RemoteEvent     S->one "Reward" | "Session" | "Ended"
 ]]
 
 local Players = game:GetService("Players")
@@ -48,6 +50,8 @@ Net.Definitions = {
 	PartyRequest = "RemoteFunction",
 	PartyEvent = "RemoteEvent",
 	ShowcaseRequest = "RemoteFunction",
+	GymRequest = "RemoteFunction",
+	GymEvent = "RemoteEvent",
 }
 
 function Net.Setup()

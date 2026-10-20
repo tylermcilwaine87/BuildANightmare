@@ -149,7 +149,7 @@ end
 -- STEP BACK (X, or Shift while moving backwards): a quick hop straight back, still facing
 -- the fight. Punch or kick straight after it to COUNTER (TakeCounter).
 function CombatController:StepBack()
-	if controllers.WorkshopController:IsOpen() then
+	if (controllers.WorkshopController:IsOpen() or controllers.GymController:IsActive()) then
 		return
 	end
 	local character = localPlayer.Character
@@ -195,7 +195,7 @@ end
 -- decides stamina, cooldown and invulnerability (i-frames cover the airborne part).
 local lastDodge = -math.huge
 function CombatController:Dodge()
-	if controllers.WorkshopController:IsOpen() then
+	if (controllers.WorkshopController:IsOpen() or controllers.GymController:IsActive()) then
 		return
 	end
 	local character = localPlayer.Character
@@ -336,7 +336,7 @@ function CombatController:NearestOpponentAhead(root: BasePart): BasePart?
 end
 
 function CombatController:SetGuard(wanted: boolean)
-	if wanted and controllers.WorkshopController:IsOpen() then
+	if wanted and (controllers.WorkshopController:IsOpen() or controllers.GymController:IsActive()) then
 		return
 	end
 	if guarding == wanted then
@@ -351,7 +351,7 @@ function CombatController:IsGuarding(): boolean
 end
 
 function CombatController:UseAbility(slot: number)
-	if controllers.WorkshopController:IsOpen() then
+	if (controllers.WorkshopController:IsOpen() or controllers.GymController:IsActive()) then
 		return
 	end
 	local nightmare = controllers.ClientState:GetMyNightmare()
@@ -418,7 +418,7 @@ function CombatController:ToggleStance()
 end
 
 function CombatController:Ultimate()
-	if controllers.WorkshopController:IsOpen() then
+	if (controllers.WorkshopController:IsOpen() or controllers.GymController:IsActive()) then
 		return
 	end
 	local nightmare = controllers.ClientState:GetMyNightmare()

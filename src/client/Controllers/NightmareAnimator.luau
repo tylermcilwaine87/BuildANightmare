@@ -297,9 +297,18 @@ function NightmareAnimator:PlayKeyframed(state)
 		local ok, track = pcall(animator.LoadAnimation, animator, animation)
 		if ok and track then
 			track.Priority = Enum.AnimationPriority.Action2
+			-- one connection per marker NAME for the track's life (a combo has several
+			-- "BagJab" / "Whoosh" markers; each one must fire once, in order)
+			local names, actionName = {}, state.action
 			for _, marker in def.Markers or {} do
-				track:GetMarkerReachedSignal(marker[2]):Once(function()
-					markerEvent:Fire(model, state.action, marker[2])
+				names[marker[2]] = true
+			end
+			for name in names do
+				local connection = track:GetMarkerReachedSignal(name):Connect(function()
+					markerEvent:Fire(model, actionName, name)
+				end)
+				track.Stopped:Once(function()
+					connection:Disconnect()
 				end)
 			end
 			track:Play(0.06, 1, speed)

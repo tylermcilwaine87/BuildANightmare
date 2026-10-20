@@ -621,7 +621,8 @@ local function regenerate(brain, now: number, dt: number)
 end
 
 function NightmareAIService:Update(brain, now: number, dt: number)
-	if brain.humanoid.Health <= 0 or brain.possessedBy then
+	-- scripted = another service is driving it (the Nightmare Gym's training routine)
+	if brain.humanoid.Health <= 0 or brain.possessedBy or brain.scripted then
 		return
 	end
 	if duelService:IsFrozen(brain.owner) then

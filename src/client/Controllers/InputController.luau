@@ -121,6 +121,7 @@ local function openMenus()
 		{ controllers.WorkshopController, "Close" },
 		{ controllers.PvPController, "ClosePanel", "IsPanelOpen" },
 		{ controllers.BossController, "ClosePortal", "IsPortalOpen" },
+		{ controllers.GymController, "Leave", "IsActive" }, -- B leaves the gym
 	}
 end
 

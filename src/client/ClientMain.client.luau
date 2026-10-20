@@ -28,6 +28,7 @@ local LOAD_ORDER = {
 	"MenuController",
 	"FighterController",
 	"WorldController",
+	"GymController",
 	"HandlerAnimator",
 	"ChainSimulator",
 	"PossessionController",

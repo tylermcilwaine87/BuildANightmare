@@ -9,7 +9,7 @@
 
 local Config = {}
 
-Config.Version = "0.10.0 (combat overhaul, Stage 1)"
+Config.Version = "0.11.0 (the Nightmare Gym)"
 
 Config.Dev = {
 	-- DEV ONLY: in Studio, every player gets 2 of every part so the whole builder can be
@@ -580,6 +580,7 @@ Config.RateLimits = {
 	CraftRequest = { Capacity = 5, RefillPerSecond = 2 },
 	PartyRequest = { Capacity = 6, RefillPerSecond = 1.5 },
 	ShowcaseRequest = { Capacity = 6, RefillPerSecond = 2 },
+	GymRequest = { Capacity = 6, RefillPerSecond = 1.5 },
 }
 
 return Config

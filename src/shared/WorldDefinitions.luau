@@ -21,6 +21,8 @@
 	identical copies far away (Config.Bosses.ArenaOrigin), so nobody ever waits.
 ]]
 
+local GymDefinitions = require(script.Parent:WaitForChild("GymDefinitions"))
+
 local RGB = Color3.fromRGB
 local V3 = Vector3.new
 
@@ -163,8 +165,32 @@ function World.GatePlaza(regionId: string): CFrame
 	return CFrame.lookAt(plaza.Position, origin.Position)
 end
 
--- Which region a world position is in (hub disc first, then the four quarters).
+-- The underground Nightmare Gym (built far away; GymDefinitions.Origin): its own lighting.
+World.Regions.Gym = {
+	Name = "THE NIGHTMARE GYM",
+	Subtitle = "Sublevel B2 · AFK training",
+	Color = RGB(255, 80, 120),
+	Ambience = "GymAmbience",
+	Lighting = {
+		ClockTime = 0,
+		Brightness = 0.4,
+		Ambient = RGB(96, 86, 112),
+		OutdoorAmbient = RGB(70, 62, 84),
+		Atmosphere = { Density = 0.22, Offset = 0, Color = RGB(90, 70, 100), Decay = RGB(40, 30, 50), Glare = 0, Haze = 0.8 },
+		Grading = { Brightness = 0.05, Contrast = 0.15, Saturation = 0.08, TintColor = RGB(255, 242, 246) },
+		Bloom = { Intensity = 0.8, Size = 28, Threshold = 1.4 },
+		Clouds = { Cover = 0, Density = 0, Color = RGB(0, 0, 0) },
+		Sky = { SunSize = 0, MoonSize = 0, Stars = 0 },
+	},
+}
+World.GymRadius = 160
+
+-- Which region a world position is in (the gym, the hub disc, then the four quarters).
 function World.RegionAt(position: Vector3): string
+	local gym = GymDefinitions.Origin.Position
+	if (V3(position.X, 0, position.Z) - V3(gym.X, 0, gym.Z)).Magnitude <= World.GymRadius then
+		return "Gym"
+	end
 	local flat = V3(position.X, 0, position.Z)
 	if flat.Magnitude <= World.HubRadius + 25 then
 		return "Hub"

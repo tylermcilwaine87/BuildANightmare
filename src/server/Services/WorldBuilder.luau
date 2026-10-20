@@ -162,7 +162,7 @@ function WorldBuilder:Start()
 	root.Parent = Workspace
 
 	local started = os.clock()
-	for _, name in { "Hub", "ScrapRoute", "MirrorRoute", "StormRoute", "AbyssRoute", "Backdrop" } do
+	for _, name in { "Hub", "Gym", "ScrapRoute", "MirrorRoute", "StormRoute", "AbyssRoute", "Backdrop" } do
 		local module = WorldFolder:FindFirstChild(name)
 		if module then
 			local ok, err = pcall(function()

@@ -71,6 +71,15 @@ AudioDefinitions.Sounds = {
 	-- PvP
 	DuelBell = { Id = "", Volume = 0.8 }, -- round start / "FIGHT!"
 
+	-- The Nightmare Gym
+	GymDoor = { Id = "", Volume = 0.8 }, -- the heavy freight-lift doors grinding open / shut
+	BagHit = { Id = "", Volume = 0.55, Pitch = { 0.9, 1.1 }, Spatial = true, Cooldown = 0.05 }, -- leather thump
+	BagHeavy = { Id = "", Volume = 0.8, Pitch = { 0.85, 1 }, Spatial = true, Cooldown = 0.08 }, -- deep heavy-bag boom
+	ChainRattle = { Id = "", Volume = 0.45, Pitch = { 0.9, 1.15 }, Spatial = true, Cooldown = 0.25 }, -- the bag's chain jangling
+	GymReward = { Id = "", Volume = 0.6 }, -- a common / uncommon reward ticking in
+	GymRevealRare = { Id = "", Volume = 0.9 }, -- the crate glowing open for Rare and better
+	GymRevealMythic = { Id = "", Volume = 1 }, -- Mythic / Secret: the big one
+
 	-- UI
 	Click = { Id = "", Volume = 0.35, Cooldown = 0.04 },
 	Toast = { Id = "", Volume = 0.3, Cooldown = 0.3 },
@@ -93,6 +102,7 @@ AudioDefinitions.Ambience = {
 	MirrorAmbience = { Id = "", Volume = 0.35 }, -- glassy chimes, eerie choir
 	StormAmbience = { Id = "", Volume = 0.45 }, -- howling wind, rain, thunder
 	AbyssAmbience = { Id = "", Volume = 0.4 }, -- dripping water, deep groans
+	GymAmbience = { Id = "", Volume = 0.4 }, -- ventilation hum, clanking weights, distant grunts
 }
 
 return AudioDefinitions

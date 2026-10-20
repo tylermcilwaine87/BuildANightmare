@@ -38,6 +38,7 @@ local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
 local BuildValidator = require(Shared:WaitForChild("BuildValidator"))
 local Util = require(Shared:WaitForChild("Util"))
 local LevelUnlocks = require(Shared:WaitForChild("LevelUnlocks"))
+local GymDefinitions = require(Shared:WaitForChild("GymDefinitions"))
 local MeleeDefinitions = require(Shared:WaitForChild("MeleeDefinitions"))
 local SettingsDefinitions = require(Shared:WaitForChild("SettingsDefinitions"))
 
@@ -123,6 +124,9 @@ local function makeDefaultProfile()
 		Combos = {}, -- { [comboId] = true } signature combos discovered (MeleeDefinitions.Combos)
 		Runs = { Charge = true }, -- { [runId] = true } run styles owned (MeleeDefinitions.Runs)
 		RunStyle = "Charge",
+		-- The Nightmare Gym (GymService): lifetime training seconds, rewards collected, best
+		-- tier ever (GymDefinitions.TierOrder rank), titles earned, boosts { [id] = expires os.time }
+		Gym = { TotalTime = 0, Rewards = 0, Best = 0, Titles = {}, Boosts = {} },
 		CreatedAt = os.time(),
 	}
 end
@@ -283,6 +287,26 @@ local function validate(data)
 	end
 	if type(data.LikesGiven.Day) ~= "string" or type(data.LikesGiven.To) ~= "table" then
 		data.LikesGiven = { Day = "", To = {} }
+	end
+
+	-- Gym: numbers stay whole and non-negative, titles / boosts only known ids.
+	local gym = data.Gym
+	for _, key in { "TotalTime", "Rewards", "Best" } do
+		if not isNonNegativeInteger(gym[key]) then
+			gym[key] = 0
+		end
+	end
+	gym.Titles = type(gym.Titles) == "table" and gym.Titles or {}
+	gym.Boosts = type(gym.Boosts) == "table" and gym.Boosts or {}
+	for id, value in gym.Titles do
+		if not GymDefinitions.Titles[id] or value ~= true then
+			gym.Titles[id] = nil
+		end
+	end
+	for id, expires in gym.Boosts do
+		if not GymDefinitions.Boosts[id] or type(expires) ~= "number" or expires < os.time() then
+			gym.Boosts[id] = nil
+		end
 	end
 
 	-- Ranked record: whole, non-negative numbers only.
@@ -629,6 +653,7 @@ function PlayerDataService:Snapshot(player: Player)
 		Combos = Util.DeepCopy(data.Combos),
 		Runs = Util.DeepCopy(data.Runs),
 		RunStyle = data.RunStyle,
+		Gym = Util.DeepCopy(data.Gym),
 	}
 end
 
