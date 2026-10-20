@@ -78,7 +78,7 @@ local BITE = {
 		-- prepare: rear back, head up, lips part, arms rise to grab
 		{ T = 0.12, Joint_CorePos = { 0, -0.3, 0.25 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 14, 0, 0 }, Sub_Head_Jaw = { -12, 0, 0 }, Joint_RightArm = { 35, 0, 12 }, Joint_LeftArm = { 35, 0, -12 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
 		-- lunge: neck and torso driving forward, jaw dropped wide, claws reaching
-		{ T = 0.22, Joint_CorePos = { 0, -0.25, -0.7 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Head_Jaw = { -48, 0, 0 }, Joint_RightArm = { 70, 0, 22 }, Joint_LeftArm = { 70, 0, -22 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+		{ T = 0.22, Joint_CorePos = { 0, -0.25, -0.7 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Head_Jaw = { -62, 0, 0 }, Joint_RightArm = { 70, 0, 22 }, Joint_LeftArm = { 70, 0, -22 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
 		-- SNAP: the jaws slam shut on them, claws clamp in
 		{ T = 0.3, Joint_CorePos = { 0, -0.35, -1.0 }, Joint_Core = { -26, 0, 0 }, Joint_Head = { -16, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Joint_RightArm = { 78, 0, 6 }, Joint_LeftArm = { 78, 0, -6 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
 		-- tear: wrench the head one way...
@@ -86,7 +86,7 @@ local BITE = {
 		-- ...then the other, pulling back
 		{ T = 0.46, Joint_CorePos = { 0, -0.28, -0.6 }, Joint_Core = { -18, -8, 0 }, Joint_Head = { -12, -18, -6 }, Sub_Head_Jaw = { 2, 0, 0 }, Joint_RightArm = { 66, 0, 6 }, Joint_LeftArm = { 66, 0, -6 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
 		-- release: jaw opens to let go, head comes up, body settles back
-		{ T = 0.56, Joint_CorePos = { 0, -0.12, 0.1 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 6, 0, 0 }, Sub_Head_Jaw = { -22, 0, 0 }, Joint_RightArm = { 30, 0, 10 }, Joint_LeftArm = { 30, 0, -10 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+		{ T = 0.56, Joint_CorePos = { 0, -0.12, 0.1 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 6, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Joint_RightArm = { 30, 0, 10 }, Joint_LeftArm = { 30, 0, -10 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
 		{ T = 0.7 },
 	},
 }
@@ -97,7 +97,7 @@ local BITE = {
 -- across, and the body resets. Windup 0.3 s = the Hit frame (mid-sweep, in front).
 local RUSTY_SLASH = {
 	Duration = 0.7,
-	Markers = { { 0.14, "StepR" }, { 0.22, "Whoosh" }, { 0.3, "Hit" } },
+	Markers = { { 0.14, "StepR" }, { 0.14, "Whoosh" }, { 0.3, "Hit" } }, -- whoosh starts with the swing so it peaks mid-arc
 	Keys = {
 		{ T = 0 },
 		-- wind up: torso turned right and low, claw drawn back out wide, eyes on them

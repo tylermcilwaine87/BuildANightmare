@@ -14,6 +14,7 @@
 ]]
 
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -29,10 +30,34 @@ function AbilityService:Init(services)
 	self.Services = services
 end
 
+-- How far in front of its body a Nightmare's mouth reaches when it snaps shut: the head's
+-- front face at rest plus the bite's forward thrust of the core (NightmarePoses BITE pushes
+-- the core 1 stud forward on the snap). Measured from the parts once and cached.
+local BITE_THRUST = 1
+local function mouthReach(brain): number
+	if brain.mouthReach then
+		return brain.mouthReach
+	end
+	local rootCFrame = brain.root.CFrame
+	local front = 0
+	for _, part in brain.model:GetDescendants() do
+		if part:IsA("BasePart") and part.Name:sub(1, 5) == "Head_" then
+			local relative = rootCFrame:ToObjectSpace(part.CFrame)
+			local depth = math.abs(relative.XVector.Z) * part.Size.X + math.abs(relative.YVector.Z) * part.Size.Y + math.abs(relative.ZVector.Z) * part.Size.Z
+			front = math.max(front, -relative.Position.Z + depth / 2)
+		end
+	end
+	brain.mouthReach = (front > 0 and front or brain.hitboxSize.Z / 2) + BITE_THRUST
+	return brain.mouthReach
+end
+
 -- How close the Nightmare needs to be (centre to centre, minus target radius) to cast.
 function AbilityService:GetCastRange(brain, def): number
 	local half = brain.hitboxSize.Z / 2
-	if def.Type == "Melee" then
+	if def.Type == "Melee" and def.Lunge then
+		-- a bite only goes off once the lunge can carry the jaws onto the target
+		return math.min(half + def.Range - 0.5, mouthReach(brain) + def.Lunge - 0.4)
+	elseif def.Type == "Melee" then
 		return half + def.Range - 0.5
 	elseif def.Type == "AoE" then
 		return def.Offset + def.Radius * 0.7
@@ -97,29 +122,42 @@ local function lungeAt(brain, target: Model?, windup: number, maxDistance: numbe
 	if not targetRoot or not attachment or root.Anchored then
 		return
 	end
+	-- stop where the mouth meets the target's body (teeth sinking in a little), not where
+	-- the bounding boxes touch: the box is far deeper than the head reaches
 	local offset = (targetRoot.Position - root.Position) * Vector3.new(1, 0, 1)
-	local gap = offset.Magnitude - (brain.hitboxSize.Z / 2 + math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2 + 1)
-	local travel = math.clamp(gap, 0, maxDistance)
+	local extents = target:GetExtentsSize()
+	local contact = mouthReach(brain) + math.max(extents.X, extents.Z) / 2 - 0.4
+	local travel = math.clamp(offset.Magnitude - contact, 0, maxDistance)
 	if travel < 0.3 then
 		return
 	end
+	-- Driven frame by frame on the anchored body (not by a physics force): clients draw
+	-- free-physics bodies ~0.3 s behind, which made the jaws snap shut before the mouth
+	-- arrived on screen. Anchored CFrames reach clients as fast as the animation's own
+	-- start signal, so the lunge, the snap and the hit land together for everyone.
 	local start, duration = windup * 0.4, windup * 0.6
 	task.delay(start, function()
-		if not root.Parent then
+		if not root.Parent or root.Anchored then
 			return
 		end
-		local velocity = Instance.new("LinearVelocity")
-		velocity.Attachment0 = attachment
-		velocity.MaxForce = 1e6
-		velocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
-		velocity.PrimaryTangentAxis = Vector3.xAxis
-		velocity.SecondaryTangentAxis = Vector3.zAxis
-		velocity.RelativeTo = Enum.ActuatorRelativeTo.World
-		local direction = offset.Unit * (travel / duration)
-		velocity.PlaneVelocity = Vector2.new(direction.X, direction.Z)
-		velocity.Parent = root
-		task.delay(duration, function()
-			velocity:Destroy()
+		local from = root.CFrame
+		local step = offset.Unit * travel
+		root.Anchored = true
+		local began = os.clock()
+		local connection
+		connection = RunService.Heartbeat:Connect(function()
+			local t = math.min((os.clock() - began) / duration, 1)
+			local eased = 1 - (1 - t) * (1 - t) -- fast off the mark, settling into the bite
+			if root.Parent then
+				root.CFrame = from + step * eased
+			end
+			if t >= 1 then
+				connection:Disconnect()
+				if root.Parent then
+					root.Anchored = false
+					root.AssemblyLinearVelocity = Vector3.zero
+				end
+			end
 		end)
 	end)
 end
