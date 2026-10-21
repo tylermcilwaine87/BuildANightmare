@@ -441,12 +441,35 @@ local function trackCharacter(character: Model, isLocal: boolean)
 	end
 	-- Classic rigs use Motor6D joints; avatars with Roblox's joint upgrade use
 	-- AnimationConstraint joints (same names, same Transform). Either works.
+	-- The upgrade can swap a body's Motor6Ds for AnimationConstraints AFTER it spawns (seen in
+	-- Studio: every move stopped animating because the old, destroyed joints were kept), so
+	-- joints are picked up whenever they appear, and a destroyed one is replaced by its
+	-- namesake.
 	local motors = {}
-	for _, d in character:GetDescendants() do
+	local function consider(d: Instance)
 		if (d:IsA("Motor6D") or d:IsA("AnimationConstraint")) and table.find(JOINTS, d.Name) then
-			motors[d.Name] = d
+			local current = motors[d.Name]
+			if not current or not current.Parent or d:IsA("AnimationConstraint") then
+				motors[d.Name] = d
+			end
 		end
 	end
+	for _, d in character:GetDescendants() do
+		consider(d)
+	end
+	character.DescendantAdded:Connect(consider)
+	character.DescendantRemoving:Connect(function(d)
+		if motors[d.Name] == d then
+			motors[d.Name] = nil
+			task.defer(function()
+				for _, other in character:GetDescendants() do
+					if other ~= d and other.Name == d.Name then
+						consider(other)
+					end
+				end
+			end)
+		end
+	end)
 	rigs[character] = { model = character, motors = motors, pose = nil, isLocal = isLocal }
 
 	if isLocal then

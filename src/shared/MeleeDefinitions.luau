@@ -106,7 +106,9 @@ local Moves = {
 local CONTACT = {
 	-- SpinKick measured: the heel is 2.4 studs out on the hit frame, so stop at 2.2 (it sinks in)
 	-- HeadKick measured: the foot is 1.9 out at head height on the hit frame, so stop at 1.7
-	Knee = 1.7, LegKick = 2.8, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 3.2, SpinKick = 2.2, CounterKick = 3.2,
+	-- (the Head Hunter / CounterKick lands with the head kick's contact pose; its dash now
+	-- brakes on arrival, so the same 1.7)
+	Knee = 1.7, LegKick = 2.8, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 3.2, SpinKick = 2.2, CounterKick = 1.7,
 	BladeSlash = 3.4, BladeSlash2 = 3.4, BladeCleave = 3.4, BladeLunge = 3.6,
 	ScytheReap = 5.5, ScytheReturn = 5.5, -- (the blade is out at arm's length + the snath)
 }

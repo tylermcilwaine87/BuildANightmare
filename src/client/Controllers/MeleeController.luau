@@ -94,7 +94,10 @@ local function charges(weaponId: string): (number, number)
 end
 
 -- A quick flat slide of your own character.
-local function slide(root: BasePart, direction: Vector3, distance: number, duration: number)
+-- brake = stop dead on arrival (a fast counter dash otherwise glides ~1 stud past its mark;
+-- measured in Studio: 1.1 studs on a 9.6-stud Head Hunter dash). The ordinary step-ins are
+-- slow and were tuned with their small glide, so they keep it.
+local function slide(root: BasePart, direction: Vector3, distance: number, duration: number, brake: boolean?)
 	local attachment = root:FindFirstChild("RootAttachment")
 	if not attachment or distance <= 0.2 then
 		return
@@ -110,6 +113,10 @@ local function slide(root: BasePart, direction: Vector3, distance: number, durat
 	mover.Parent = root
 	task.delay(duration, function()
 		mover:Destroy()
+		if brake and root.Parent then
+			local v = root.AssemblyLinearVelocity
+			root.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+		end
 	end)
 end
 
@@ -309,7 +316,7 @@ function MeleeController:Fire(input: string)
 			local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
 			distance = math.clamp(Util.FlatDistance(targetRoot.Position, root.Position) - radius - (move.Contact or CONTACT), 0, step.CounterDistance)
 		end
-		slide(root, direction, distance, step.CounterDuration)
+		slide(root, direction, distance, step.CounterDuration, true)
 		controllers.EffectsController:Afterimage(character)
 	elseif move.Lunge then
 		local distance = move.Lunge

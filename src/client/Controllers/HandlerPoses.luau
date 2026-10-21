@@ -369,18 +369,26 @@ local POSES = {
 	-- straight, shin-first, at head height, leaning away with the rear arm flung back for
 	-- balance and the lead glove on the chin. It follows through past them, then the leg
 	-- recoils and you land back in stance.
+	-- (Rebuilt from measurements: the old one turned the hips the wrong way and landed
+	-- the foot at CHEST height, 2.5 studs out, while the step-in stopped 3.2 from them.
+	-- The impact now uses the measured head-kick contact: foot 1.9 out, centred, at head
+	-- height; the dash in (Lunge) carries you to exactly that range.)
 	CounterHeadKick = {
 		Duration = 0.72,
+		Markers = { { 0.1, "StepL" }, { 0.22, "Whoosh" }, { 0.3, "Hit" }, { 0.56, "Land" } },
 		Keys = {
+			-- load on bent knees
 			stance(0, { RootPos = { 0, -0.35, 0.1 }, LeftKnee = { -40, 0, 0 }, RightKnee = { -46, 0, 0 } }),
-			stance(0.1, { RootPos = { 0, 0.2, -0.9 }, Root = { 4, 30, 0 }, Waist = { 0, 20, 0 }, LeftHip = { 20, 36, 0 }, LeftKnee = { -14, 0, 0 }, RightHip = { 40, 0, -30 }, RightKnee = { -96, 0, 0 }, RightShoulder = { -20, 0, 30 }, RightElbow = { 30, 0, 0 }, LeftShoulder = { 70, 0, -20 }, LeftElbow = { 100, 0, 0 } }),
-			stance(0.2, { RootPos = { 0, 0.35, -1.4 }, Root = { 18, -50, -8 }, Waist = { 2, -20, 0 }, Neck = { -12, 10, 0 }, RightHip = { 80, 0, -60 }, RightKnee = { -40, 0, 0 }, LeftHip = { 10, 44, 0 }, LeftKnee = { -8, 0, 0 }, RightShoulder = { -34, 0, 44 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 82, 0, -46 }, LeftElbow = { 90, 0, 0 } }),
-			-- impact: hip over, leg straight, shin through the head
-			stance(0.3, { RootPos = { 0, 0.4, -1.6 }, Root = { 28, -88, -14 }, Waist = { 6, -30, 0 }, Neck = { -14, 14, 0 }, RightHip = { 104, 0, -80 }, RightKnee = { -2, 0, 0 }, LeftHip = { 8, 54, 0 }, LeftKnee = { -6, 0, 0 }, RightShoulder = { -46, 0, 50 }, RightElbow = { 14, 0, 0 }, LeftShoulder = { 84, 0, -50 }, LeftElbow = { 94, 0, 0 } }),
+			-- skip in off the back foot, the rear knee chambering
+			stance(0.1, { RootPos = { 0, 0.15, -0.3 }, Root = { 0, -15, 0 }, RightHip = { 30, 0, 30 }, RightKnee = { -70, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightShoulder = { -20, 0, 30 }, RightElbow = { 30, 0, 0 } }),
+			-- rising onto the ball of the foot, the hip starting to turn over
+			stance(0.2, { RootPos = { 0, 0.45, -0.3 }, Root = { 12, 45, 12 }, Neck = { -6, -30, 0 }, RightHip = { 10, 0, 70 }, RightKnee = { -40, 0, 0 }, LeftKnee = { -24, 0, 0 }, RightShoulder = { -26, 0, 40 }, RightElbow = { 20, 0, 0 } }),
+			-- IMPACT: hip all the way over, leg straight, shin through the head
+			stance(0.3, { RootPos = { 0, 0.6, -0.3 }, Root = { 25, 90, 25 }, Neck = { -6, -60, 0 }, RightHip = { 0, 0, 90 }, RightKnee = { -4, 0, 0 }, LeftHip = { 0, 0, 0 }, LeftKnee = { -30, 0, 0 }, RightShoulder = { -36, 0, 46 }, RightElbow = { 14, 0, 0 } }),
 			-- follow-through: the leg carries on round past them
-			stance(0.42, { RootPos = { 0, 0.15, -1.6 }, Root = { 20, -128, -8 }, Waist = { 4, -30, 0 }, Neck = { -12, 20, 0 }, RightHip = { 70, 0, -50 }, RightKnee = { -60, 0, 0 }, LeftHip = { 10, 60, 0 }, LeftKnee = { -10, 0, 0 }, RightShoulder = { 10, 0, 40 }, RightElbow = { 40, 0, 0 }, LeftShoulder = { 70, 0, -40 }, LeftElbow = { 100, 0, 0 } }),
-			-- recoil and land
-			stance(0.56, { RootPos = { 0, -0.1, -1.4 }, Root = { 6, -60, 0 }, RightHip = { 40, 0, -20 }, RightKnee = { -90, 0, 0 } }),
+			stance(0.42, { RootPos = { 0, 0.3, -0.3 }, Root = { 14, 125, 15 }, Neck = { 0, -75, 0 }, RightHip = { 0, 0, 55 }, RightKnee = { -60, 0, 0 }, LeftHip = { 0, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightShoulder = { 10, 0, 40 }, RightElbow = { 40, 0, 0 } }),
+			-- recoil and land back in stance
+			stance(0.56, { RootPos = { 0, -0.1, -0.2 }, Root = { 4, 40, 0 }, RightHip = { 20, 0, 10 }, RightKnee = { -80, 0, 0 } }),
 			stance(0.72),
 		},
 	},
