@@ -66,7 +66,7 @@ local Moves = {
 	-- launching them.)
 	Overhand = { Pose = "Overhand", Duration = 0.86, HitTime = 0.34, Cancel = 0.62, Damage = 14, Range = 7, Arc = 70, Knockback = 35, Stagger = 18, Heavy = true, Lunge = 3, HitDir = { -0.4, -0.65, 0.65 }, Crumple = true, Unlock = { Level = 2 }, Display = "Overhand Knockdown" },
 	Uppercut = { Pose = "Uppercut", Duration = 0.48, HitTime = 0.18, Cancel = 0.3, Damage = 9, Range = 5.5, Arc = 60, Knockback = 12, Stagger = 9, Lunge = 1.8 },
-	HeadKick = { Pose = "HeadKick", Duration = 0.6, HitTime = 0.24, Cancel = 0.4, Damage = 10, Range = 7.5, Arc = 110, Knockback = 18, Stagger = 9, Lunge = 1.6 },
+	HeadKick = { Pose = "HeadKick", Duration = 0.6, HitTime = 0.24, Cancel = 0.4, Damage = 10, Range = 7.5, Arc = 110, Knockback = 18, Stagger = 9, Lunge = 3 }, -- Lunge: steps in until the shin reaches their head
 	LegKick = { Pose = "LegKick", Duration = 0.42, HitTime = 0.16, Cancel = 0.28, Damage = 7, Range = 6.5, Arc = 90, Stagger = 10, Lunge = 1.3 },
 	SpinKick = { Pose = "SpinKick", Duration = 0.75, HitTime = 0.36, Cancel = 0.58, Damage = 13, Range = 8, Arc = 140, Knockback = 34, Stagger = 16, Heavy = true, Lunge = 4, Unlock = { Level = 4 }, Display = "Spin Kick" }, -- Lunge: the spin travels in until the heel reaches them
 	Knee = { Pose = "Knee", Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 1.5 },
@@ -75,7 +75,7 @@ local Moves = {
 	-- starts at the leap)
 	DropKick = { Pose = "DropKick", Duration = 1.3, HitTime = 0.26, Cancel = 1.2, Damage = 14, Range = 8, Arc = 70, Knockback = 40, Stagger = 15, Heavy = true, Leap = 11, SprintRange = 30, SprintSpeed = 30, SprintTime = 1.1, Unlock = { Level = 6 }, Display = "Drop Kick" },
 	-- 1-2-3 then the head kick: the classic finisher (harder than a lone head kick, knocks down)
-	HeadKickFinisher = { Pose = "HeadKick", Duration = 0.62, HitTime = 0.24, Cancel = 0.5, Damage = 15, Range = 7.5, Arc = 110, Knockback = 38, Stagger = 16, Heavy = true, Lunge = 1.6, Display = "1-2-3 Head Kick" },
+	HeadKickFinisher = { Pose = "HeadKick", Duration = 0.62, HitTime = 0.24, Cancel = 0.5, Damage = 15, Range = 7.5, Arc = 110, Knockback = 38, Stagger = 16, Heavy = true, Lunge = 3, Display = "1-2-3 Head Kick" },
 	-- Counters (right after a step back): the client dashes the whole gap back in; Lunge
 	-- here only widens the server's reach to cover that dash.
 	CounterPunch = { Pose = "SupermanPunch", Duration = 0.55, HitTime = 0.22, Cancel = 0.36, Damage = 14, Range = 8, Arc = 80, Knockback = 32, Stagger = 15, Lunge = 9, Display = "Superman Punch" },
@@ -105,7 +105,8 @@ local Moves = {
 -- shin / blade lands right ON them (fists 2.3 by default; legs and weapons reach further).
 local CONTACT = {
 	-- SpinKick measured: the heel is 2.4 studs out on the hit frame, so stop at 2.2 (it sinks in)
-	Knee = 1.7, LegKick = 2.8, HeadKick = 3.2, Teep = 3.2, SpinKick = 2.2, CounterKick = 3.2,
+	-- HeadKick measured: the foot is 1.9 out at head height on the hit frame, so stop at 1.7
+	Knee = 1.7, LegKick = 2.8, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 3.2, SpinKick = 2.2, CounterKick = 3.2,
 	BladeSlash = 3.4, BladeSlash2 = 3.4, BladeCleave = 3.4, BladeLunge = 3.6,
 	ScytheReap = 5.5, ScytheReturn = 5.5, -- (the blade is out at arm's length + the snath)
 }

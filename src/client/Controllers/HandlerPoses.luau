@@ -234,16 +234,21 @@ local POSES = {
 	------------------------------------------------------------------------------------
 	-- Striking: kicks
 	------------------------------------------------------------------------------------
-	-- Head kick (UFC roundhouse): step out, turn the planted foot, the hip turns over and
-	-- the shin whips up and across at head height; the rear arm swings down and back for
-	-- balance while the lead hand guards the face.
+	-- Head kick (UFC roundhouse): load, then spring up off the standing foot as the hips
+	-- turn OVER to the left and the right leg whips round from the side into their head;
+	-- the right arm swings down and back for balance, the lead hand guards the face, eyes
+	-- stay on them. (Rebuilt from measurements: the old one turned the hips the wrong way
+	-- and its foot was 1.1 studs out at hip height on the hit frame. Now: the foot arcs in
+	-- from the right, 1.9 studs out, centred, at head height (1.4 above the hips) at 0.24 s;
+	-- MeleeDefinitions Contact.HeadKick stops the step-in exactly there.)
 	HeadKick = {
 		Duration = 0.6,
+		Markers = { { 0.09, "StepL" }, { 0.18, "Whoosh" }, { 0.24, "Hit" }, { 0.4, "Land" } },
 		Keys = {
 			stance(0),
-			stance(0.09, { Root = { 6, 26, 0 }, Waist = { 0, 22, 0 }, LeftHip = { 14, 32, 0 }, LeftKnee = { -16, 0, 0 }, RightHip = { 34, 0, -24 }, RightKnee = { -70, 0, 0 }, RightShoulder = { -10, 0, 32 }, RightElbow = { 30, 0, 0 } }),
-			stance(0.24, { Root = { 24, -72, -10 }, Waist = { 4, -26, 0 }, Neck = { -12, 0, 0 }, RightHip = { 96, 0, -72 }, RightKnee = { -4, 0, 0 }, LeftHip = { 10, 48, 0 }, LeftKnee = { -10, 0, 0 }, LeftShoulder = { 82, 0, -48 }, LeftElbow = { 92, 0, 0 }, RightShoulder = { -38, 0, 42 }, RightElbow = { 18, 0, 0 } }),
-			stance(0.4, { Root = { 12, -40, -4 }, RightHip = { 62, 0, -40 }, RightKnee = { -92, 0, 0 }, LeftHip = { 12, 30, 0 }, RightShoulder = { 20, 0, 30 }, RightElbow = { 80, 0, 0 } }),
+			stance(0.09, { Root = { 0, -15, 0 }, RootPos = { 0, -0.25, 0 }, RightHip = { 30, 0, 30 }, RightKnee = { -60, 0, 0 }, LeftKnee = { -25, 0, 0 } }),
+			stance(0.24, { Root = { 25, 90, 25 }, RootPos = { 0, 0.6, -0.3 }, Neck = { -6, -60, 0 }, RightHip = { 0, 0, 90 }, RightKnee = { -4, 0, 0 }, LeftHip = { 0, 0, 0 }, LeftKnee = { -30, 0, 0 }, RightShoulder = { -30, 0, 40 }, RightElbow = { 20, 0, 0 } }),
+			stance(0.4, { Root = { 10, 110, 15 }, RootPos = { 0, 0.2, -0.3 }, Neck = { 0, -70, 0 }, RightHip = { 0, 0, 50 }, RightKnee = { -70, 0, 0 }, LeftHip = { 0, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightShoulder = { 10, 0, 30 }, RightElbow = { 60, 0, 0 } }),
 			stance(0.6),
 		},
 	},
