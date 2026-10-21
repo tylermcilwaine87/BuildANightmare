@@ -13,6 +13,7 @@
 	through attributes "Ability1ReadyAt"/"Ability2ReadyAt" (Workspace:GetServerTimeNow()).
 ]]
 
+local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -162,16 +163,129 @@ local function lungeAt(brain, target: Model?, windup: number, maxDistance: numbe
 	end)
 end
 
+local function stillValid(brain, castToken: number): boolean
+	return brain.castToken == castToken and brain.model.Parent ~= nil and brain.humanoid.Health > 0
+end
+
+-- A body small enough to be lifted and shaken in the jaws (not a boss, not a player's
+-- own character, nothing much bigger than the biter).
+local function canHold(brain, target: Model): boolean
+	local root = target:FindFirstChild("HumanoidRootPart")
+	if not root or root.Anchored or target:GetAttribute("BossId") or target:GetAttribute("Ragdolled") then
+		return false
+	end
+	if Players:GetPlayerFromCharacter(target) then
+		return false
+	end
+	local mine, theirs = brain.model:GetExtentsSize(), target:GetExtentsSize()
+	return math.max(theirs.X, theirs.Y, theirs.Z) <= math.max(mine.X, mine.Y, mine.Z) * 1.4
+end
+
+-- THE CLAMP (a bite with def.Clamp). The jaws lock on to the nearest body they hit, which
+-- takes the first share of the damage (no knockdown: it's held). A body that can be held
+-- is locked into the mouth and thrashed side to side with the head (in step with the
+-- animation's thrash), helpless, for Hold seconds; the biter stays planted. Then the head
+-- RIPS away: the rest of the damage and a hard throw to the biter's left (the way the
+-- rip yanks). Anything else in the bite takes a normal hit.
+function AbilityService:ClampAndRip(brain, castToken: number, hits, def)
+	local clamp = def.Clamp
+	local root = brain.root
+	local mouth = mouthReach(brain)
+	local mouthPoint = (root.CFrame * CFrame.new(0, 0, -mouth)).Position
+	table.sort(hits, function(a, b)
+		return (a:GetPivot().Position - mouthPoint).Magnitude < (b:GetPivot().Position - mouthPoint).Magnitude
+	end)
+	local victim = table.remove(hits, 1)
+	if #hits > 0 then
+		damageTargets(self, brain, hits, def, 10, "Grip")
+	end
+	local combat = self.Services.CombatService
+	local source = "Ability:" .. def.DisplayName
+	combat:ApplyDamage({
+		Attacker = brain.model,
+		Target = victim,
+		BaseDamage = def.Damage * clamp.Share,
+		AttackPower = brain.stats.AttackPower,
+		Knockback = 0,
+		Stagger = def.Stagger or 15,
+		Status = def.Element and StatusDefinitions.ByElement[def.Element] or nil,
+		HitDirection = Util.FlatUnit(root.Position - victim:GetPivot().Position),
+		NoKnockdown = true,
+		Source = source,
+	})
+
+	local victimRoot = victim:FindFirstChild("HumanoidRootPart")
+	local victimHumanoid = victim:FindFirstChildOfClass("Humanoid")
+	local hold = victimRoot and victimHumanoid and victimHumanoid.Health > 0 and canHold(brain, victim)
+	local grip = (root.CFrame * CFrame.new(0, 0, -mouth))
+	local relative = hold and grip:ToObjectSpace(victimRoot.CFrame)
+	if hold then
+		victim:SetAttribute("Gripped", true)
+	end
+	local began = os.clock()
+	local released = false
+	local connection
+	local function release()
+		if released then
+			return
+		end
+		released = true
+		connection:Disconnect()
+		if hold and victimRoot.Parent then
+			victimRoot.Anchored = false
+			victimRoot.AssemblyLinearVelocity = Vector3.zero
+		end
+		if victim.Parent then
+			victim:SetAttribute("Gripped", nil)
+		end
+		if root.Parent then
+			root.Anchored = false
+		end
+	end
+	connection = RunService.Heartbeat:Connect(function()
+		if not stillValid(brain, castToken) or brain.model:GetAttribute("Ragdolled") or not victim.Parent or (victimHumanoid and victimHumanoid.Health <= 0) then
+			release()
+			return
+		end
+		root.Anchored = true -- planted for the whole hold
+		if hold then
+			-- thrashed with the head: a yaw swing about the mouth, lifting a little each shake
+			local t = os.clock() - began
+			local ramp = math.min(t / 0.12, 1)
+			local shake = math.sin(t * math.pi * 2 * clamp.Shake) * math.rad(16) * ramp
+			local lift = math.abs(math.sin(t * math.pi * 2 * clamp.Shake)) * 0.25 * ramp
+			victimRoot.Anchored = true
+			victimRoot.CFrame = grip * CFrame.Angles(0, shake, 0) * CFrame.new(0, lift, 0) * relative
+		end
+	end)
+	task.delay(clamp.Hold, function()
+		local wasValid = not released and stillValid(brain, castToken)
+		release()
+		if not wasValid or not victim.Parent or (victimHumanoid and victimHumanoid.Health <= 0) then
+			return
+		end
+		-- RIP: torn away to the biter's left and out
+		local throw = (-root.CFrame.RightVector * 0.9 + root.CFrame.LookVector * 0.35).Unit
+		combat:ApplyDamage({
+			Attacker = brain.model,
+			Target = victim,
+			BaseDamage = def.Damage * (1 - clamp.Share),
+			AttackPower = brain.stats.AttackPower,
+			Knockback = clamp.RipKnockback,
+			Stagger = def.Stagger or 15,
+			Heavy = true,
+			HitDirection = throw,
+			Source = source,
+		})
+	end)
+end
+
 local function ignoreList(brain)
 	local ignore = { brain.model }
 	if brain.owner.Character then
 		table.insert(ignore, brain.owner.Character)
 	end
 	return ignore
-end
-
-local function stillValid(brain, castToken: number): boolean
-	return brain.castToken == castToken and brain.model.Parent ~= nil and brain.humanoid.Health > 0
 end
 
 function AbilityService:Execute(brain, slot: number, target: Model?)
@@ -237,8 +351,18 @@ function AbilityService:Execute(brain, slot: number, target: Model?)
 				motion = (across * 0.8 + root.CFrame.LookVector * 0.6).Unit
 			end
 			local cframe = root.CFrame * CFrame.new(0, 0, -(hitbox.Z / 2 + def.Range / 2))
-			damageTargets(self, brain, hitDetection:QueryBox(cframe, Vector3.new(def.Width, hitbox.Y + 2, def.Range), ignoreList(brain), root.Position), def, def.Knockback or 15, motion)
+			local hits = hitDetection:QueryBox(cframe, Vector3.new(def.Width, hitbox.Y + 2, def.Range), ignoreList(brain), root.Position)
+			if def.Clamp and #hits > 0 then
+				self:ClampAndRip(brain, castToken, hits, def)
+			else
+				damageTargets(self, brain, hits, def, def.Knockback or 15, motion)
+			end
 		end)
+		if def.Clamp then
+			-- committed until the rip: nothing (not even a queued ability) cuts the hold short
+			brain.busyUntil = now + windup + def.Clamp.Hold + def.Recovery
+			brain.cancelableAt = now + windup + def.Clamp.Hold + 0.05
+		end
 	elseif def.Type == "AoE" then
 		local ground = root.Position - Vector3.new(0, hitbox.Y / 2 + brain.humanoid.HipHeight, 0)
 		local center = ground + Util.Flat(root.CFrame.LookVector) * def.Offset

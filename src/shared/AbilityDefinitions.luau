@@ -31,6 +31,11 @@ AbilityDefinitions.ById = {
 		Description = "A quick, nasty chomp.",
 		Damage = 22, Range = 5, Width = 5, Windup = 0.3, Recovery = 0.4, Cooldown = 6,
 		Lunge = 3, Motion = "Grip", Knockback = 0,
+		-- the jaws LOCK ON: the victim is held in the mouth and thrashed for Hold seconds
+		-- (Share of the damage on the snap), then the head rips away: the rest of the damage
+		-- and a hard throw to the side. Hold / Shake match the Ability_Bite animation's
+		-- thrash and its "Rip" marker (NightmarePoses BITE).
+		Clamp = { Hold = 1.45, Shake = 2.6, Share = 0.55, RipKnockback = 48 },
 	},
 	ChargedBite = {
 		DisplayName = "Charged Bite",
@@ -39,6 +44,8 @@ AbilityDefinitions.ById = {
 		Description = "A crackling bite that hits hard.",
 		Damage = 32, Range = 5, Width = 6, Windup = 0.45, Recovery = 0.45, Cooldown = 8,
 		Lunge = 3.5, Motion = "Grip", Knockback = 0,
+		-- the same clamp, its animation stretched 1.5x (so is the hold and the thrash)
+		Clamp = { Hold = 1.45 * 1.5, Shake = 2.6 / 1.5, Share = 0.55, RipKnockback = 60 },
 	},
 	FrostRam = {
 		DisplayName = "Frost Ram",

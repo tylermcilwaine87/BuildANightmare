@@ -815,9 +815,12 @@ function EffectsController:Start()
 		elseif name == "Land" then
 			self:Dust(root.Position - Vector3.new(0, root.Size.Y / 2, 0), 1.4)
 			audio:Play("Land", root.Position)
-		elseif name == "JawSnap" then
+		elseif name == "JawSnap" or name == "Grind" or name == "Rip" then
 			local head = model:FindFirstChild("Head_Jaw") or model:FindFirstChild("Head_Root") or root
-			audio:Play("BiteSnap", head.Position)
+			audio:Play(name == "JawSnap" and "BiteSnap" or name == "Grind" and "BiteGrind" or "BiteRip", head.Position)
+			if name == "Rip" and model:GetAttribute("OwnerUserId") == localPlayer.UserId then
+				self:Shake(0.12, 0.1) -- your Nightmare tearing loose: a jolt (the rip's hit bursts the crunch)
+			end
 		end
 	end)
 

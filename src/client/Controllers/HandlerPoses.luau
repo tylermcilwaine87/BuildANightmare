@@ -258,14 +258,29 @@ local POSES = {
 			stance(0.42),
 		},
 	},
-	-- Spinning back kick (finisher): a full turn, the leg whipping out at chest height.
+	-- Spinning back kick (finisher): turn your back on them, eyes over the shoulder, knee
+	-- chambered tight, then spring and drive the heel STRAIGHT BACK through their chest,
+	-- landing out of the turn back into your stance. (Rebuilt from measurements: the old
+	-- version's foot was behind you at knee height on the hit frame. Now, at 0.36 s: heel
+	-- 2.4 studs out toward them at chest height; MeleeDefinitions Contact.SpinKick makes the
+	-- lunge stop exactly where it lands.)
+	-- (Root's lean is applied before its turn: with the back turned, +X tips the torso AWAY
+	-- from them and lifts the kicking leg TOWARD them.)
 	SpinKick = {
 		Duration = 0.75,
+		Markers = { { 0.12, "StepR" }, { 0.28, "Whoosh" }, { 0.36, "Hit" }, { 0.62, "Land" } },
 		Keys = {
 			{ T = 0 },
-			{ T = 0.18, Root = { 4, -170, 0 }, RightHip = { 40, 0, -30 }, RightKnee = { -85, 0, 0 }, LeftKnee = { -20, 0, 0 }, LeftShoulder = { 40, 0, -50 }, RightShoulder = { 40, 0, 50 }, LeftElbow = { 60, 0, 0 }, RightElbow = { 60, 0, 0 } },
-			{ T = 0.36, Root = { 14, -300, 0 }, RightHip = { 88, 0, -62 }, RightKnee = { -5, 0, 0 }, LeftKnee = { -12, 0, 0 }, LeftShoulder = { 20, 0, -75 }, RightShoulder = { 20, 0, 75 }, LeftElbow = { 20, 0, 0 }, RightElbow = { 20, 0, 0 } },
-			{ T = 0.55, Root = { 5, -360, 0 }, RightHip = { 30, 0, -10 }, RightKnee = { -40, 0, 0 }, LeftShoulder = { 55, 0, -14 }, RightShoulder = { 45, 0, 14 }, LeftElbow = { 110, 0, 0 }, RightElbow = { 110, 0, 0 } },
+			-- step across and start the turn, looking back at them
+			{ T = 0.12, Root = { 0, -90, 0 }, RootPos = { 0, -0.25, 0 }, Neck = { 0, 60, 0 }, RightHip = { 30, 0, 0 }, RightKnee = { -60, 0, 0 }, LeftKnee = { -30, 0, 0 }, LeftShoulder = { 40, 0, -40 }, RightShoulder = { 40, 0, 40 }, LeftElbow = { 70, 0, 0 }, RightElbow = { 70, 0, 0 } },
+			-- back fully turned, knee chambered to the chest, springing up
+			{ T = 0.24, Root = { 10, -180, 0 }, RootPos = { 0, 0.25, -0.3 }, Neck = { 0, 75, 0 }, RightHip = { 40, 0, 0 }, RightKnee = { -115, 0, 0 }, LeftKnee = { -35, 0, 0 }, LeftShoulder = { 30, 0, -60 }, RightShoulder = { 30, 0, 60 }, LeftElbow = { 60, 0, 0 }, RightElbow = { 60, 0, 0 } },
+			-- IMPACT: airborne, torso tipped away, the leg locked out behind into their chest
+			{ T = 0.36, Root = { 20, -180, 0 }, RootPos = { 0, 0.6, -0.7 }, Neck = { -10, 75, 0 }, RightHip = { -100, 0, 0 }, RightKnee = { -5, 0, 0 }, LeftHip = { 10, 0, 0 }, LeftKnee = { -40, 0, 0 }, LeftShoulder = { 20, 0, -80 }, RightShoulder = { 20, 0, 80 }, LeftElbow = { 30, 0, 0 }, RightElbow = { 30, 0, 0 } },
+			-- snap the leg back in
+			{ T = 0.48, Root = { 10, -200, 0 }, RootPos = { 0, 0.3, -0.7 }, Neck = { 0, 60, 0 }, RightHip = { -30, 0, 0 }, RightKnee = { -90, 0, 0 }, LeftKnee = { -30, 0, 0 }, LeftShoulder = { 40, 0, -50 }, RightShoulder = { 40, 0, 50 }, LeftElbow = { 70, 0, 0 }, RightElbow = { 70, 0, 0 } },
+			-- land and finish the turn facing them
+			{ T = 0.62, Root = { 0, -300, 0 }, RootPos = { 0, -0.2, -0.4 }, RightHip = { 10, 0, 0 }, RightKnee = { -30, 0, 0 }, LeftKnee = { -25, 0, 0 }, LeftShoulder = { 55, 0, -14 }, RightShoulder = { 45, 0, 14 }, LeftElbow = { 110, 0, 0 }, RightElbow = { 110, 0, 0 } },
 			{ T = 0.75, Root = { 0, -360, 0 } },
 		},
 	},

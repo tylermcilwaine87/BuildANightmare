@@ -36,6 +36,17 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
 - **Sound slots** (empty until you add ids): `GymDoor`, `BagHit`, `BagHeavy`, `ChainRattle`, `GymReward`, `GymRevealRare`, `GymRevealMythic`, and the `GymAmbience` ambience.
 - **Studio test hook:** `game.ServerStorage.DevBridge:Invoke("GymService", "DevRollNow", player, "Mythic")` rolls the next reward now (optionally forcing its tier). It's Studio only.
 
+## Bite clamp, spin kick fix, more gym moves (v0.11.1)
+
+- **The Bite clamps and rips:**
+  - **Clamp:** the jaws lock on and the bitten enemy is held in the Nightmare's mouth for about 1.5 s, thrashed side to side in step with the head, unable to attack. It takes 55% of the damage here.
+  - **Rip:** the head tears away to the left with the rest of the damage, throwing the enemy hard (Heavy, so it can knock them down). Measured in Studio: clamp hit at +0.30 s, held at the mouth until +1.78 s, then flung 17+ studs.
+  - **Bosses and players' own characters** aren't lifted; the Nightmare still clamps on and rips.
+  - **Charged Bite** does the same, slower and harder.
+  - **New sound slots:** `BiteGrind`, `BiteRip`.
+- **Spin kick fixed:** it was hitting with your leg nowhere near them. Measured on the old hit frame, the foot was *behind you at knee height*, and the lunge stopped 3.4 studs from their body when your leg only reaches about 2.4. It's now a jumping spinning back kick (back turned, heel driven straight back at chest height), and the lunge carries you in until the heel lands. Measured on a training dummy: heel on its chest, 0.1–0.3 studs into its body on the hit frames.
+- **Gym, more moves:** two-legged Nightmares now also throw a teep, a roundhouse, clinch knees (grabbing the bag) and a spinning back kick. They step to each kick's own range first: measured foot-to-bag at contact −0.5 to +0.35 studs. They also practise **their own abilities** at random from their loadout (abilities without an animation yet still strike the bag at their real timing, with sparks), and the Bite clamps the bag, shakes it and rips it away.
+
 ## The Bite, finished (v0.11.0)
 
 - **The lunge** is driven frame by frame on the server, so every player sees it on time: measured, it covers 3 studs by the hit frame (it was 0.1).

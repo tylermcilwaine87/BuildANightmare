@@ -25,6 +25,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -32,7 +33,9 @@ local Net = require(Shared:WaitForChild("Net"))
 local GymDefinitions = require(Shared:WaitForChild("GymDefinitions"))
 local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
 local MutationDefinitions = require(Shared:WaitForChild("MutationDefinitions"))
+local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local UIKit = require(script.Parent:WaitForChild("UIKit"))
+local NightmarePoses = require(script.Parent:WaitForChild("NightmarePoses"))
 
 local GymController = {}
 
@@ -311,13 +314,27 @@ local function stepBags(dt: number)
 			bags[model] = nil
 			continue
 		end
-		if not sim.moving then
+		local hold = sim.hold
+		if hold and os.clock() > hold.Until then
+			sim.hold, hold = nil, nil -- (a Rip normally lets go first, with a yank)
+		end
+		if not sim.moving and not hold then
 			continue
 		end
-		local omega2 = BAG.Gravity / sim.length
-		local a = -sim.d * omega2 - sim.v * BAG.Damping
-		sim.v += a * dt
-		sim.d += sim.v * dt
+		if hold then
+			-- in the jaws: pulled in toward the biter and thrashed with its head
+			local t = os.clock() - hold.Start
+			local bump = math.exp(-(os.clock() - hold.BumpAt) * 9) * 0.45 -- a knee driving it away a touch
+			local want = hold.Pull + hold.Across * math.sin(t * math.pi * 2 * hold.Shake) * 0.5 + hold.Look * bump
+			sim.d = sim.d:Lerp(want, math.min(dt * 18, 1))
+			sim.v = Vector2.zero
+			sim.moving = true
+		else
+			local omega2 = BAG.Gravity / sim.length
+			local a = -sim.d * omega2 - sim.v * BAG.Damping
+			sim.v += a * dt
+			sim.d += sim.v * dt
+		end
 		if sim.d.Magnitude > BAG.MaxSwing then
 			sim.d = sim.d.Unit * BAG.MaxSwing
 			sim.v *= 0.5
@@ -339,8 +356,13 @@ local function stepBags(dt: number)
 	end
 end
 
-local function strikeBag(model: Model, markerName: string)
+local function strikeBag(model: Model, markerName: string, action: string?)
 	local bay = model:GetAttribute("GymBay")
+	-- a bite's contact frame clamps the bag instead of punching it
+	local ability = type(action) == "string" and action:sub(1, 8) == "Ability_" and AbilityDefinitions.Get(action:sub(9):gsub("_Left$", "")) or nil
+	if markerName == "Hit" and ability and ability.Clamp then
+		markerName = "BiteClamp"
+	end
 	local strike = bay and GymDefinitions.Strikes[markerName]
 	if not strike then
 		return
@@ -354,16 +376,51 @@ local function strikeBag(model: Model, markerName: string)
 	end
 	local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
 	local right = Vector3.new(root.CFrame.RightVector.X, 0, root.CFrame.RightVector.Z).Unit
+	local body = bagModel:FindFirstChild("Bag")
+	local at = body and body.Position or sim.pivot
+	local audio = controllers.AudioController
+	if strike.Hold then
+		-- a bite's clamp (thrashed with the head) or a clinch (held still, close)
+		local clamp = ability and ability.Clamp
+		local pull = -look * (strike.Pull or 0.5)
+		sim.hold = {
+			Start = os.clock(),
+			Until = os.clock() + (clamp and clamp.Hold + 0.3 or strike.Duration or 1.4),
+			Shake = clamp and clamp.Shake or 0,
+			Pull = Vector2.new(pull.X, pull.Z),
+			Across = clamp and Vector2.new(-right.X, -right.Z) or Vector2.zero, -- +sin swings it to the biter's left, with the head
+			Look = Vector2.new(look.X, look.Z),
+			BumpAt = -math.huge,
+		}
+		audio:Play(strike.Sound, at)
+		local dust = body and body:FindFirstChild("Dust")
+		if dust then
+			dust:Emit(10)
+		end
+		return
+	end
+	-- a knee while it's clinched: it jolts in the hands instead of swinging away
+	if sim.hold and markerName == "BagKnee" then
+		sim.hold.BumpAt = os.clock()
+		audio:Play(strike.Sound, at)
+		local dust = body and body:FindFirstChild("Dust")
+		if dust then
+			dust:Emit(8)
+		end
+		return
+	end
+	sim.hold = nil -- a rip (or any blow) tears it out of the jaws
 	local push = look * strike.Forward + right * strike.Side
 	sim.v += Vector2.new(push.X, push.Z)
 	sim.twistV += strike.Twist
 	sim.moving = true
 
-	local body = bagModel:FindFirstChild("Bag")
-	local at = body and body.Position or sim.pivot
 	local strength = push.Magnitude
-	local audio = controllers.AudioController
 	audio:Play(strike.Sound, at)
+	-- practising an ability: its contact sparks off the leather
+	if ability and markerName ~= "Rip" then
+		controllers.EffectsController:HitBurst(at - look * BAG.Radius, -look, "Slash", false)
+	end
 	if strength > 4 then
 		audio:Play("ChainRattle", sim.pivot)
 	end
@@ -951,9 +1008,32 @@ function GymController:Start()
 	end)
 
 	-- the camera changes angle when the Nightmare moves on to another exercise
-	controllers.NightmareAnimator.MarkerReached:Connect(function(model, _action, name)
-		strikeBag(model, name)
+	controllers.NightmareAnimator.MarkerReached:Connect(function(model, action, name)
+		strikeBag(model, name, action)
 	end)
+	-- an ability with no keyframed animation yet (no markers): it still lands on the bag at
+	-- its windup, the moment the server would land it
+	local watchedModels = {}
+	local function watchForAbilities(model: Model)
+		if watchedModels[model] then
+			return
+		end
+		watchedModels[model] = true
+		model:GetAttributeChangedSignal("ActionSeq"):Connect(function()
+			local action = model:GetAttribute("ActionName")
+			if not model:GetAttribute("GymBay") or type(action) ~= "string" or action:sub(1, 8) ~= "Ability_" then
+				return
+			end
+			if NightmarePoses.Common[action] then
+				return -- keyframed: its own Hit marker strikes the bag
+			end
+			task.delay(model:GetAttribute("ActionWindup") or 0.3, strikeBag, model, "Hit", action)
+		end)
+	end
+	for _, model in CollectionService:GetTagged("Nightmare") do
+		watchForAbilities(model)
+	end
+	CollectionService:GetInstanceAddedSignal("Nightmare"):Connect(watchForAbilities)
 	task.spawn(function()
 		local watched
 		while true do

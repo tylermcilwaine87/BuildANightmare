@@ -335,7 +335,8 @@ function CombatService:ApplyDamage(params): number
 		local big = dealt >= humanoid.MaxHealth * cfg.DamageFraction or total >= humanoid.MaxHealth * cfg.BurstFraction
 		local boss = isBoss(target)
 		local worthy = if boss then special else (special or big or knockback >= cfg.MinKnockback)
-		if worthy then
+		-- NoKnockdown: the blow holds them instead (a bite's clamp keeps them in its jaws)
+		if worthy and not params.NoKnockdown then
 			local chance = self:KnockdownChance(attacker, target, big)
 			if chance > 0 and random:NextNumber() < chance then
 				local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis

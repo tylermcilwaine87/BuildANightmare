@@ -629,8 +629,8 @@ function NightmareAIService:Update(brain, now: number, dt: number)
 		self:Stop(brain)
 		return
 	end
-	if self.Services.StatusService:IsStaggered(brain.model) or brain.model:GetAttribute("Ragdolled") then
-		self:Stop(brain)
+	if self.Services.StatusService:IsStaggered(brain.model) or brain.model:GetAttribute("Ragdolled") or brain.model:GetAttribute("Gripped") then
+		self:Stop(brain) -- (Gripped: held in another Nightmare's jaws)
 		return
 	end
 

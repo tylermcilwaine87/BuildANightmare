@@ -37,6 +37,9 @@ AudioDefinitions.Sounds = {
 	-- landing (wet crunch), a claw ripping through (slash), a claw striking armour (clang)
 	BiteSnap = { Id = "", Volume = 0.7, Pitch = { 0.9, 1.1 }, Spatial = true, Cooldown = 0.1 },
 	BiteImpact = { Id = "", Volume = 0.8, Pitch = { 0.9, 1.05 }, Spatial = true, Cooldown = 0.1 },
+	-- the clamp: teeth grinding in while it thrashes them, then the wet tear of the rip
+	BiteGrind = { Id = "", Volume = 0.55, Pitch = { 0.85, 1.05 }, Spatial = true, Cooldown = 0.15 },
+	BiteRip = { Id = "", Volume = 0.9, Pitch = { 0.9, 1.05 }, Spatial = true, Cooldown = 0.2 },
 	ClawSlash = { Id = "", Volume = 0.7, Pitch = { 0.95, 1.1 }, Spatial = true, Cooldown = 0.08 },
 	MetalSpark = { Id = "", Volume = 0.75, Pitch = { 0.9, 1.1 }, Spatial = true, Cooldown = 0.08 },
 	-- a boss's full-weight slam / landing: deep ground boom + rubble

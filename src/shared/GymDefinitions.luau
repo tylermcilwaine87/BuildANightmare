@@ -151,7 +151,18 @@ Gym.Routines = {
 	{ Action = "Gym_BodyRip", Duration = 1.5, Weight = 2, Arms = true }, -- body hook, uppercut
 	{ Action = "Gym_Power", Duration = 1.4, Weight = 1, Arms = true }, -- one big overhand
 	{ Action = "Gym_Bounce", Duration = 1.6, Weight = 2 }, -- stance, feints, footwork (any body)
-	{ Action = "Ability_Bite", Duration = 0.7, Weight = 3, Arms = false, Windup = 0.3 }, -- jaw work
+	{ Action = "Ability_Bite", Duration = 2.3, Weight = 3, Arms = false, Windup = 0.3, Spot = "Bite" }, -- jaw work: clamp, thrash, rip
+	-- kicks (two-legged bodies). Reach = how far out the foot lands on the contact frame, as
+	-- a fraction of the leg's length (measured on the gym bag): GymService steps the body
+	-- in or out to that range first, so each kick lands on the leather, not through it.
+	{ Action = "Gym_Teep", Duration = 1.3, Weight = 2, Legs = true, Reach = 0.91 },
+	-- (measured gaps on the bag: teep +0.3..−0.1; roundhouse / spin kick tuned back from
+	-- −0.8 / −1.0 deep; the clinch holds the bag so all three knees land)
+	{ Action = "Gym_Roundhouse", Duration = 1.5, Weight = 3, Legs = true, Reach = 1.1 },
+	{ Action = "Gym_KneeClinch", Duration = 1.8, Weight = 2, Legs = true, Reach = 0.95 },
+	{ Action = "Gym_SpinBackKick", Duration = 1.6, Weight = 1, Legs = true, Reach = 1.16 },
+	-- its OWN abilities, picked at random from its loadout and practised on the bag
+	{ Abilities = true, Weight = 4 },
 	{ Action = "Gym_Rest", Duration = 3.2, Weight = 1, Rest = true }, -- hands on knees, breathe, shake out
 }
 -- Pause between routines (seconds), and how many routines before a rest is due.
@@ -168,7 +179,16 @@ Gym.Strikes = {
 	BagBody = { Forward = 3.6, Side = 2.2, Twist = 0.8, Sound = "BagHit" },
 	BagUpper = { Forward = 3.4, Side = -0.4, Twist = -0.3, Sound = "BagHit" },
 	BagOverhand = { Forward = 7.2, Side = -1.4, Twist = -0.9, Sound = "BagHeavy" },
+	BagTeep = { Forward = 7.8, Side = 0, Twist = 0.3, Sound = "BagHeavy" },
+	BagRound = { Forward = 3.2, Side = -7, Twist = -2.4, Sound = "BagHeavy" }, -- whips it round to the left
+	BagKnee = { Forward = 3.8, Side = 0, Twist = 0.4, Sound = "BagHit" },
+	BagSpin = { Forward = 8.6, Side = 0.6, Twist = 1.2, Sound = "BagHeavy" },
 	Hit = { Forward = 4.2, Side = 0, Twist = 0.6, Sound = "BagHit" },
+	-- a bite: the jaws CLAMP on (the bag is held, thrashed with the head), then RIP it away
+	BiteClamp = { Hold = true, Sound = "BagHit" },
+	-- the clinch: both hands grab it over the top and hold it in close for the knees
+	Clinch = { Hold = true, Duration = 1.35, Pull = 0.3, Sound = "ChainRattle" },
+	Rip = { Forward = -1.5, Side = -6.5, Twist = 2.8, Sound = "BagHeavy" },
 }
 
 -- The heavy bag itself.

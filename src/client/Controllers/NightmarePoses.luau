@@ -70,9 +70,27 @@ end
 -- BITE (any Nightmare with a head; jaw-equipped heads open and snap their Sub_Head_Jaw).
 -- Ability windup 0.3 s = the Hit frame; the body also physically lunges ~3 studs at the
 -- target during the windup (AbilityService), so the jaws really reach them.
+-- Then it CLAMPS: the jaw stays locked while the head and body thrash side to side, the
+-- victim held in the mouth and shaken in step (AbilityService:ClampAndRip, Clamp.Shake
+-- 2.6 per second: head left at 0.396 s, right at 0.588 s, ...), grinding in. At 1.75 s
+-- ("Rip", = windup + Clamp.Hold) the head tears away to the LEFT and the jaw lets go.
+local CLAMPED = { Joint_CorePos = { 0, -0.38, -0.95 }, Sub_Head_Jaw = { 2, 0, 0 }, Joint_RightArm = { 78, 0, 6 }, Joint_LeftArm = { 78, 0, -6 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } }
+local function thrash(t: number, side: number, depth: number)
+	local key = table.clone(CLAMPED)
+	key.T = t
+	key.Joint_Core = { -24 + depth, 9 * side, -4 * side }
+	key.Joint_Head = { -14, 22 * side, 7 * side }
+	key.Joint_RightArm = { 78 - depth, 0, 6 + 6 * side }
+	key.Joint_LeftArm = { 78 - depth, 0, -6 + 6 * side }
+	return key
+end
 local BITE = {
-	Duration = 0.7,
-	Markers = { { 0.22, "Whoosh" }, { 0.3, "Hit" }, { 0.3, "JawSnap" }, { 0.3, "StepL" } },
+	Duration = 2.3,
+	Markers = {
+		{ 0.22, "Whoosh" }, { 0.3, "Hit" }, { 0.3, "JawSnap" }, { 0.3, "StepL" },
+		{ 0.588, "Grind" }, { 0.973, "Grind" }, { 1.358, "Grind" },
+		{ 1.65, "Whoosh" }, { 1.75, "Rip" }, { 1.75, "StepR" },
+	},
 	Keys = {
 		{ T = 0 },
 		-- prepare: rear back, head up, lips part, arms rise to grab
@@ -81,13 +99,22 @@ local BITE = {
 		{ T = 0.22, Joint_CorePos = { 0, -0.25, -0.7 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Head_Jaw = { -62, 0, 0 }, Joint_RightArm = { 70, 0, 22 }, Joint_LeftArm = { 70, 0, -22 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
 		-- SNAP: the jaws slam shut on them, claws clamp in
 		{ T = 0.3, Joint_CorePos = { 0, -0.35, -1.0 }, Joint_Core = { -26, 0, 0 }, Joint_Head = { -16, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Joint_RightArm = { 78, 0, 6 }, Joint_LeftArm = { 78, 0, -6 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
-		-- tear: wrench the head one way...
-		{ T = 0.38, Joint_CorePos = { 0, -0.32, -0.85 }, Joint_Core = { -22, 8, 0 }, Joint_Head = { -14, 18, 6 }, Sub_Head_Jaw = { 2, 0, 0 }, Joint_RightArm = { 74, 0, 4 }, Joint_LeftArm = { 74, 0, -4 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
-		-- ...then the other, pulling back
-		{ T = 0.46, Joint_CorePos = { 0, -0.28, -0.6 }, Joint_Core = { -18, -8, 0 }, Joint_Head = { -12, -18, -6 }, Sub_Head_Jaw = { 2, 0, 0 }, Joint_RightArm = { 66, 0, 6 }, Joint_LeftArm = { 66, 0, -6 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
-		-- release: jaw opens to let go, head comes up, body settles back
-		{ T = 0.56, Joint_CorePos = { 0, -0.12, 0.1 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 6, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Joint_RightArm = { 30, 0, 10 }, Joint_LeftArm = { 30, 0, -10 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
-		{ T = 0.7 },
+		-- CLAMPED: thrashing them side to side, digging in harder each shake
+		thrash(0.396, 1, 0),
+		thrash(0.588, -1, 1),
+		thrash(0.781, 1, 2),
+		thrash(0.973, -1, 3),
+		thrash(1.165, 1, 4),
+		thrash(1.358, -1, 5),
+		thrash(1.55, 1, 6),
+		-- load the rip: brace, twist the other way, jaws still locked
+		{ T = 1.65, Joint_CorePos = { 0, -0.45, -0.8 }, Joint_Core = { -20, -16, 2 }, Joint_Head = { -10, -26, -6 }, Sub_Head_Jaw = { 0, 0, 0 }, Joint_RightArm = { 70, 0, 4 }, Joint_LeftArm = { 70, 0, -10 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -32, 0, 0 } },
+		-- RIP: the head tears away to the left and up, the body pulling back off them
+		{ T = 1.75, Joint_CorePos = { 0, -0.2, 0.2 }, Joint_Core = { 8, 34, 0 }, Joint_Head = { 12, 40, 10 }, Sub_Head_Jaw = { -10, 0, 0 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 20, 0, -30 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+		-- release: the jaw falls open, the head comes round
+		{ T = 1.88, Joint_CorePos = { 0, -0.12, 0.15 }, Joint_Core = { 4, 20, 0 }, Joint_Head = { 6, 30, 0 }, Sub_Head_Jaw = { -34, 0, 0 }, Joint_RightArm = { 26, 0, 20 }, Joint_LeftArm = { 26, 0, -20 } },
+		{ T = 2.05, Joint_Core = { 0, 6, 0 }, Joint_Head = { 0, 8, 0 }, Sub_Head_Jaw = { -8, 0, 0 }, Joint_RightArm = { 10, 0, 8 }, Joint_LeftArm = { 10, 0, -8 } },
+		{ T = 2.3 },
 	},
 }
 
@@ -140,6 +167,20 @@ local BODY_WIND = { Joint_CorePos = { 0.2, -0.8, 0 }, Joint_Core = { -14, 12, 8 
 local BODY_HOOK = { Joint_LeftArm = { 62, 0, 10 }, Joint_Core = { -16, -26, 6 }, Joint_CorePos = { 0, -0.85, -0.6 }, Joint_RightArm = { 62, 0, -22 }, Joint_Head = { -2, 22, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } }
 local UPPER_LOAD = { Joint_RightArm = { 22, 0, -8 }, Joint_LeftArm = { 66, 0, 20 }, Joint_Core = { -12, -10, 0 }, Joint_CorePos = { 0, -0.8, -0.2 }, Joint_Head = { -4, 6, 0 } }
 local UPPER = { Joint_RightArm = { 118, 0, -12 }, Joint_LeftArm = { 64, 0, 22 }, Joint_Core = { 2, 22, 0 }, Joint_CorePos = { 0, -0.25, -0.75 }, Joint_Head = { 10, -14, 0 }, Sub_Legs_L = { 16, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
+
+-- Kicks (two-legged bodies: Sub_Legs_L / Sub_Legs_R; +X swings a leg forward, +Z swings
+-- the RIGHT leg out to its right). Contact poses measured on the gym bag in Studio (the
+-- Tank, leg 3.09 studs): teep tip 2.8 studs out at mid-bag, roundhouse 3.65 (the side of
+-- the bag), spinning back kick 3.95. GymService stands the body so each one lands.
+-- (Joint_Core's lean is applied before its turn: with the back turned, +X lifts the leg
+-- TOWARD the bag.)
+local TEEP = { Sub_Legs_R = { 95, 0, -18 }, Sub_Legs_L = { -6, 0, 0 }, Joint_Core = { 14, 0, 0 }, Joint_CorePos = { 0, 0.1, -0.3 }, Joint_Head = { -14, 0, 0 } }
+local ROUND_LOAD = { Joint_Core = { 0, -22, 0 }, Sub_Legs_R = { 35, 0, 50 }, Joint_Head = { -6, 22, 0 } }
+local ROUND = { Joint_Core = { 4, 50, 0 }, Sub_Legs_R = { 100, 0, 45 }, Sub_Legs_L = { -4, 0, 0 }, Joint_CorePos = { 0, 0.2, -0.2 }, Joint_Head = { -6, -40, 0 }, Joint_RightArm = { 20, 0, 40 }, Joint_LeftArm = { 70, 0, 20 } }
+local ROUND_FOLLOW = { Joint_Core = { 2, 70, 0 }, Sub_Legs_R = { 70, 0, 10 }, Joint_Head = { -6, -50, 0 }, Joint_RightArm = { 30, 0, 30 } }
+local CLINCH = { Joint_RightArm = { 135, 0, -18 }, Joint_LeftArm = { 135, 0, 18 }, Joint_Core = { -12, 0, 0 }, Joint_CorePos = { 0, -0.1, -0.4 }, Joint_Head = { -16, 0, 0 } }
+local KNEE_R = { Sub_Legs_R = { 100, 0, -12 }, Sub_Legs_L = { -6, 0, 0 }, Joint_Core = { -16, 6, 0 }, Joint_CorePos = { 0, 0.1, -0.5 } }
+local KNEE_L = { Sub_Legs_L = { 100, 0, 12 }, Sub_Legs_R = { -6, 0, 0 }, Joint_Core = { -16, -6, 0 }, Joint_CorePos = { 0, 0.1, -0.5 } }
 
 -- A key at time t: `base` (usually GUARD) with `change`'s joints laid over it.
 local function at(t: number, base, change)
@@ -239,6 +280,74 @@ local GYM = {
 			at(0.66, GUARD, OVER_FOLLOW),
 			at(1.0, GUARD),
 			{ T = 1.4 },
+		},
+	},
+	-- TEEP: the rear leg driven straight up through the middle of the bag, leaning back off
+	-- it: a push kick that shoves the bag away
+	Gym_Teep = {
+		Duration = 1.3,
+		Markers = { { 0.3, "Whoosh" }, { 0.42, "BagTeep" }, { 0.56, "StepR" } },
+		Keys = {
+			{ T = 0 },
+			at(0.15, GUARD),
+			at(0.3, GUARD, { Sub_Legs_R = { 60, 0, -10 }, Joint_Core = { 8, 0, 0 } }),
+			at(0.42, GUARD, TEEP),
+			at(0.56, GUARD, { Sub_Legs_R = { 50, 0, -10 }, Joint_Core = { 6, 0, 0 } }),
+			at(0.8, GUARD),
+			at(1.05, GUARD, SETTLE),
+			{ T = 1.3 },
+		},
+	},
+	-- ROUNDHOUSE: turn the hip over and whip the right leg round into the side of the bag,
+	-- the right arm swinging down and back for balance
+	Gym_Roundhouse = {
+		Duration = 1.5,
+		Markers = { { 0.32, "StepL" }, { 0.42, "Whoosh" }, { 0.5, "BagRound" } },
+		Keys = {
+			{ T = 0 },
+			at(0.15, GUARD),
+			at(0.32, GUARD, ROUND_LOAD),
+			at(0.5, GUARD, ROUND),
+			at(0.64, GUARD, ROUND_FOLLOW),
+			at(0.9, GUARD),
+			at(1.2, GUARD, SETTLE),
+			{ T = 1.5 },
+		},
+	},
+	-- CLINCH KNEES: grab the bag over the top and drive knees up into it, right, left, right
+	Gym_KneeClinch = {
+		Duration = 1.8,
+		Markers = { { 0.2, "Clinch" }, { 0.5, "BagKnee" }, { 0.95, "BagKnee" }, { 1.35, "BagKnee" }, { 0.5, "StepL" }, { 0.95, "StepR" }, { 1.35, "StepL" } },
+		Keys = {
+			{ T = 0 },
+			at(0.2, CLINCH),
+			at(0.36, CLINCH, { Sub_Legs_R = { 40, 0, -8 } }),
+			at(0.5, CLINCH, KNEE_R),
+			at(0.65, CLINCH),
+			at(0.82, CLINCH, { Sub_Legs_L = { 40, 0, 8 } }),
+			at(0.95, CLINCH, KNEE_L),
+			at(1.1, CLINCH),
+			at(1.24, CLINCH, { Sub_Legs_R = { 40, 0, -8 } }),
+			at(1.35, CLINCH, KNEE_R),
+			at(1.5, CLINCH),
+			{ T = 1.8 },
+		},
+	},
+	-- SPINNING BACK KICK: turn the back on the bag, eyes over the shoulder, then drive the
+	-- heel straight back through it and come round out of the spin
+	Gym_SpinBackKick = {
+		Duration = 1.6,
+		Markers = { { 0.15, "StepR" }, { 0.5, "Whoosh" }, { 0.56, "BagSpin" }, { 0.95, "StepL" } },
+		Keys = {
+			{ T = 0 },
+			at(0.12, GUARD),
+			at(0.3, GUARD, { Joint_Core = { 0, -90, 0 }, Joint_Head = { 0, 70, 0 }, Sub_Legs_R = { 30, 0, 0 }, Joint_CorePos = { 0, -0.2, 0 } }),
+			at(0.44, GUARD, { Joint_Core = { 15, -180, 0 }, Joint_Head = { 0, 80, 0 }, Sub_Legs_R = { 20, 0, 0 }, Joint_CorePos = { 0, 0.1, -0.2 } }),
+			at(0.56, GUARD, { Joint_Core = { 35, -180, 0 }, Sub_Legs_R = { -100, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Joint_CorePos = { 0, 0.3, -0.4 }, Joint_Head = { -10, 80, 0 }, Joint_RightArm = { 40, 0, 60 }, Joint_LeftArm = { 40, 0, -60 } }),
+			at(0.7, GUARD, { Joint_Core = { 15, -200, 0 }, Sub_Legs_R = { -30, 0, 0 }, Joint_CorePos = { 0, 0.1, -0.3 }, Joint_Head = { 0, 60, 0 } }),
+			at(0.95, GUARD, { Joint_Core = { 0, -300, 0 }, Sub_Legs_R = { 10, 0, 0 } }),
+			at(1.2, GUARD, { Joint_Core = { -6, -368, 0 } }),
+			{ T = 1.6, Joint_Core = { 0, -360, 0 } },
 		},
 	},
 	-- footwork: bounce in the stance, a feint jab, a slip to each side, reset

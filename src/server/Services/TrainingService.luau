@@ -338,8 +338,8 @@ function TrainingService:ScraplingAttack(record, target: Model, now: number)
 	end)
 
 	task.delay(cfg.AttackWindup, function()
-		if enemies[model] ~= record or record.humanoid.Health <= 0 or self.Services.StatusService:IsStaggered(model) or model:GetAttribute("Ragdolled") then
-			return -- staggering (or knocking down) a Scrapling cancels its swipe
+		if enemies[model] ~= record or record.humanoid.Health <= 0 or self.Services.StatusService:IsStaggered(model) or model:GetAttribute("Ragdolled") or model:GetAttribute("Gripped") then
+			return -- staggering, knocking down or biting hold of a Scrapling cancels its swipe
 		end
 		local boxCFrame = root.CFrame * CFrame.new(0, 0, -(root.Size.Z / 2 + cfg.AttackRange / 2))
 		local boxSize = V(cfg.AttackWidth, 5, cfg.AttackRange)
@@ -363,8 +363,8 @@ function TrainingService:UpdateScrapling(record, now: number)
 		return
 	end
 	local status = self.Services.StatusService
-	if record.model:GetAttribute("Ragdolled") then
-		return -- knocked down: physics has it until it gets up
+	if record.model:GetAttribute("Ragdolled") or record.model:GetAttribute("Gripped") then
+		return -- knocked down (physics has it) or held in a Nightmare's jaws
 	end
 	if status:IsStaggered(record.model) then
 		record.humanoid:MoveTo(record.root.Position)

@@ -25,6 +25,7 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
+local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -58,6 +59,7 @@ local CULL_DISTANCE = 160
 local STRIKE_TIME = 0.12
 
 local tracked = {} -- [Model] = state
+local labCache = { Source = nil, Def = nil } -- Studio pose lab (NMScrubAction = "Lab")
 
 -- Which limbs each action uses. Unknown actions swing both arms.
 local ACTION_ARMS = {
@@ -552,13 +554,25 @@ function NightmareAnimator:Start()
 		local now = os.clock()
 		-- Studio scrubbing: workspace attributes NMScrubAction = "Heavy", NMScrubTime = 0.45
 		-- hold every Nightmare on that frame of its body plan's keyframed attack
+		-- (NMScrubAction = "Lab" holds the pose in the NMPoseLab attribute (JSON), so a move
+		-- can be tuned live from the command bar)
 		local scrubAction, scrubTime = IS_STUDIO and Workspace:GetAttribute("NMScrubAction"), Workspace:GetAttribute("NMScrubTime")
+		local labDef = nil
+		if scrubAction == "Lab" then
+			local source = Workspace:GetAttribute("NMPoseLab")
+			if source ~= labCache.Source then
+				labCache.Source = source
+				local ok, decoded = pcall(HttpService.JSONDecode, HttpService, source or "")
+				labCache.Def = ok and type(decoded) == "table" and decoded or nil
+			end
+			labDef = labCache.Def
+		end
 		for model, state in tracked do
 			local root = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart")
 			if root and (root.Position - cameraPosition).Magnitude <= CULL_DISTANCE then
 				if type(scrubAction) == "string" and type(scrubTime) == "number" then
 					local library = libraryFor(model)
-					local def = (library and library[scrubAction]) or (POSES.Common and POSES.Common[scrubAction])
+					local def = labDef or (library and library[scrubAction]) or (POSES.Common and POSES.Common[scrubAction])
 					if def then
 						state.action = scrubAction
 						state.pose = { Def = def, Start = now - scrubTime, Speed = 1, LastT = math.huge }

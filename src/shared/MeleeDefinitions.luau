@@ -68,7 +68,7 @@ local Moves = {
 	Uppercut = { Pose = "Uppercut", Duration = 0.48, HitTime = 0.18, Cancel = 0.3, Damage = 9, Range = 5.5, Arc = 60, Knockback = 12, Stagger = 9, Lunge = 1.8 },
 	HeadKick = { Pose = "HeadKick", Duration = 0.6, HitTime = 0.24, Cancel = 0.4, Damage = 10, Range = 7.5, Arc = 110, Knockback = 18, Stagger = 9, Lunge = 1.6 },
 	LegKick = { Pose = "LegKick", Duration = 0.42, HitTime = 0.16, Cancel = 0.28, Damage = 7, Range = 6.5, Arc = 90, Stagger = 10, Lunge = 1.3 },
-	SpinKick = { Pose = "SpinKick", Duration = 0.75, HitTime = 0.36, Cancel = 0.58, Damage = 13, Range = 8, Arc = 140, Knockback = 34, Stagger = 16, Heavy = true, Lunge = 1.5, Unlock = { Level = 4 }, Display = "Spin Kick" },
+	SpinKick = { Pose = "SpinKick", Duration = 0.75, HitTime = 0.36, Cancel = 0.58, Damage = 13, Range = 8, Arc = 140, Knockback = 34, Stagger = 16, Heavy = true, Lunge = 4, Unlock = { Level = 4 }, Display = "Spin Kick" }, -- Lunge: the spin travels in until the heel reaches them
 	Knee = { Pose = "Knee", Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 1.5 },
 	Teep = { Pose = "FrontKick", Duration = 0.46, HitTime = 0.18, Cancel = 0.3, Damage = 7, Range = 7, Arc = 60, Knockback = 20, Stagger = 5, Lunge = 0.8 },
 	-- (the client first SPRINTS at the target, up to SprintTime, then leaps: this move
@@ -104,7 +104,8 @@ local Moves = {
 -- Contact: studs from the target's body where the step-in (Lunge) stops, so the fist /
 -- shin / blade lands right ON them (fists 2.3 by default; legs and weapons reach further).
 local CONTACT = {
-	Knee = 1.7, LegKick = 2.8, HeadKick = 3.2, Teep = 3.2, SpinKick = 3.4, CounterKick = 3.2,
+	-- SpinKick measured: the heel is 2.4 studs out on the hit frame, so stop at 2.2 (it sinks in)
+	Knee = 1.7, LegKick = 2.8, HeadKick = 3.2, Teep = 3.2, SpinKick = 2.2, CounterKick = 3.2,
 	BladeSlash = 3.4, BladeSlash2 = 3.4, BladeCleave = 3.4, BladeLunge = 3.6,
 	ScytheReap = 5.5, ScytheReturn = 5.5, -- (the blade is out at arm's length + the snath)
 }

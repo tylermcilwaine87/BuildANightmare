@@ -35,6 +35,7 @@ local Util = require(Shared:WaitForChild("Util"))
 local GymDefinitions = require(Shared:WaitForChild("GymDefinitions"))
 local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
 local MutationDefinitions = require(Shared:WaitForChild("MutationDefinitions"))
+local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 
 local GymWorld = require(script.Parent:WaitForChild("World"):WaitForChild("Gym"))
 
@@ -113,6 +114,38 @@ local function punchReach(model: Model, root: BasePart): (number?, number?)
 		end
 	end
 	return nil, nil
+end
+
+-- A two-legged body's kicking leg: its length (hip pivot to the far corner of the leg, the
+-- same measure GymDefinitions' Reach fractions were taken with) and how far forward of the
+-- root the hip sits. nil for bodies that can't kick (four legs, floating...).
+local function kickingLeg(model: Model, root: BasePart): (number?, number?)
+	if model:GetAttribute("Archetype") ~= "Biped" then
+		return nil, nil
+	end
+	local joint = model:FindFirstChild("Sub_Legs_R", true)
+	if not (joint and joint:IsA("Motor6D") and joint.Part0 and joint.Part1) then
+		return nil, nil
+	end
+	local pivot = (joint.Part0.CFrame * joint.C0).Position
+	local length = 0
+	for _, weld in model:GetDescendants() do
+		if weld:IsA("Weld") and weld.Part0 == joint.Part1 and weld.Part1 then
+			local part = weld.Part1
+			for _, sx in { -1, 1 } do
+				for _, sy in { -1, 1 } do
+					for _, sz in { -1, 1 } do
+						local corner = (part.CFrame * CFrame.new(part.Size.X / 2 * sx, part.Size.Y / 2 * sy, part.Size.Z / 2 * sz)).Position
+						length = math.max(length, (corner - pivot).Magnitude)
+					end
+				end
+			end
+		end
+	end
+	if length < 0.5 then
+		return nil, nil
+	end
+	return length, -root.CFrame:PointToObjectSpace(pivot).Z
 end
 
 -- The mouth's reach (head front + the bite's thrust) and its height, for jaw work.
@@ -221,13 +254,18 @@ function GymService:PickRoutine(session)
 			end
 		end
 	end
-	-- Arms = true needs arms, false is for armless bodies, nil suits any body
+	-- Arms = true needs arms, false is for armless bodies, nil suits any body; Legs needs
+	-- a kicking leg; Abilities needs something in its loadout
 	local armed = session.armed
 	local pool, total = {}, 0
 	for pass = 1, 2 do
 		for _, routine in GymDefinitions.Routines do
-			local fits = not routine.Rest and (routine.Arms == nil or routine.Arms == armed)
-			if fits and (pass == 2 or routine.Action ~= session.lastAction) then
+			local fits = not routine.Rest
+				and (routine.Arms == nil or routine.Arms == armed)
+				and (not routine.Legs or session.legLength ~= nil)
+				and (not routine.Abilities or #session.brain.abilities > 0)
+			fits = fits and (routine.Abilities or routine.Action ~= nil)
+			if fits and (pass == 2 or (routine.Action or "Abilities") ~= session.lastAction) then
 				table.insert(pool, routine)
 				total += routine.Weight
 			end
@@ -290,20 +328,39 @@ function GymService:RunTraining(player: Player, session)
 	task.wait(0.4)
 
 	while live() do
-		-- keep it planted on its mark (a knock or a respawn shouldn't send it wandering)
-		if Util.FlatDistance(brain.root.Position, session.standAt) > 2.5 then
-			humanoid:MoveTo(session.standAt)
-			task.wait(0.8)
-		end
-		ai:Face(brain, session.bagAt)
 		local routine = self:PickRoutine(session)
-		session.lastAction = routine.Action
+		session.lastAction = routine.Action or (routine.Abilities and "Abilities")
+		if routine.Abilities then
+			routine = self:AbilityRoutine(session) or routine
+		end
+		if not routine.Action then
+			task.wait(0.5)
+			continue
+		end
 		if routine.Rest then
 			session.sinceRest = 0
 			session.restDue = random:NextInteger(GymDefinitions.RestEvery[1], GymDefinitions.RestEvery[2])
 		else
 			session.sinceRest += 1
 		end
+		-- footwork: step to the range this move lands from (in for a bite or a knee, back
+		-- out for a spinning kick, punching range for the hands)
+		local spot = self:SpotFor(session, routine)
+		if Util.FlatDistance(brain.root.Position, spot) > 0.5 then
+			ai:StopFacing(brain)
+			humanoid:MoveTo(spot)
+			local started = os.clock()
+			while live() and Util.FlatDistance(brain.root.Position, spot) > 0.5 and os.clock() - started < 1.5 do
+				task.wait(0.05)
+			end
+			humanoid:MoveTo(brain.root.Position)
+		end
+		if not live() then
+			return
+		end
+		ai:Face(brain, session.bagAt)
+		task.wait(0.15)
+		brain.model:SetAttribute("ActionSource", routine.Source or "")
 		ai:PlayAction(brain, routine.Action, routine.Windup or 0, routine.Duration)
 		task.wait(routine.Duration + random:NextNumber(GymDefinitions.RoutineGap[1], GymDefinitions.RoutineGap[2]))
 	end
@@ -471,10 +528,12 @@ function GymService:Possess(player: Player, session): boolean
 	if session.armed then
 		reach, height = punchReach(model, root)
 	end
+	local mouth, mouthHeight = biteReach(model, root)
 	if not reach then
 		session.armed = false
-		reach, height = biteReach(model, root)
+		reach, height = mouth, mouthHeight
 	end
+	session.legLength, session.hipForward = kickingLeg(model, root)
 	-- the bag hangs with its middle a touch below the strike height; the Nightmare stands
 	-- so a straight strike sinks ~0.3 studs into the leather
 	local bag = GymWorld.BuildBag(session.bay, height - 0.4)
@@ -484,7 +543,47 @@ function GymService:Possess(player: Player, session): boolean
 	-- the jab and hook just meet it, the body shots land on its surface
 	local stand = reach + GymDefinitions.Bag.Radius - 0.65
 	session.standAt = session.bagAt + bayCF.LookVector * -stand
+	session.biteAt = session.bagAt + bayCF.LookVector * -(mouth + GymDefinitions.Bag.Radius - 0.4)
+	session.bayLook = bayCF.LookVector
 	return true
+end
+
+-- Where the body has to stand for a routine to land: punching range, the mouth on the
+-- leather for a bite, or each kick's own range (its Reach fraction of the leg).
+function GymService:SpotFor(session, routine)
+	if routine.Spot == "Bite" then
+		return session.biteAt
+	elseif routine.Legs and session.legLength then
+		local distance = session.hipForward + session.legLength * (routine.Reach or 1) + GymDefinitions.Bag.Radius - 0.35
+		return session.bagAt - session.bayLook * distance
+	end
+	return session.standAt
+end
+
+-- An ability from its own loadout, as a routine: its animation at its real timing (a
+-- bite also holds for its clamp), from the range it lands at.
+function GymService:AbilityRoutine(session)
+	local brain = session.brain
+	local options = {}
+	for slot, id in brain.abilities do
+		local def = AbilityDefinitions.Get(id)
+		if def then
+			table.insert(options, { Slot = slot, Def = def })
+		end
+	end
+	if #options == 0 then
+		return nil
+	end
+	local pick = options[random:NextInteger(1, #options)]
+	local def = pick.Def
+	return {
+		Action = "Ability_" .. def.Id,
+		Windup = def.Windup,
+		Duration = def.Windup + def.Recovery + (def.Clamp and def.Clamp.Hold or 0) + 0.3,
+		Spot = def.Motion == "Grip" and "Bite" or nil,
+		Source = brain.model:GetAttribute(("Ability%dSource"):format(pick.Slot)) or "",
+		Weight = 0,
+	}
 end
 
 function GymService:Arrive(player: Player)
