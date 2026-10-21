@@ -35,6 +35,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local Util = require(Shared:WaitForChild("Util"))
 local Melee = require(Shared:WaitForChild("MeleeDefinitions"))
+local FightRules = require(Shared:WaitForChild("FightRules"))
 local WeaponModels = require(script.Parent:WaitForChild("WeaponModels"))
 
 local MeleeService = {}
@@ -140,7 +141,10 @@ function MeleeService:HandleMelee(player: Player, seq, flag)
 	if type(seq) ~= "string" or #seq < 1 or #seq > 5 or seq:find("[^PK]") then
 		return
 	end
-	if flag ~= nil and flag ~= "Counter" and flag ~= "Drop" then
+	-- flag: "Counter" (after a step back), "Drop" (running), or a stance side ("High" /
+	-- "Left" / "Right": a punch thrown from your guard while locked on, FightRules)
+	local stanceSide = FightRules.IsSide(flag) and flag or nil
+	if flag ~= nil and flag ~= "Counter" and flag ~= "Drop" and not stanceSide then
 		return
 	end
 	local character = player.Character
@@ -159,10 +163,21 @@ function MeleeService:HandleMelee(player: Player, seq, flag)
 	local tol = Melee.Tolerance
 	local level = self:LevelOf(player)
 	local weapon = state.Weapon
+	if now < (character:GetAttribute("ParriedUntil") or 0) - tol then
+		return -- parried: knocked off balance, no strikes until you recover
+	end
 
 	local moveId
 	local free = false -- counters skip the timing checks (one per step back)
-	if flag == "Counter" and #seq == 1 and services.HandlerService:ConsumeCounter(player) then
+	if stanceSide then
+		-- a punch from the fighting stance: which one depends on the side you're guarding
+		if seq ~= "P" or weapon ~= "Fists" or not character:GetAttribute("InStance") then
+			return
+		end
+		local last = state.Move
+		local live = last ~= nil and now <= state.Start + last.Duration + Melee.ComboWindow + tol
+		moveId = Melee.ResolveStance(stanceSide, live and last.Id or nil)
+	elseif flag == "Counter" and #seq == 1 and services.HandlerService:ConsumeCounter(player) then
 		moveId = seq == "K" and "CounterKick" or "CounterPunch"
 		free = true
 	elseif flag == "Drop" and seq == "K" and Melee.MoveUnlocked("DropKick", level) then
@@ -197,6 +212,13 @@ function MeleeService:HandleMelee(player: Player, seq, flag)
 	state.Start = now
 	state.Move = move
 	self:StampPose(character, move.Pose)
+	-- mid-strike your hands aren't home: a blow that lands now can't be blocked
+	character:SetAttribute("Striking", true)
+	task.delay(move.Cancel, function()
+		if state.Start == now and character.Parent then
+			character:SetAttribute("Striking", nil)
+		end
+	end)
 
 	-- the weapon's motion trail, for the length of the swing
 	local trail = move.Trail and character:FindFirstChild("HeldWeapon") and character.HeldWeapon:FindFirstChild("SwingTrail", true)
@@ -327,6 +349,7 @@ function MeleeService:LandHit(player: Player, character: Model, root: BasePart, 
 			Status = move.Status,
 			HitDirection = hitDirection,
 			Crumple = move.Crumple,
+			Side = move.Dir and FightRules.SideOf(move) or nil, -- (blockable by a guard on that side)
 			Source = "Handler:" .. move.Id,
 		})
 		hitSomething = hitSomething or dealt > 0

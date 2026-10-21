@@ -32,6 +32,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local StatCalculator = require(Shared:WaitForChild("StatCalculator"))
+local FightRules = require(Shared:WaitForChild("FightRules"))
+local parryListeners = {}
 local Util = require(Shared:WaitForChild("Util"))
 
 local CombatService = {}
@@ -124,6 +126,10 @@ function CombatService:Start()
 			self.Services.HandlerService:TryStepBack(player)
 		elseif action == "Guard" then
 			self.Services.HandlerService:SetGuard(player, arg == true)
+		elseif action == "Stance" then
+			self.Services.HandlerService:SetStance(player, arg == true)
+		elseif action == "GuardDir" then
+			self.Services.HandlerService:SetGuardDir(player, arg)
 		elseif action == "Ability" then
 			if arg == 1 or arg == 2 then
 				if possession:IsPossessing(player) then
@@ -217,6 +223,71 @@ end
 	}
 	Returns the damage actually dealt.
 ]]
+-- A blow met by a guard in stance. PARRY: no damage, the attacker is knocked off balance
+-- (Parried for FightRules.ParryStagger: no strikes, a counter window) and loses stamina.
+-- BLOCK: chip damage only, the defender pays stamina, and an empty tank breaks the guard.
+-- Both are shown to everyone nearby ("Parried" / "Blocked", with the side).
+function CombatService:Defend(params, outcome: string): number
+	local target, attacker = params.Target, params.Attacker
+	local position = target:GetPivot().Position
+	local targetPlayer = Players:GetPlayerFromCharacter(target)
+	local attackerPlayer = Players:GetPlayerFromCharacter(attacker)
+	if outcome == "Parry" then
+		local untilAt = os.clock() + FightRules.ParryStagger
+		attacker:SetAttribute("ParriedUntil", untilAt)
+		attacker:SetAttribute("Parried", true)
+		task.delay(FightRules.ParryStagger, function()
+			if attacker.Parent and (attacker:GetAttribute("ParriedUntil") or 0) <= os.clock() + 0.01 then
+				attacker:SetAttribute("Parried", nil)
+			end
+		end)
+		if attackerPlayer then
+			self.Services.HandlerService:DrainStamina(attackerPlayer, FightRules.ParryStaminaDrain)
+		end
+		Net.FireNearby(self.Feedback, position, Config.Performance.EffectRadius, "Parried", { Target = target, Attacker = attacker, Side = params.Side, Position = position })
+		for _, listener in parryListeners do
+			task.spawn(listener, target, attacker, params)
+		end
+		return 0
+	end
+	-- BLOCK
+	local broke = false
+	if targetPlayer then
+		broke = self.Services.HandlerService:BlockedBlow(targetPlayer, params.Heavy == true)
+	elseif target:GetAttribute("FighterStamina") then
+		local stamina = math.max(0, target:GetAttribute("FighterStamina") - FightRules.BlockStamina * (params.Heavy and 2 or 1))
+		target:SetAttribute("FighterStamina", stamina)
+		broke = stamina <= 0
+	end
+	Net.FireNearby(self.Feedback, position, Config.Performance.EffectRadius, broke and "GuardBreak" or "Blocked", { Target = target, Attacker = attacker, Side = params.Side, Position = position })
+	if broke and not targetPlayer then
+		target:SetAttribute("GuardBroken", true)
+		task.delay(Config.Handler.Guard.BreakStunTime, function()
+			if target.Parent then
+				target:SetAttribute("GuardBroken", nil)
+			end
+		end)
+	end
+	return self:ApplyDamage({
+		Attacker = attacker,
+		Target = target,
+		BaseDamage = params.BaseDamage * FightRules.BlockChip,
+		AttackPower = params.AttackPower,
+		Knockback = 0,
+		Stagger = 0,
+		NoKnockdown = true,
+		NoStatus = true,
+		Blocked = true,
+		Side = params.Side,
+		Source = params.Source,
+	})
+end
+
+-- fn(defender: Model, attacker: Model, params): a parry happened
+function CombatService:OnParry(fn)
+	table.insert(parryListeners, fn)
+end
+
 function CombatService:ApplyDamage(params): number
 	local target = params.Target
 	local attacker = params.Attacker
@@ -227,6 +298,15 @@ function CombatService:ApplyDamage(params): number
 		attacker = nil
 	elseif not self:CanDamage(attacker, target) then
 		return 0
+	end
+
+	-- The duel layer (FightRules): a blow with a Side can be BLOCKED or PARRIED by a
+	-- fighter in stance guarding that side.
+	if params.Side and attacker and not params.Blocked then
+		local outcome = FightRules.Resolve(target, params.Side, os.clock())
+		if outcome ~= "Hit" then
+			return self:Defend(params, outcome)
+		end
 	end
 
 	local humanoid = target:FindFirstChildOfClass("Humanoid")
@@ -282,6 +362,13 @@ function CombatService:ApplyDamage(params): number
 	end
 	amount = math.max(1, math.floor(amount + 0.5))
 
+	-- NonLethal (sparring): it can take you down to 1, never out
+	if params.NonLethal then
+		amount = math.min(amount, math.max(0, math.floor(humanoid.Health) - 1))
+		if amount <= 0 then
+			return 0
+		end
+	end
 	-- Duels: a Handler is KNOCKED OUT (never killed). DuelService decides what happens.
 	local duelKO = false
 	if targetPlayer and self.Services.DuelService:IsInMatch(targetPlayer) and amount >= humanoid.Health then
@@ -385,6 +472,11 @@ function CombatService:ApplyDamage(params): number
 		Dir = params.HitDirection or (attacker and Util.FlatUnit(position - attacker:GetPivot().Position)) or nil,
 		Heavy = params.Heavy == true,
 		KnockedDown = knockedDown,
+		-- the duel layer: where it landed on them, how hard (the hit reaction), or that it
+		-- was only chip damage through a block (the block reaction plays instead)
+		Side = params.Side,
+		Strength = FightRules.Strength(params),
+		Blocked = params.Blocked == true,
 	})
 
 	for _, listener in damageListeners do

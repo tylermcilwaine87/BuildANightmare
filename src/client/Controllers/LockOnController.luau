@@ -188,8 +188,14 @@ local function update(dt: number)
 	local height = targetRoot.Size.Y / 2
 	-- a big possessed Nightmare pushes the camera further back and up
 	local bulk = math.max(0, math.max(myRoot.Size.X, myRoot.Size.Y, myRoot.Size.Z) - 2)
-	local focus = myRoot.Position:Lerp(targetRoot.Position + Vector3.new(0, height * 0.5, 0), 0.35) + Vector3.new(0, 2.5 + bulk * 0.3, 0)
-	local goal = CFrame.lookAt(myRoot.Position - toTarget * (CFG.Distance + bulk * 1.5) + Vector3.new(0, CFG.Height + bulk * 0.6, 0), focus)
+	-- up close (a duel) the camera comes in over your right shoulder
+	local gap = Util.FlatDistance(targetRoot.Position, myRoot.Position)
+	local duel = bulk == 0 and ease((CFG.DuelFrom - gap) / (CFG.DuelFrom - CFG.DuelAt)) or 0
+	local distance = CFG.Distance + (CFG.DuelDistance - CFG.Distance) * duel + bulk * 1.5
+	local up = CFG.Height + (CFG.DuelHeight - CFG.Height) * duel + bulk * 0.6
+	local right = toTarget:Cross(Vector3.yAxis) * CFG.DuelSide * duel
+	local focus = myRoot.Position:Lerp(targetRoot.Position + Vector3.new(0, height * 0.5, 0), 0.35 + 0.35 * duel) + Vector3.new(0, 2.5 - 2 * duel + bulk * 0.3, 0)
+	local goal = CFrame.lookAt(myRoot.Position - toTarget * distance + right + Vector3.new(0, up, 0), focus)
 	-- the glide starts gentle and settles into a tight follow over LockInTime
 	local settle = ease((os.clock() - lockedAt) / CFG.LockInTime)
 	local rate = 3 + 9 * settle

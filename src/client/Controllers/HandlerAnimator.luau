@@ -27,6 +27,8 @@ local Net = require(Shared:WaitForChild("Net"))
 local AnimationDefinitions = require(Shared:WaitForChild("AnimationDefinitions"))
 local Melee = require(Shared:WaitForChild("MeleeDefinitions"))
 local Config = require(Shared:WaitForChild("Config"))
+local FightRules = require(Shared:WaitForChild("FightRules"))
+local CollectionService = game:GetService("CollectionService")
 local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 local studioKeyframes -- (defined with the API below)
 local POSES = require(script.Parent:WaitForChild("HandlerPoses"))
@@ -237,6 +239,109 @@ local function applyHold(rig, dt: number)
 	end
 end
 
+-- THE FIGHTING STANCE (FightRules, attribute InStance): the guard for the side you're
+-- guarding (GuardHigh / GuardLeft / GuardRight) held over the whole body, and when you
+-- move, the footwork step for the way you're going relative to where you face (forward /
+-- back / left / right, half a second a step at stance speed) drives the legs and the bob.
+local STEP_JOINTS = { LeftHip = true, RightHip = true, LeftKnee = true, RightKnee = true }
+local STANCE_RETURN = 0.15 -- seconds to settle back into the guard after a move
+-- Remembers the body as it is right now, for the guard to blend back in from (a strike's
+-- last frame, a reaction, an asset track) instead of snapping.
+local function snapshotStance(rig)
+	local from = {}
+	for joint, motor in rig.motors do
+		if motor.Parent then
+			from[joint] = motor.Transform
+		end
+	end
+	rig.stanceFrom, rig.stanceBlend = from, 0
+end
+-- The same, from a code move's own last frame (the joints themselves already hold this
+-- frame's Roblox animation by the time we run, so they can't be read back).
+local function snapshotStanceFrom(rig, def)
+	local from = {}
+	local t = def.Duration or 0
+	for _, joint in JOINTS do
+		local x, y, z = angleAt(def, joint, t)
+		local cframe = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+		if joint == "Root" then
+			local px, py, pz = angleAt(def, "RootPos", t)
+			cframe = CFrame.new(px, py, pz) * cframe
+		end
+		from[joint] = cframe
+	end
+	rig.stanceFrom, rig.stanceBlend = from, 0
+end
+local STEP_DEFS = { Forward = "FightStepForward", Back = "FightStepBack", Left = "FightStepLeft", Right = "FightStepRight" }
+local function applyStance(rig, dt: number, scale: number?)
+	local model = rig.model
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	local side = model:GetAttribute("GuardDir")
+	local guard = POSES["Guard" .. ((side == "Left" or side == "Right") and side or "High")]
+	local key = guard.Keys[1]
+	rig.stanceWeight = math.clamp((rig.stanceWeight or 0) + dt / 0.12, 0, 1)
+	-- which way it's moving, relative to its facing
+	local v = root.AssemblyLinearVelocity
+	local flat = Vector3.new(v.X, 0, v.Z)
+	local speed = flat.Magnitude
+	local moving = speed > 2
+	if moving then
+		local l = root.CFrame:VectorToObjectSpace(flat)
+		local dirName
+		if math.abs(l.Z) >= math.abs(l.X) then
+			dirName = l.Z < 0 and "Forward" or "Back"
+		else
+			dirName = l.X < 0 and "Left" or "Right"
+		end
+		if rig.stepDef ~= POSES[STEP_DEFS[dirName]] then
+			rig.stepDef = POSES[STEP_DEFS[dirName]]
+		end
+		rig.stepPhase = (rig.stepPhase or 0) + dt * math.clamp(speed / 11, 0.6, 1.6)
+	end
+	rig.stepWeight = math.clamp((rig.stepWeight or 0) + (moving and dt or -dt) / 0.12, 0, 1)
+	local stepDef = rig.stepDef
+	local stepT = stepDef and (rig.stepPhase or 0) % stepDef.Duration or 0
+	local sw = smooth(rig.stepWeight)
+	local w = smooth(rig.stanceWeight) * (scale or 1) -- (scale: under a fading asset)
+	local from = rig.stanceFrom
+	local fromW = 1
+	if from then
+		rig.stanceBlend = math.min((rig.stanceBlend or 0) + dt / STANCE_RETURN, 1)
+		fromW = smooth(rig.stanceBlend)
+		if rig.stanceBlend >= 1 then
+			rig.stanceFrom = nil
+		end
+	end
+	for _, joint in JOINTS do
+		local motor = rig.motors[joint]
+		if motor and motor.Parent then
+			local base = key[joint] or { 0, 0, 0 }
+			local x, y, z = base[1], base[2], base[3]
+			if stepDef and sw > 0 and STEP_JOINTS[joint] then
+				local sx, sy, sz = angleAt(stepDef, joint, stepT)
+				x, y, z = x + (sx - x) * sw, y + (sy - y) * sw, z + (sz - z) * sw
+			end
+			local target = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+			if joint == "Root" then
+				local p = key.RootPos or { 0, 0, 0 }
+				local px, py, pz = p[1], p[2], p[3]
+				if stepDef and sw > 0 then
+					local qx, qy, qz = angleAt(stepDef, "RootPos", stepT)
+					px, py, pz = px + (qx - px) * sw, py + (qy - py) * sw, pz + (qz - pz) * sw
+				end
+				target = CFrame.new(px, py, pz) * target
+			end
+			if from and from[joint] then
+				target = from[joint]:Lerp(target, fromW)
+			end
+			motor.Transform = motor.Transform:Lerp(target, w)
+		end
+	end
+end
+
 local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 	local pose = rig.pose
 	if not rig.isLocal and cameraPosition then
@@ -245,14 +350,39 @@ local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 			return
 		end
 	end
+	local squared = rig.model:GetAttribute("InStance") and (rig.model:GetAttribute("Weapon") or "Fists") == "Fists" and not rig.model:GetAttribute("Ragdolled")
 	if not pose and rig.isLocal then
 		-- an animation asset (uploaded, or previewed in Studio) is playing: it owns the body
+		local trackWeight = 0
 		for _, track in tracks do
-			if track.IsPlaying and track.WeightCurrent > 0.05 then
-				rig.holdWeight, rig.runWeight, runWeight = 0, 0, 0
-				return
+			if track.IsPlaying then
+				trackWeight = math.max(trackWeight, track.WeightCurrent)
 			end
 		end
+		if trackWeight > 0.05 then
+			rig.holdWeight, rig.runWeight, runWeight = 0, 0, 0
+			if squared then
+				-- in stance the GUARD is what's under the asset while it fades in and out
+				-- (not Roblox's idle, which would drop the hands for a frame), and the
+				-- guard blends back in from the asset's last full frame
+				if trackWeight >= 0.99 then
+					snapshotStance(rig)
+				end
+				applyStance(rig, dt, 1 - trackWeight)
+			end
+			return
+		end
+	end
+	if not pose and squared then
+		rig.runWeight, rig.holdWeight = 0, 0
+		if rig.isLocal then
+			runWeight = 0
+		end
+		applyStance(rig, dt)
+		return
+	end
+	if not pose and not rig.model:GetAttribute("InStance") then
+		rig.stanceWeight, rig.stanceFrom = 0, nil
 	end
 	if not pose then
 		local weaponOut = (rig.model:GetAttribute("Weapon") or "Fists") ~= "Fists"
@@ -294,8 +424,11 @@ local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 			pose.LastT = t
 		end
 	end
-	if t > def.Duration then
+	if t > (def.Duration or 0) then
 		rig.pose = nil
+		if rig.model:GetAttribute("InStance") then
+			snapshotStanceFrom(rig, def) -- the guard comes back from this move's last frame
+		end
 		return
 	end
 	-- the first moments of a move blend from wherever the body was (the last strike, a
@@ -342,8 +475,9 @@ local function applyAll()
 			def = lab.Def
 		end
 		if rig and def and type(at) == "number" then
-			local time = at >= 0 and math.clamp(at, 0, def.Duration) or (now % (def.Duration + 0.5))
-			rig.pose = { Def = def, Start = now - math.min(time, def.Duration), Scrub = true }
+			local duration = def.Duration or 0 -- (held stances have no length)
+			local time = at >= 0 and math.clamp(at, 0, duration) or (now % (duration + 0.5))
+			rig.pose = { Def = def, Start = now - math.min(time, duration), Scrub = true }
 		end
 	end
 	for model, rig in rigs do
@@ -744,6 +878,50 @@ function HandlerAnimator:Start()
 		watchPlayer(player)
 	end
 	Players.PlayerAdded:Connect(watchPlayer)
+
+	-- sparring fighters (FighterService) fight with the same poses as players
+	for _, model in CollectionService:GetTagged("Fighter") do
+		task.spawn(trackCharacter, model, false)
+	end
+	CollectionService:GetInstanceAddedSignal("Fighter"):Connect(function(model)
+		trackCharacter(model, false)
+	end)
+
+	-- THE DUEL LAYER's reactions, on every fighter you can see (FightRules): a clean hit
+	-- by side and strength, a block, a guard break, a parry, and what happens to the
+	-- attacker (a parried arm knocked off line, a fist bouncing off a guard).
+	Net.Get("CombatFeedback").OnClientEvent:Connect(function(kind, data)
+		if type(data) ~= "table" then
+			return
+		end
+		local function react(model: Model?, slot: string)
+			if model and rigs[model] and not model:GetAttribute("Ragdolled") then
+				playPose(model, slot)
+				rigs[model].pose.Reaction = true
+			end
+		end
+		local side = FightRules.IsSide(data.Side) and data.Side or nil
+		if kind == "Damage" then
+			local rig = data.Target and rigs[data.Target]
+			if not side or data.Blocked or data.KnockedDown or not rig then
+				return
+			end
+			-- a light hit doesn't cancel a strike that's already coming (the server lets it land)
+			if data.Strength == "Light" and rig.pose and not rig.pose.Reaction then
+				return
+			end
+			react(data.Target, data.Strength == "Heavy" and "Stagger" or ("Hit" .. side .. (data.Strength == "Light" and "Light" or "")))
+		elseif kind == "Blocked" and side then
+			react(data.Target, "Block" .. side)
+			react(data.Attacker, "BlockedRecoil")
+		elseif kind == "GuardBreak" and side then
+			react(data.Target, "Stagger")
+			react(data.Attacker, "BlockedRecoil")
+		elseif kind == "Parried" and side then
+			react(data.Target, "Parry" .. side)
+			react(data.Attacker, "Parried")
+		end
+	end)
 
 	-- After Roblox's animations, before physics: our poses win for their duration.
 	RunService.Stepped:Connect(applyAll)

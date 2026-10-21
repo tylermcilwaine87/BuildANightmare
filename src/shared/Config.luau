@@ -9,7 +9,7 @@
 
 local Config = {}
 
-Config.Version = "0.11.0 (the Nightmare Gym)"
+Config.Version = "0.12.0 (the duel stance)"
 
 Config.Dev = {
 	-- DEV ONLY: in Studio, every player gets 2 of every part so the whole builder can be
@@ -243,6 +243,13 @@ Config.LockOn = {
 	Height = 6,
 	LockInTime = 0.6, -- seconds for the camera to glide onto the target
 	ReleaseTime = 0.45, -- seconds to glide back to the normal camera after unlocking
+	-- Close in (a duel) and the camera moves in over your right shoulder, so your own body
+	-- never hides the fighter in front of you. Blends in from DuelFrom studs, full at DuelAt.
+	DuelFrom = 15,
+	DuelAt = 8,
+	DuelDistance = 8,
+	DuelHeight = 6,
+	DuelSide = 7, -- studs to your right (tuned in the sparring ring: less and you hide them)
 }
 
 Config.Nightmare = {

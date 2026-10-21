@@ -118,8 +118,20 @@ local SOURCES = {
 function Exporter.Build(name: string, def, rig, rootJoint: string?, rootPosKey: string?, priority)
 	local sequence = Instance.new("KeyframeSequence")
 	sequence.Name = name
-	sequence.Loop = def.Loop == true
+	sequence.Loop = def.Loop == true or def.Hold == true -- (a held stance is one looping key)
 	sequence.Priority = priority or Enum.AnimationPriority.Action2
+	-- Partial poses (footwork loops: legs only, laid under whatever the arms are doing)
+	-- animate just the joints they key; everything else is left to other animations
+	local keyed = nil
+	if def.Partial then
+		keyed = {}
+		for _, key in def.Keys do
+			for joint in key do
+				keyed[joint] = true
+			end
+		end
+		keyed[rootJoint or ""] = keyed[rootJoint or ""] or (rootPosKey and keyed[rootPosKey]) or nil
+	end
 	for _, key in def.Keys do
 		local keyframe = Instance.new("Keyframe")
 		keyframe.Time = key.T
@@ -137,6 +149,13 @@ function Exporter.Build(name: string, def, rig, rootJoint: string?, rootPosKey: 
 			return p
 		end
 		for joint, link in rig do
+			if keyed and not keyed[joint] then
+				-- not animated: a weight-0 placeholder that only keeps the pose tree whole
+				local child = pose(link[1])
+				child.Parent = pose(link[2])
+				child:SetAttribute("Placeholder", true)
+				continue
+			end
 			local angles = key[joint] or { 0, 0, 0 }
 			local cframe = CFrame.Angles(math.rad(angles[1]), math.rad(angles[2]), math.rad(angles[3]))
 			if joint == rootJoint and rootPosKey and key[rootPosKey] then
@@ -152,6 +171,10 @@ function Exporter.Build(name: string, def, rig, rootJoint: string?, rootPosKey: 
 			if not p.Parent then
 				p.Weight = 0 -- the root part itself isn't animated
 				p.Parent = keyframe
+			end
+			if p:GetAttribute("Placeholder") then
+				p.Weight = 0
+				p:SetAttribute("Placeholder", nil)
 			end
 		end
 		for _, marker in def.Markers or {} do

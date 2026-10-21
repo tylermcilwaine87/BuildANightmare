@@ -412,7 +412,9 @@ local function chooseTarget(brain, handlerRoot: BasePart, now: number): Model?
 		table.insert(candidates, model)
 	end
 	for _, enemy in candidates do
-		if isValidEnemy(brain, enemy, handlerRoot) then
+		-- (NoNightmareTarget: a one-on-one for the Handler, e.g. the sparring fighter;
+		-- still fair game if you send your Nightmare at it yourself)
+		if isValidEnemy(brain, enemy, handlerRoot) and not (enemy:GetAttribute("NoNightmareTarget") and brain.commandTarget ~= enemy) then
 			local limit = CollectionService:HasTag(enemy, "Boss") and NM.BossAggroRadius or radius
 			if table.find(opponents, enemy) then
 				limit = math.max(radius, 60) -- duel arenas are small: always engage the opponent
@@ -588,7 +590,15 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 end
 
 function NightmareAIService:Follow(brain, handlerRoot: BasePart, now: number)
-	local desired = (handlerRoot.CFrame * CFrame.new(NM.FollowOffset)).Position
+	local offset = NM.FollowOffset
+	if handlerRoot.Parent and handlerRoot.Parent:GetAttribute("InStance") then
+		-- squared up in a duel: the camera sits over the Handler's right shoulder, so keep
+		-- out of its way on the left
+		offset = Vector3.new(-offset.X, offset.Y, offset.Z)
+	end
+	local desired = (handlerRoot.CFrame * CFrame.new(offset)).Position
+	-- its Handler is sparring: wait outside the ropes (FighterService)
+	desired = self.Services.FighterService:OutsideRing(desired)
 	local distance = Util.FlatDistance(brain.root.Position, desired)
 
 	if distance > NM.FollowStopDistance then

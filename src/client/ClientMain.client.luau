@@ -35,6 +35,7 @@ local LOAD_ORDER = {
 	"CombatController",
 	"MeleeController",
 	"LockOnController",
+	"StanceController",
 	"InputController",
 }
 

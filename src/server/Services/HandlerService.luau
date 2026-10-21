@@ -23,7 +23,9 @@ local Net = require(Shared:WaitForChild("Net"))
 
 local HandlerService = {}
 
+local FightRules = require(Shared:WaitForChild("FightRules"))
 local H = Config.Handler
+local STANCE_WALK_SPEED = 11 -- footwork in the fighting stance (locked on)
 local states: { [Player]: any } = {}
 
 local function newState()
@@ -109,6 +111,8 @@ function HandlerService:Tick(player: Player, state, now: number, dt: number)
 		walkSpeed = H.Guard.BreakWalkSpeed
 	elseif state.GuardRequested then
 		walkSpeed = H.Guard.WalkSpeed
+	elseif character:GetAttribute("InStance") then
+		walkSpeed = STANCE_WALK_SPEED -- fighting footwork: measured steps, not running
 	end
 	local cap = self.Services.MeleeService:WalkSpeedCap(player) -- the Magnet held: walk, don't run
 	if cap then
@@ -127,6 +131,66 @@ end
 function HandlerService:Spend(state, amount: number)
 	state.Stamina = math.max(0, state.Stamina - amount)
 	state.LastSpend = os.clock()
+end
+
+------------------------------------------------------------------------------------------
+-- Fighting stance (FightRules): locked on = in stance, always guarding one side
+------------------------------------------------------------------------------------------
+function HandlerService:SetStance(player: Player, on: boolean)
+	local character = player.Character
+	if not character then
+		return
+	end
+	character:SetAttribute("InStance", on or nil)
+	if on and not FightRules.IsSide(character:GetAttribute("GuardDir")) then
+		character:SetAttribute("GuardDir", "High")
+		character:SetAttribute("GuardDirAt", 0) -- (a fresh stance is a block, not a parry)
+	end
+end
+
+-- The guard moved to `side`. The time is the server's own, so a parry is judged by when
+-- the change ARRIVED (no trusting a client clock).
+function HandlerService:SetGuardDir(player: Player, side)
+	local character = player.Character
+	if not character or not FightRules.IsSide(side) or not character:GetAttribute("InStance") then
+		return
+	end
+	local now = os.clock()
+	if character:GetAttribute("GuardDir") ~= side then
+		character:SetAttribute("GuardDir", side)
+		character:SetAttribute("GuardDirAt", now)
+		return
+	end
+	-- the same side again: RE-COMMIT the guard (how you parry a blow on the side you're
+	-- already covering). Not spammable: once per RecommitCooldown, and it costs stamina.
+	local state = states[player]
+	if state and now - (state.LastRecommit or 0) >= FightRules.RecommitCooldown and state.Stamina >= FightRules.RecommitStamina then
+		state.LastRecommit = now
+		self:Spend(state, FightRules.RecommitStamina)
+		character:SetAttribute("GuardDirAt", now)
+	end
+end
+
+-- A blow blocked in stance costs stamina; at zero the guard BREAKS. Returns true if it broke.
+function HandlerService:BlockedBlow(player: Player, heavy: boolean): boolean
+	local state = states[player]
+	if not state then
+		return false
+	end
+	self:Spend(state, FightRules.BlockStamina * (heavy and 2 or 1))
+	if state.Stamina <= 0 then
+		state.GuardBrokenUntil = os.clock() + H.Guard.BreakStunTime
+		return true
+	end
+	return false
+end
+
+-- Parried: stamina knocked out of you.
+function HandlerService:DrainStamina(player: Player, amount: number)
+	local state = states[player]
+	if state then
+		self:Spend(state, amount)
+	end
 end
 
 function HandlerService:IsGuarding(player: Player): boolean

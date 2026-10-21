@@ -45,6 +45,8 @@ AudioDefinitions.Sounds = {
 	-- a boss's full-weight slam / landing: deep ground boom + rubble
 	BossSlam = { Id = "", Volume = 1, Pitch = { 0.9, 1.0 }, Spatial = true, Cooldown = 0.2 },
 	Block = { Id = "", Volume = 0.6, Pitch = { 0.95, 1.05 }, Spatial = true, Cooldown = 0.1 },
+	-- a timed parry: a sharp crack as the strike is knocked off line
+	Parry = { Id = "", Volume = 0.85, Pitch = { 0.95, 1.05 }, Spatial = true, Cooldown = 0.1 },
 	GuardBreak = { Id = "", Volume = 0.8, Spatial = true },
 	Stagger = { Id = "", Volume = 0.8, Spatial = true },
 	Defeated = { Id = "", Volume = 0.8, Spatial = true },

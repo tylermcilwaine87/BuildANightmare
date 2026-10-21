@@ -1,4 +1,18 @@
-# BUILD A NIGHTMARE — v0.11.0 (the Nightmare Gym + a real Bite)
+# BUILD A NIGHTMARE — v0.12.0 (the duel stance)
+
+## Combat rebuild, Stage 2: the duel stance (v0.12.0)
+
+The first piece of the UFC × For Honor rebuild: one complete punch combination with
+footwork, directional defence and physical reactions. Full details, measurements and
+honest limits are in [docs/COMBAT_AUDIT.md](docs/COMBAT_AUDIT.md) ("Stage 2 result").
+
+- **The Sparring Ring** (beside the Training Arena): a sparring fighter that guards, reads your punches, parries and throws its own combos (non-lethal; it calls the round when you're down to 1 HP).
+- **Stance:** lock on (**Z**) with your fists out. Flick the mouse **left / right / up** (right stick, or the three buttons on phones) to guard that side. Your punches come from your guard: up = jab → cross, left = lead hook, right = rear hook.
+- **Defence:** a blow on the side you're guarding is **blocked** (chip damage and stamina; an empty tank breaks your guard). Move your guard there just before it lands and you **parry** it, knocking the attacker off balance. The red side on their sigil shows where their attack is coming from.
+- **Bodies react:** blocks, parries, a parried arm knocked off line, a fist bouncing off a guard, hits by side and strength, a heavy stagger. After a strike the guard settles back without snapping.
+- **Footwork:** forward / back / sideways fighting steps under the guard.
+- **Duel camera:** over your right shoulder when you're close, so your own body never hides your opponent. Your Nightmare keeps to your left and outside the ropes.
+- **Assets:** `Handler.rbxm` now holds 30 animations (23 new). They're hand-keyed and not published.
 
 ## The Nightmare Gym: AFK training (v0.11.0)
 

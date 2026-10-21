@@ -130,6 +130,11 @@ function CombatController:TakeCounter(): boolean
 	return true
 end
 
+-- Is a step-back counter available right now? (Without using it up.)
+function CombatController:PeekCounter(): boolean
+	return not counterUsed and os.clock() - lastStepBack <= Config.Handler.StepBack.CounterWindow
+end
+
 -- Attack button (LMB / R2 / ATTACK): punches, or the equipped weapon (MeleeController).
 function CombatController:BasicAttack()
 	if guarding then

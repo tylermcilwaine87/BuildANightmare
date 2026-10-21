@@ -40,6 +40,7 @@ local LOAD_ORDER = {
 	"NightmareBuildService",
 	"TutorialService",
 	"TrainingService",
+	"FighterService",
 	"BossRewardService",
 	"BossService",
 	"DuelService",

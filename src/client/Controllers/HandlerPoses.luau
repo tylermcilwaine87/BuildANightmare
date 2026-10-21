@@ -563,4 +563,242 @@ local SIDE_DIVE = {
 POSES.DodgeLeft = { Duration = 0.8, Keys = keys(SIDE_DIVE), Markers = { { 0.07, "StepR" }, { 0.52, "Land" } } }
 POSES.DodgeRight = { Duration = 0.8, Keys = keys(SIDE_DIVE, true), Markers = { { 0.07, "StepL" }, { 0.52, "Land" } } }
 
+------------------------------------------------------------------------------------------
+-- THE DUEL LAYER (FightRules): fighting stance, directional guards, footwork, blocks,
+-- parries and hit reactions. Measured in Studio with the pose lab (glove positions are
+-- relative to the head): a SIDE guard puts that glove beside the temple at eye level
+-- (0.84 out, 0.11 up, 0.33 in front); the HIGH guard puts both gloves in front of the face
+-- (0.35 apart from centre, 0.42 in front). Shoulder +Y turns the right arm in (-Y the
+-- left), Hip +Z swings a leg out to its side... for the right leg (measured), so the left
+-- leg steps out with -Z.
+------------------------------------------------------------------------------------------
+local GUARD_ARMS = {
+	High = { LeftShoulder = { 100, -50, 20 }, LeftElbow = { 90, 0, 0 }, RightShoulder = { 100, 50, -20 }, RightElbow = { 90, 0, 0 }, Neck = { -14, 0, 0 } },
+	Left = { LeftShoulder = { 100, -30, 0 }, LeftElbow = { 90, 0, 0 }, RightShoulder = { 58, 66, 0 }, RightElbow = { 138, 0, 0 }, Root = { -6, -6, 4 }, Waist = { -2, 8, 0 }, Neck = { -12, -6, 0 } },
+	Right = { RightShoulder = { 100, 30, 0 }, RightElbow = { 90, 0, 0 }, LeftShoulder = { 64, -62, 0 }, LeftElbow = { 132, 0, 0 }, Root = { -6, -18, -4 }, Waist = { -2, 2, 0 }, Neck = { -12, 6, 0 } },
+}
+-- the whole stance for a side (legs, hips, a little sit) with that side's guard arms
+local function guardKey(side: string, extra)
+	local key = table.clone(STANCE)
+	key.RootPos = { 0, -0.2, 0 }
+	for joint, v in GUARD_ARMS[side] do
+		key[joint] = v
+	end
+	for joint, v in extra or {} do
+		key[joint] = v
+	end
+	return key
+end
+local function guardAt(t: number, side: string, extra)
+	local key = guardKey(side, extra)
+	key.T = t
+	return key
+end
+for _, side in { "High", "Left", "Right" } do
+	-- the held stance (HandlerAnimator blends it in whenever you're in stance and not striking)
+	POSES["Guard" .. side] = { Hold = true, Stance = true, Keys = { guardAt(0, side) } }
+end
+
+-- REAR HOOK: the lead hook's mirror for the right hand, with the REAR foot pivoting (the
+-- stance isn't symmetric: the left foot stays forward): the hips and shoulders turn hard
+-- left behind it, the arm locked at 90 degrees.
+POSES.RearHook = {
+	Duration = 0.48,
+	Markers = { { 0.08, "Whoosh" }, { 0.18, "Hit" }, { 0.18, "StepR" } },
+	Keys = {
+		stance(0),
+		stance(0.08, { RootPos = { -0.15, -0.22, 0 }, Root = { -7, -32, 0 }, Waist = { -2, -26, 0 }, RightShoulder = { 84, 0, -38 }, RightElbow = { 92, 0, 0 } }),
+		stance(0.18, { RootPos = { 0.2, -0.24, -0.6 }, Root = { -11, 34, 0 }, Waist = { -6, 40, 0 }, Neck = { -18, 6, 0 }, RightShoulder = { 94, 0, 48 }, RightElbow = { 90, 0, 0 }, RightHip = { -16, 34, 0 }, RightKnee = { -22, 0, 0 }, LeftHip = { 24, 22, 0 }, LeftKnee = { -26, 0, 0 } }),
+		stance(0.23, { RootPos = { 0.2, -0.24, -0.55 }, Root = { -10, 32, 0 }, Waist = { -6, 38, 0 }, Neck = { -18, 6, 0 }, RightShoulder = { 92, 0, 46 }, RightElbow = { 92, 0, 0 }, RightHip = { -16, 32, 0 }, LeftHip = { 24, 20, 0 } }),
+		stance(0.34, { RootPos = { 0, -0.18, -0.2 }, Root = { -8, 4, 0 }, Waist = { -4, 10, 0 }, RightShoulder = { 72, 0, 16 }, RightElbow = { 104, 0, 0 } }),
+		stance(0.48),
+	},
+}
+
+-- FOOTWORK (looping, half a second a step, orthodox): never cross the feet. Forward = the
+-- lead foot reaches, the rear foot follows; back = the rear foot first, the lead follows;
+-- sideways = the foot on that side steps out, the other is drawn in. The body stays low
+-- and the guard stays up (HandlerAnimator lays the guard arms over these legs).
+local function step(t: number, legs, sit: number?, sway: number?)
+	local key = { T = t, RootPos = { sway or 0, sit or -0.2, 0 }, Root = { -6, -12, 0 } }
+	for joint, v in legs do
+		key[joint] = v
+	end
+	return key
+end
+local STANCE_LEGS = { LeftHip = { 22, 0, 0 }, LeftKnee = { -22, 0, 0 }, RightHip = { -16, 0, 0 }, RightKnee = { -30, 0, 0 } }
+POSES.FightStepForward = {
+	Duration = 0.5,
+	Loop = true,
+	Partial = true, -- legs only (the asset leaves the arms to the guard)
+	Keys = {
+		step(0, STANCE_LEGS),
+		step(0.12, { LeftHip = { 36, 0, 0 }, LeftKnee = { -32, 0, 0 }, RightHip = { -22, 0, 0 }, RightKnee = { -22, 0, 0 } }, -0.14),
+		step(0.25, { LeftHip = { 28, 0, 0 }, LeftKnee = { -18, 0, 0 }, RightHip = { -26, 0, 0 }, RightKnee = { -20, 0, 0 } }, -0.24),
+		step(0.37, { LeftHip = { 20, 0, 0 }, LeftKnee = { -26, 0, 0 }, RightHip = { -4, 0, 0 }, RightKnee = { -48, 0, 0 } }, -0.14),
+		step(0.5, STANCE_LEGS),
+	},
+}
+POSES.FightStepBack = {
+	Duration = 0.5,
+	Loop = true,
+	Partial = true, -- legs only (the asset leaves the arms to the guard)
+	Keys = {
+		step(0, STANCE_LEGS),
+		step(0.12, { LeftHip = { 28, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightHip = { -32, 0, 0 }, RightKnee = { -38, 0, 0 } }, -0.14),
+		step(0.25, { LeftHip = { 32, 0, 0 }, LeftKnee = { -22, 0, 0 }, RightHip = { -30, 0, 0 }, RightKnee = { -22, 0, 0 } }, -0.24),
+		step(0.37, { LeftHip = { 10, 0, 0 }, LeftKnee = { -42, 0, 0 }, RightHip = { -20, 0, 0 }, RightKnee = { -28, 0, 0 } }, -0.14),
+		step(0.5, STANCE_LEGS),
+	},
+}
+POSES.FightStepLeft = {
+	Duration = 0.5,
+	Loop = true,
+	Partial = true, -- legs only (the asset leaves the arms to the guard)
+	Keys = {
+		step(0, STANCE_LEGS),
+		step(0.12, { LeftHip = { 24, 0, -16 }, LeftKnee = { -32, 0, 0 }, RightHip = { -16, 0, -6 }, RightKnee = { -26, 0, 0 } }, -0.14, -0.08),
+		step(0.25, { LeftHip = { 22, 0, -12 }, LeftKnee = { -20, 0, 0 }, RightHip = { -16, 0, -10 }, RightKnee = { -24, 0, 0 } }, -0.24, -0.15),
+		step(0.37, { LeftHip = { 22, 0, -4 }, LeftKnee = { -24, 0, 0 }, RightHip = { -16, 0, 6 }, RightKnee = { -46, 0, 0 } }, -0.14, -0.06),
+		step(0.5, STANCE_LEGS),
+	},
+}
+POSES.FightStepRight = {
+	Duration = 0.5,
+	Loop = true,
+	Partial = true, -- legs only (the asset leaves the arms to the guard)
+	Keys = {
+		step(0, STANCE_LEGS),
+		step(0.12, { RightHip = { -16, 0, 16 }, RightKnee = { -40, 0, 0 }, LeftHip = { 22, 0, 6 }, LeftKnee = { -20, 0, 0 } }, -0.14, 0.08),
+		step(0.25, { RightHip = { -16, 0, 12 }, RightKnee = { -26, 0, 0 }, LeftHip = { 22, 0, 10 }, LeftKnee = { -20, 0, 0 } }, -0.24, 0.15),
+		step(0.37, { RightHip = { -16, 0, 4 }, RightKnee = { -28, 0, 0 }, LeftHip = { 22, 0, -6 }, LeftKnee = { -38, 0, 0 } }, -0.14, 0.06),
+		step(0.5, STANCE_LEGS),
+	},
+}
+
+-- BLOCKS: the blow drives the guard back into you (head tucked behind the gloves, weight
+-- rocked back, a side blow shoves you a little the way it travels).
+local function blockFor(side: string, push)
+	return {
+		Duration = 0.3,
+		Keys = {
+			guardAt(0, side),
+			guardAt(0.06, side, { RootPos = { push[1], -0.26, push[2] }, Root = { 4 + (GUARD_ARMS[side].Root or STANCE.Root)[1], (GUARD_ARMS[side].Root or STANCE.Root)[2], (GUARD_ARMS[side].Root or STANCE.Root)[3] + push[3] }, Neck = { -20, 0, 0 } }),
+			guardAt(0.3, side),
+		},
+	}
+end
+POSES.BlockHigh = blockFor("High", { 0, 0.3, 0 })
+POSES.BlockLeft = blockFor("Left", { 0.22, 0.15, -6 }) -- (hit on your left: pushed right)
+POSES.BlockRight = blockFor("Right", { -0.22, 0.15, 6 })
+
+-- PARRIES: met at the last moment, the guard SNAPS out and knocks the striking arm off line.
+POSES.ParryHigh = {
+	Duration = 0.4,
+	Markers = { { 0.06, "Hit" } },
+	Keys = {
+		guardAt(0, "High"),
+		guardAt(0.06, "High", { LeftShoulder = { 140, -30, 24 }, LeftElbow = { 60, 0, 0 }, RightShoulder = { 132, 34, -18 }, RightElbow = { 70, 0, 0 }, RootPos = { 0, -0.24, -0.12 }, Neck = { -18, 0, 0 } }),
+		guardAt(0.18, "High", { LeftShoulder = { 120, -20, 10 }, LeftElbow = { 80, 0, 0 } }),
+		guardAt(0.4, "High"),
+	},
+}
+POSES.ParryLeft = {
+	Duration = 0.4,
+	Markers = { { 0.07, "Hit" } },
+	Keys = {
+		guardAt(0, "Left"),
+		guardAt(0.07, "Left", { LeftShoulder = { 96, -6, -38 }, LeftElbow = { 70, 0, 0 }, Waist = { -2, -12, 0 }, Root = { -6, -16, 4 }, RootPos = { -0.1, -0.24, -0.1 } }),
+		guardAt(0.16, "Left", { LeftShoulder = { 80, 0, -58 }, LeftElbow = { 60, 0, 0 }, Waist = { -2, -16, 0 } }),
+		guardAt(0.4, "Left"),
+	},
+}
+POSES.ParryRight = {
+	Duration = 0.4,
+	Markers = { { 0.07, "Hit" } },
+	Keys = {
+		guardAt(0, "Right"),
+		guardAt(0.07, "Right", { RightShoulder = { 96, 6, 38 }, RightElbow = { 70, 0, 0 }, Waist = { -2, 20, 0 }, Root = { -6, -4, -4 }, RootPos = { 0.1, -0.24, -0.1 } }),
+		guardAt(0.16, "Right", { RightShoulder = { 80, 0, 58 }, RightElbow = { 60, 0, 0 }, Waist = { -2, 24, 0 } }),
+		guardAt(0.4, "Right"),
+	},
+}
+
+-- PARRIED (the attacker): the arm knocked off line, the body twisted open and rocked
+-- back on its heels, guard down: wide open for FightRules.ParryStagger.
+POSES.Parried = {
+	Duration = 0.7,
+	Keys = {
+		stance(0),
+		stance(0.08, { RootPos = { 0, -0.22, 0.35 }, Root = { 8, 22, -6 }, Waist = { 6, 22, 0 }, Neck = { 10, -20, 0 }, RightShoulder = { 40, 0, 62 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 34, -30, -24 }, LeftElbow = { 60, 0, 0 }, RightHip = { -28, 0, 0 }, RightKnee = { -22, 0, 0 } }),
+		stance(0.45, { RootPos = { 0, -0.24, 0.3 }, Root = { 6, 16, -4 }, Waist = { 4, 16, 0 }, Neck = { 6, -14, 0 }, RightShoulder = { 34, 0, 46 }, RightElbow = { 40, 0, 0 }, LeftShoulder = { 40, -40, -16 }, LeftElbow = { 80, 0, 0 }, RightHip = { -26, 0, 0 } }),
+		stance(0.7),
+	},
+}
+-- BLOCKED (the attacker): the fist bounces off the guard, the weight jolted back.
+POSES.BlockedRecoil = {
+	Duration = 0.3,
+	Keys = {
+		stance(0),
+		stance(0.06, { RootPos = { 0, -0.18, 0.22 }, Root = { 0, -12, 0 }, Neck = { -4, 0, 0 } }),
+		stance(0.3),
+	},
+}
+
+-- HIT REACTIONS by where it landed and how hard (light: the head and shoulders take it;
+-- medium: the torso turns, a step goes back; heavy: a real stagger). Neck +X tilts the
+-- head back, +Y turns it left; a blow on your LEFT side drives you to the RIGHT.
+POSES.HitHighLight = {
+	Duration = 0.38,
+	Keys = {
+		stance(0),
+		stance(0.06, { Neck = { 14, 0, 0 }, Waist = { 4, 6, 0 }, Root = { -2, -12, 0 }, RootPos = { 0, -0.15, 0.15 } }),
+		stance(0.16, { Neck = { 6, 0, 0 }, RootPos = { 0, -0.15, 0.1 } }),
+		stance(0.38),
+	},
+}
+POSES.HitHigh = {
+	Duration = 0.55,
+	Markers = { { 0.2, "StepR" } },
+	Keys = {
+		stance(0),
+		stance(0.07, { Neck = { 26, 0, 0 }, Waist = { 10, 6, 0 }, Root = { 4, -12, 0 }, RootPos = { 0, -0.1, 0.45 }, LeftShoulder = { 50, -50, -10 }, LeftElbow = { 110, 0, 0 }, RightShoulder = { 46, 56, 10 }, RightElbow = { 116, 0, 0 } }),
+		stance(0.2, { Neck = { 12, 0, 0 }, Waist = { 4, 6, 0 }, RootPos = { 0, -0.2, 0.35 }, RightHip = { -26, 0, 0 }, RightKnee = { -22, 0, 0 } }),
+		stance(0.55),
+	},
+}
+local function sideHit(sign: number, heavy: boolean)
+	-- sign = +1: hit on the LEFT (driven to the right); -1: hit on the right
+	local k = heavy and 1 or 0.55
+	local keyList = {
+		stance(0),
+		stance(0.07, { Neck = { 6, -38 * sign * k, -12 * sign * k }, Waist = { 2, -6 - 12 * sign * k, -6 * sign * k }, Root = { -2, -12 - 10 * sign * k, -6 * sign * k }, RootPos = { 0.35 * sign * k, -0.18, 0.1 * k } }),
+		stance(heavy and 0.22 or 0.16, { Neck = { 2, -16 * sign * k, -4 * sign * k }, Waist = { 0, -6 * sign * k, 0 }, RootPos = { 0.25 * sign * k, -0.2, 0.08 * k } }),
+		stance(heavy and 0.55 or 0.38),
+	}
+	if heavy then
+		-- the arms fly open with it
+		keyList[2].LeftShoulder = { 44, -40, -20 * sign }
+		keyList[2].RightShoulder = { 44, 40, 20 * -sign }
+	end
+	return { Duration = heavy and 0.55 or 0.38, Keys = keyList }
+end
+POSES.HitLeftLight = sideHit(1, false)
+POSES.HitLeft = sideHit(1, true)
+POSES.HitRightLight = sideHit(-1, false)
+POSES.HitRight = sideHit(-1, true)
+-- STAGGER: a heavy blow buckles you back two steps, arms flung out, before you find the
+-- stance again (bigger blows than this knock you down: a ragdoll + get-up).
+POSES.Stagger = {
+	Duration = 0.85,
+	Markers = { { 0.25, "StepR" }, { 0.5, "StepL" } },
+	Keys = {
+		stance(0),
+		stance(0.08, { Neck = { 24, 0, 0 }, Waist = { 16, 6, 0 }, Root = { 10, -12, 0 }, RootPos = { 0, -0.3, 0.7 }, LeftShoulder = { 30, 0, -50 }, LeftElbow = { 40, 0, 0 }, RightShoulder = { 30, 0, 50 }, RightElbow = { 40, 0, 0 } }),
+		stance(0.25, { Neck = { 14, 0, 0 }, Waist = { 10, 6, 0 }, Root = { 6, -12, 0 }, RootPos = { 0, -0.35, 0.9 }, RightHip = { -34, 0, 0 }, RightKnee = { -26, 0, 0 }, LeftShoulder = { 40, 0, -40 }, RightShoulder = { 40, 0, 40 } }),
+		stance(0.5, { Neck = { 4, 0, 0 }, Waist = { 4, 6, 0 }, RootPos = { 0, -0.32, 0.7 }, LeftHip = { 10, 0, 0 }, LeftKnee = { -40, 0, 0 } }),
+		stance(0.85),
+	},
+}
+
 return POSES

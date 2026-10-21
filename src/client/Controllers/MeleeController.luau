@@ -261,7 +261,13 @@ function MeleeController:Fire(input: string)
 	local weapon = weaponOf(character)
 
 	local moveId, flag, nextSeq
-	if controllers.CombatController:TakeCounter() then
+	local stanceSide = input == "P" and weapon == "Fists" and character:GetAttribute("InStance") and controllers.StanceController:GetGuard() or nil
+	if stanceSide and not controllers.CombatController:PeekCounter() then
+		-- FIGHTING STANCE: the punch comes from the side you're guarding (FightRules)
+		local continuing = current ~= nil and now <= currentStart + current.Duration + Melee.ComboWindow
+		moveId = Melee.ResolveStance(stanceSide, continuing and current.Id or nil)
+		flag, nextSeq = stanceSide, "P"
+	elseif controllers.CombatController:TakeCounter() then
 		-- right after a step back: dash back in with a counter punch / kick
 		moveId = input == "K" and "CounterKick" or "CounterPunch"
 		flag, nextSeq = "Counter", input

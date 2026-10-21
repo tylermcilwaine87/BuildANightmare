@@ -57,14 +57,17 @@ MeleeDefinitions.LoadoutSlots = 3 -- weapons you take into a fight (plus your fi
 local Moves = {
 	-- Fists (striker) --------------------------------------------------------------------
 	-- (Lunge: the step in; the client stops it with your fist on them, see MeleeController)
-	Jab = { Pose = "Jab", Duration = 0.34, HitTime = 0.11, Cancel = 0.2, Damage = 5, Range = 6.5, Arc = 60, Stagger = 3, Lunge = 1.8 },
-	Cross = { Pose = "Cross", Duration = 0.4, HitTime = 0.14, Cancel = 0.24, Damage = 7, Range = 7, Arc = 60, Stagger = 4, Lunge = 2.4 },
-	Hook = { Pose = "Hook", Duration = 0.46, HitTime = 0.17, Cancel = 0.28, Damage = 8, Range = 6, Arc = 100, Knockback = 8, Stagger = 6, Lunge = 1.5 },
+	-- (Dir: the hand / leg it comes from, for directional guarding (FightRules): Straight
+	-- lands High; Lead (left) lands on the defender's Right; Rear (right) on their Left)
+	Jab = { Pose = "Jab", Dir = "Straight", Duration = 0.34, HitTime = 0.11, Cancel = 0.2, Damage = 5, Range = 6.5, Arc = 60, Stagger = 3, Lunge = 1.8 },
+	Cross = { Pose = "Cross", Dir = "Straight", Duration = 0.4, HitTime = 0.14, Cancel = 0.24, Damage = 7, Range = 7, Arc = 60, Stagger = 4, Lunge = 2.4 },
+	Hook = { Pose = "Hook", Dir = "Lead", Duration = 0.46, HitTime = 0.17, Cancel = 0.28, Damage = 8, Range = 6, Arc = 100, Knockback = 8, Stagger = 6, Lunge = 2.2 },
+	RearHook = { Pose = "RearHook", Dir = "Rear", Duration = 0.48, HitTime = 0.18, Cancel = 0.3, Damage = 9, Range = 6, Arc = 100, Knockback = 10, Stagger = 7, Lunge = 2.2, Display = "Rear Hook" },
 	-- (HitDir: the way the force goes, in YOUR frame {right, up, forward}: the overhand
 	-- comes over the top, so it drives down, forward and across to your left. Crumple: a
 	-- heavy enough hit buckles their legs and drops them where they stand instead of
 	-- launching them.)
-	Overhand = { Pose = "Overhand", Duration = 0.86, HitTime = 0.34, Cancel = 0.62, Damage = 14, Range = 7, Arc = 70, Knockback = 35, Stagger = 18, Heavy = true, Lunge = 3, HitDir = { -0.4, -0.65, 0.65 }, Crumple = true, Unlock = { Level = 2 }, Display = "Overhand Knockdown" },
+	Overhand = { Pose = "Overhand", Dir = "Rear", Duration = 0.86, HitTime = 0.34, Cancel = 0.62, Damage = 14, Range = 7, Arc = 70, Knockback = 35, Stagger = 18, Heavy = true, Lunge = 3, HitDir = { -0.4, -0.65, 0.65 }, Crumple = true, Unlock = { Level = 2 }, Display = "Overhand Knockdown" },
 	Uppercut = { Pose = "Uppercut", Duration = 0.48, HitTime = 0.18, Cancel = 0.3, Damage = 9, Range = 5.5, Arc = 60, Knockback = 12, Stagger = 9, Lunge = 1.8 },
 	HeadKick = { Pose = "HeadKick", Duration = 0.6, HitTime = 0.24, Cancel = 0.4, Damage = 10, Range = 7.5, Arc = 110, Knockback = 18, Stagger = 9, Lunge = 3 }, -- Lunge: steps in until the shin reaches their head
 	LegKick = { Pose = "LegKick", Duration = 0.42, HitTime = 0.16, Cancel = 0.28, Damage = 7, Range = 6.5, Arc = 90, Stagger = 10, Lunge = 1.3 },
@@ -108,6 +111,10 @@ local CONTACT = {
 	-- HeadKick measured: the foot is 1.9 out at head height on the hit frame, so stop at 1.7
 	-- (the Head Hunter / CounterKick lands with the head kick's contact pose; its dash now
 	-- brakes on arrival, so the same 1.7)
+	-- Hooks measured on the sparring fighter: the glove is 2.8 out on the hit frame and its
+	-- head sits 0.85 in front of its root in stance, so stop at 2.65 (the glove meets the
+	-- side of the head; at the 2.3 default it went 0.35 through)
+	Hook = 2.65, RearHook = 2.65,
 	Knee = 1.7, LegKick = 2.8, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 3.2, SpinKick = 2.2, CounterKick = 1.7,
 	BladeSlash = 3.4, BladeSlash2 = 3.4, BladeCleave = 3.4, BladeLunge = 3.6,
 	ScytheReap = 5.5, ScytheReturn = 5.5, -- (the blade is out at arm's length + the snath)
@@ -225,6 +232,19 @@ function MeleeDefinitions.Resolve(weapon: string?, seq: string, level: number?):
 		return id
 	end
 	return nil
+end
+
+-- FIGHTING STANCE (locked on, fists): the punch comes from the side you're guarding
+-- (FightRules). High = straight punches (a jab, then the cross behind it), Left = the lead
+-- hook, Right = the rear hook. So the 1-2-3 is: punch, punch, flick left, punch.
+-- `previous` = the move just thrown (if the combo is still live), nil otherwise.
+function MeleeDefinitions.ResolveStance(side: string, previous: string?): string
+	if side == "Left" then
+		return "Hook"
+	elseif side == "Right" then
+		return "RearHook"
+	end
+	return previous == "Jab" and "Cross" or "Jab"
 end
 
 -- A clean loadout: up to LoadoutSlots distinct, known weapon ids (unlock not checked).
