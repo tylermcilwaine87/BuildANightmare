@@ -247,6 +247,15 @@ Config.LockOn = {
 	Height = 6,
 	LockInTime = 0.6, -- seconds for the camera to glide onto the target
 	ReleaseTime = 0.45, -- seconds to glide back to the normal camera after unlocking
+	-- Close in (a duel) and the camera moves in over your shoulder, so your own body never
+	-- hides the enemy in front of you. Blends in from DuelFrom studs, full at DuelAt.
+	-- (Tuned in Studio: any less to the side and your body covers them.) It sits over your
+	-- right shoulder unless your Nightmare is standing on that side, then the left.
+	DuelFrom = 15,
+	DuelAt = 8,
+	DuelDistance = 8,
+	DuelHeight = 6,
+	DuelSide = 7,
 }
 
 Config.Nightmare = {

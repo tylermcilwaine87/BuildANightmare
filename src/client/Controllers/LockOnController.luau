@@ -34,6 +34,7 @@ local target: Model? = nil
 local smoothCF: CFrame? = nil
 local lockedAt = 0
 local releasing = nil -- { From: CFrame, Start: number } while gliding back after unlocking
+local shoulder = 1 -- the duel camera's side: 1 = over your right shoulder, -1 = left
 local lockButton: TextButton? = nil
 
 function LockOnController:Init(registry)
@@ -188,8 +189,26 @@ local function update(dt: number)
 	local height = targetRoot.Size.Y / 2
 	-- a big possessed Nightmare pushes the camera further back and up
 	local bulk = math.max(0, math.max(myRoot.Size.X, myRoot.Size.Y, myRoot.Size.Z) - 2)
-	local focus = myRoot.Position:Lerp(targetRoot.Position + Vector3.new(0, height * 0.5, 0), 0.35) + Vector3.new(0, 2.5 + bulk * 0.3, 0)
-	local goal = CFrame.lookAt(myRoot.Position - toTarget * (CFG.Distance + bulk * 1.5) + Vector3.new(0, CFG.Height + bulk * 0.6, 0), focus)
+	-- up close (a duel) the camera comes in over your shoulder
+	local gap = Util.FlatDistance(targetRoot.Position, myRoot.Position)
+	local duel = bulk == 0 and ease((CFG.DuelFrom - gap) / (CFG.DuelFrom - CFG.DuelAt)) or 0
+	local rightward = toTarget:Cross(Vector3.yAxis)
+	-- whichever shoulder your Nightmare isn't standing behind (it switches only once the
+	-- Nightmare is clearly over on the other side, so it doesn't flicker)
+	local nightmare = controllers.ClientState:GetMyNightmare()
+	local nightmareRoot = nightmare and nightmare ~= character and rootOf(nightmare)
+	if nightmareRoot then
+		local offset = nightmareRoot.Position - myRoot.Position
+		local across = offset:Dot(rightward)
+		if offset.Magnitude < 14 and offset:Dot(toTarget) < 3 and math.abs(across) > 2 then
+			shoulder = across > 0 and -1 or 1
+		end
+	end
+	local distance = CFG.Distance + (CFG.DuelDistance - CFG.Distance) * duel + bulk * 1.5
+	local up = CFG.Height + (CFG.DuelHeight - CFG.Height) * duel + bulk * 0.6
+	local side = rightward * CFG.DuelSide * duel * shoulder
+	local focus = myRoot.Position:Lerp(targetRoot.Position + Vector3.new(0, height * 0.5, 0), 0.35 + 0.35 * duel) + Vector3.new(0, 2.5 - 2 * duel + bulk * 0.3, 0)
+	local goal = CFrame.lookAt(myRoot.Position - toTarget * distance + side + Vector3.new(0, up, 0), focus)
 	-- the glide starts gentle and settles into a tight follow over LockInTime
 	local settle = ease((os.clock() - lockedAt) / CFG.LockInTime)
 	local rate = 3 + 9 * settle
