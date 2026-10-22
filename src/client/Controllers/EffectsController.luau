@@ -833,7 +833,12 @@ function EffectsController:Start()
 			local targetIsMine = target and (target == localPlayer.Character or (target:GetAttribute("OwnerUserId") == localPlayer.UserId))
 			local color = targetIsMine and C.Bad or Color3.fromRGB(255, 235, 140)
 			if controllers.SettingsController:Get("DamageNumbers") then
-				self:PopText(data.Position, tostring(data.Amount), color)
+				-- a punished (exposed / broken) boss: the number comes up bigger and hotter
+				if data.Exposed or data.Broken then
+					self:PopText(data.Position, tostring(data.Amount), Color3.fromRGB(255, 150, 60), 30)
+				else
+					self:PopText(data.Position, tostring(data.Amount), color)
+				end
 			end
 			self:Flash(target)
 			local dir = typeof(data.Dir) == "Vector3" and data.Dir or nil
@@ -872,8 +877,9 @@ function EffectsController:Start()
 			self:PopText(data.Position + Vector3.new(0, 5, 0), "KNOCKED DOWN!", Color3.fromRGB(255, 120, 70), 40)
 			self:Shake(0.35, 0.5)
 		elseif kind == "Staggered" then
-			self:PopText(data.Position + Vector3.new(0, 3, 0), "STAGGERED!", Color3.fromRGB(255, 220, 90), 32)
-			self:Shake(0.2, 0.15)
+			local boss = typeof(data.Target) == "Instance" and data.Target:GetAttribute("BossId") ~= nil
+			self:PopText(data.Position + Vector3.new(0, boss and 6 or 3, 0), boss and "BROKEN!" or "STAGGERED!", boss and Color3.fromRGB(255, 120, 70) or Color3.fromRGB(255, 220, 90), boss and 44 or 32)
+			self:Shake(boss and 0.35 or 0.2, boss and 0.3 or 0.15)
 		elseif kind == "Status" then
 			local def = StatusDefinitions.Get(data.Status)
 			if def then

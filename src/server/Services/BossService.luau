@@ -509,8 +509,23 @@ function BossService:Tick(brain, now: number)
 				warn(("[BossService] attack %s failed: %s"):format(name, tostring(err)))
 			end
 			brain.State = "Chase"
-			local delay = ctx.Overdrive and Config.Bosses.OverdriveAttackDelay or Config.Bosses.AttackDelay
-			brain.NextAttackAt = os.clock() + delay * (ctx.ModeConfig.AttackDelayMultiplier or 1)
+			-- the rhythm: sometimes straight into the next attack (a chain); otherwise, or at
+			-- the end of a chain, it's EXPOSED for a moment: the punish window
+			local bosses = Config.Bosses
+			local chainChance = ctx.Overdrive and bosses.Chain.OverdriveChance or bosses.Chain.Chance
+			if ok and ctx:Alive() and (brain.ChainCount or 0) < bosses.Chain.Max and brain.Random:NextNumber() < chainChance then
+				brain.ChainCount = (brain.ChainCount or 0) + 1
+				brain.NextAttackAt = os.clock() + bosses.Chain.Delay
+				return
+			end
+			brain.ChainCount = 0
+			local exposed = ctx.Overdrive and bosses.Exposed.OverdriveTime or bosses.Exposed.Time
+			if ctx:Alive() then
+				brain.Model:SetAttribute("ExposedUntil", Workspace:GetServerTimeNow() + exposed)
+			end
+			local delay = ctx.Overdrive and bosses.OverdriveAttackDelay or bosses.AttackDelay
+			-- (it doesn't swing again before the window closes)
+			brain.NextAttackAt = os.clock() + math.max(delay * (ctx.ModeConfig.AttackDelayMultiplier or 1), exposed)
 		end)
 		return
 	end

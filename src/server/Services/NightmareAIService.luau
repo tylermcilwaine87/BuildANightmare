@@ -37,6 +37,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -788,9 +789,25 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 		return
 	end
 	-- About to attack. A wild one doesn't always just swing: sometimes it sprints round to
-	-- their side or back first, sometimes it feints.
+	-- their side or back first, sometimes it feints. But a boss that's EXPOSED (just
+	-- attacked) or BROKEN (on its knees) gets everything, right now (Config.Bosses).
 	local flair = brain.flair or 1
 	local isBoss = CollectionService:HasTag(target, "Boss")
+	local opening = isBoss and ((target:GetAttribute("ExposedUntil") or 0) > Workspace:GetServerTimeNow() or self.Services.StatusService:IsStaggered(target))
+	if opening then
+		if self:HeavyReady(brain, now) and math.random() < 0.5 then
+			self:StartHeavy(brain, now)
+		else
+			local picked = self:PickString(brain)
+			if picked then
+				self:StartString(brain, picked, target, now)
+			else
+				self:StartAttack(brain, now)
+			end
+		end
+		brain.chainPending = true -- and keep going while it's open
+		return
+	end
 	if math.random() < (isBoss and WILD.BossFlankChance or WILD.FlankChance) * flair then
 		local angle = math.rad(randomIn(WILD.FlankAngle)) * (math.random() < 0.5 and -1 or 1)
 		brain.flank = { Direction = CFrame.Angles(0, angle, 0):VectorToWorldSpace(-toTarget), Until = now + WILD.FlankTime }

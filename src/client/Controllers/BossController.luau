@@ -445,13 +445,32 @@ function BossController:Start()
 		local humanoid = boss and boss:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			UIKit.SetBar(ui.BossHealth, humanoid.Health, humanoid.MaxHealth)
+			local now = workspace:GetServerTimeNow()
 			local staggeredUntil = boss:GetAttribute("StaggeredUntil") or 0
-			if staggeredUntil > workspace:GetServerTimeNow() then
+			-- the punish windows (Config.Bosses): EXPOSED after its attacks (it glows gold),
+			-- BROKEN when the stagger bar fills (on its knees)
+			local exposed = (boss:GetAttribute("ExposedUntil") or 0) > now
+			local glow = boss:FindFirstChild("ExposedGlow")
+			if not glow then
+				glow = Instance.new("Highlight")
+				glow.Name = "ExposedGlow"
+				glow.FillColor = Color3.fromRGB(255, 205, 80)
+				glow.OutlineColor = Color3.fromRGB(255, 235, 150)
+				glow.FillTransparency = 0.72
+				glow.OutlineTransparency = 0.1
+				glow.DepthMode = Enum.HighlightDepthMode.Occluded
+				glow.Parent = boss
+			end
+			glow.Enabled = exposed or staggeredUntil > now
+			glow.FillColor = staggeredUntil > now and Color3.fromRGB(255, 120, 70) or Color3.fromRGB(255, 205, 80)
+			if staggeredUntil > now then
 				UIKit.SetBar(ui.BossStagger, 1, 1)
-				ui.BossPhase.Text = "STAGGERED!"
+				ui.BossPhase.Text = "BROKEN! HIT IT!"
 			else
 				UIKit.SetBar(ui.BossStagger, boss:GetAttribute("Stagger") or 0, boss:GetAttribute("StaggerMax") or 300)
-				if ui.BossPhase.Text == "STAGGERED!" then
+				if exposed then
+					ui.BossPhase.Text = "EXPOSED! PUNISH IT!"
+				elseif ui.BossPhase.Text == "BROKEN! HIT IT!" or ui.BossPhase.Text == "EXPOSED! PUNISH IT!" then
 					ui.BossPhase.Text = (boss:GetAttribute("Phase") or 1) > 1 and (ui.PhaseTitle or "") or ""
 				end
 			end

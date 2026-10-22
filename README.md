@@ -36,6 +36,16 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
 - **Sound slots** (empty until you add ids): `GymDoor`, `BagHit`, `BagHeavy`, `ChainRattle`, `GymReward`, `GymRevealRare`, `GymRevealMythic`, and the `GymAmbience` ambience.
 - **Studio test hook:** `game.ServerStorage.DevBridge:Invoke("GymService", "DevRollNow", player, "Mythic")` rolls the next reward now (optionally forcing its tier). It's Studio only.
 
+## Fights that feel alive (v0.11.3)
+
+- **Duel camera.** Lock on (Z) up close and the camera glides in over your shoulder (8 back, 6 up, 7 to the side), so your own body never hides the enemy. It takes the right shoulder unless your Nightmare is standing behind that side, then the left. Measured by sampling the camera every 0.2 s while locked on.
+- **Weapon combos (P P K with the weapon out),** all discoverable signature moves:
+  - **Gut Stab (Rust Blade).** Lunge in and drive the blade up into the stomach, and it *sticks*: the enemy hangs on it, helpless, for a second while you're planted, then you rip it out and they fold up at your feet. Measured: the tip runs through the stomach on the centre line. Live: held 0.1–0.9 s, the rip knocks down at 1.0 s.
+  - **Harvest (Reaper Scythe).** Hook the blade low behind their legs and rip it up over your head: they fly about 15 studs straight up, a second in the air.
+  - **Chain Snare (Chain Whip).** The lash wraps them, both hands haul them in off their feet, and a knee meets them on arrival.
+- **A wild Nightmare.** It no longer loops one basic combo. It throws real strings at random: jab-jab-cross, jab-cross-hook, jab-hook-overhand, body hook into uppercut, power overhands, teeps, roundhouses, clinch knees (it grabs and holds the enemy) and spinning back kicks that launch. It chains them, sprints round to the enemy's side or back (often against bosses), feints, and hits and runs when hurt. Each Nightmare has its own flair. In a 26 s test it threw 8 different things, and every string landed.
+- **Boss fights have a rhythm.** After every attack (or chain of attacks) a boss is **EXPOSED** for about 1.3 s: it glows gold, and hits do 35% more damage and twice the stagger. Bosses sometimes **chain** attacks with no breather, more in their later phases. A full stagger bar leaves them **BROKEN!**: on their knees, taking 50% more damage. Your Nightmare sees the openings and goes all in. Tested on the Scrap Titan: an exposed window after every attack, chains, and broken at 40 s.
+
 ## Jab, elbow, leg sweep (v0.11.2)
 
 - **P P K is now the Elbow into Leg Sweep:**

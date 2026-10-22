@@ -25,6 +25,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -243,6 +244,19 @@ function CombatService:ApplyDamage(params): number
 	if attacker and not isBoss(target) then
 		amount *= sizeFactor(RAG.SizeDamage, attacker, target)
 	end
+	-- a boss caught EXPOSED (just after its attack) or BROKEN (stagger bar full, on its
+	-- knees) takes more (Config.Bosses: the punish windows)
+	local exposed, broken = false, false
+	if attacker and isBoss(target) then
+		if (target:GetAttribute("ExposedUntil") or 0) > Workspace:GetServerTimeNow() then
+			exposed = true
+			amount *= Config.Bosses.Exposed.DamageMultiplier
+		end
+		if status:IsStaggered(target) then
+			broken = true
+			amount *= Config.Bosses.BrokenDamageMultiplier
+		end
+	end
 
 	local targetPlayer = Players:GetPlayerFromCharacter(target)
 
@@ -377,7 +391,7 @@ function CombatService:ApplyDamage(params): number
 
 	if humanoid.Health > 0 then
 		if params.Stagger and params.Stagger > 0 then
-			status:AddStagger(target, params.Stagger, attacker)
+			status:AddStagger(target, params.Stagger * (exposed and Config.Bosses.Exposed.StaggerMultiplier or 1), attacker)
 		end
 		if params.Status and not params.NoStatus then
 			status:Apply(target, params.Status, attacker)
@@ -396,6 +410,8 @@ function CombatService:ApplyDamage(params): number
 		Dir = params.HitDirection or (attacker and Util.FlatUnit(position - attacker:GetPivot().Position)) or nil,
 		Heavy = params.Heavy == true,
 		KnockedDown = knockedDown,
+		Exposed = exposed or nil, -- (punished an exposed boss)
+		Broken = broken or nil, -- (hit a broken boss)
 	})
 
 	for _, listener in damageListeners do

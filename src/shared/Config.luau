@@ -399,6 +399,15 @@ Config.Bosses = {
 	AttackDelay = 1.1,
 	OverdriveAttackDelay = 0.6,
 	MinWindup = 0.5, -- telegraphs never get shorter than this, whatever the difficulty
+	-- THE FIGHT'S RHYTHM (every boss):
+	-- EXPOSED: after an attack (or a chain of them) the boss is open for a moment: it
+	-- glows, and hits land harder and stagger far more. Dodge it, then punish.
+	Exposed = { Time = 1.3, OverdriveTime = 0.85, DamageMultiplier = 1.35, StaggerMultiplier = 2 },
+	-- CHAINS: sometimes it goes straight from one attack into the next, no breather (more
+	-- often in its later phases); the exposed window comes at the end of the chain.
+	Chain = { Chance = 0.18, OverdriveChance = 0.45, Max = 2, Delay = 0.3 },
+	-- BROKEN: a full stagger bar drops it to its knees and it takes extra damage while down.
+	BrokenDamageMultiplier = 1.5,
 }
 
 -- Selectable boss difficulties (Phase 5). Per-boss numbers (health, damage, windups)

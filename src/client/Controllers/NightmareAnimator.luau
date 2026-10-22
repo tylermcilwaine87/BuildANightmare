@@ -473,6 +473,10 @@ local function animate(state, root: BasePart, dt: number, now: number)
 	if defeated then
 		sink = -1.2 * state.defeatT
 		collapse = 1.1 * state.defeatT
+	elseif staggered and model:GetAttribute("BossId") then
+		-- BROKEN (Config.Bosses): the boss sags to its knees, hunched over, while it's open
+		sink -= 1.4
+		collapse = -0.55 -- (+X leans back; the stagger's own +0.25 is folded into this)
 	end
 	local wobble = staggered and math.sin(now * 28) * 0.18 or 0
 	setTransform(motors.Joint_Core, CFrame.new(hitShove.X, bob + sink + ultimateLift + hitShove.Y, -0.7 * lunge + hitShove.Z) * CFrame.Angles(lean + collapse + (staggered and 0.25 or 0), 0, math.sin(state.walkPhase) * 0.05 * move + wobble + hitRoll))
