@@ -213,6 +213,9 @@ end
 	                         knockdown follow it (default: straight away from the attacker)
 	  Crumple: boolean?      a knockdown that buckles the legs and drops the target where it
 	                         stands (an overhand) instead of launching it
+	  Sweep: boolean?        the legs are swept: the knockdown FLIPS the target (up, heels over
+	                         head, onto its back: Config.Ragdoll.Sweep)
+	  NoKnockdown: boolean?  never knocks down (the blow holds or rocks them instead)
 	  Source: string         e.g. "Handler:Jab", "NightmareCombo", "Ability:Bite"
 	}
 	Returns the damage actually dealt.
@@ -337,18 +340,24 @@ function CombatService:ApplyDamage(params): number
 		local worthy = if boss then special else (special or big or knockback >= cfg.MinKnockback)
 		-- NoKnockdown: the blow holds them instead (a bite's clamp keeps them in its jaws)
 		if worthy and not params.NoKnockdown then
-			local chance = self:KnockdownChance(attacker, target, big)
+			local chance = self:KnockdownChance(attacker, target, big or params.Sweep)
 			if chance > 0 and random:NextNumber() < chance then
 				local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis
 				local force = math.max(knockback, cfg.MinThrow)
 				local throw
-				if params.Crumple then
+				local options = boss and { AllowImmune = true, SpinScale = cfg.Boss.SpinScale } or {}
+				if params.Sweep then
+					-- legs taken out from under them: popped UP and rotated heels over head
+					-- (a small body flies higher, a big one barely leaves the floor)
+					local scale = sizeFactor(RAG.SizeThrow, attacker, target)
+					throw = direction * cfg.Sweep.Push * scale + Vector3.new(0, cfg.Sweep.Lift * scale, 0)
+					options.Flip = cfg.Sweep.Spin
+				elseif params.Crumple then
 					-- the legs go: a short stagger the way the blow drove them, folding down
 					throw = direction * force * cfg.Launch * 0.3 + Vector3.new(0, -force * 0.25, 0)
 				else
 					throw = direction * force * cfg.Launch + Vector3.new(0, force * 0.45, 0)
 				end
-				local options = boss and { AllowImmune = true, SpinScale = cfg.Boss.SpinScale } or nil
 				if boss then
 					throw *= cfg.Boss.ThrowScale
 				end

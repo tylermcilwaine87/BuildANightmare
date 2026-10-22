@@ -185,7 +185,8 @@ end
 -- `throw` = launch velocity for a Handler (client-owned; Nightmares were already thrown by
 -- CombatService's knockback). Returns true if it happened.
 -- options: AllowImmune (a boss, floored by CombatService's odd-time roll), SpinScale (how
--- fast it tips over: a huge body topples slowly).
+-- fast it tips over: a huge body topples slowly), Flip (rad/s: a leg sweep's heels-over-
+-- head rotation instead of the usual tip-over).
 function RagdollService:Ragdoll(model: Model, throw: Vector3?, direction: Vector3?, duration: number?, options): boolean
 	if active[model] or (model:GetAttribute("KnockbackImmune") and not (options and options.AllowImmune)) then
 		return false
@@ -242,7 +243,8 @@ function RagdollService:Ragdoll(model: Model, throw: Vector3?, direction: Vector
 	-- tip over backwards, away from the hit (head goes the way the hit pushes)
 	local dir = direction and Vector3.new(direction.X, 0, direction.Z)
 	dir = dir and dir.Magnitude > 0.01 and dir.Unit or nil
-	local spin = dir and Vector3.yAxis:Cross(dir) * 7 * (options and options.SpinScale or 1) or nil
+	-- (options.Flip: a swept body rotates much faster, heels over head)
+	local spin = dir and Vector3.yAxis:Cross(dir) * (options and options.Flip or 7) * (options and options.SpinScale or 1) or nil
 
 	local length = duration or CFG.Duration
 	local player = Players:GetPlayerFromCharacter(model)

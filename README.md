@@ -36,6 +36,15 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
 - **Sound slots** (empty until you add ids): `GymDoor`, `BagHit`, `BagHeavy`, `ChainRattle`, `GymReward`, `GymRevealRare`, `GymRevealMythic`, and the `GymAmbience` ambience.
 - **Studio test hook:** `game.ServerStorage.DevBridge:Invoke("GymService", "DevRollNow", player, "Mythic")` rolls the next reward now (optionally forcing its tier). It's Studio only.
 
+## Jab, elbow, leg sweep (v0.11.2)
+
+- **P P K is now the Elbow into Leg Sweep:**
+  - **Jab.**
+  - **Devastating elbow:** step in and turn the whole body through a rear horizontal elbow, 12 damage (the cross was 7) and a big stagger. It never knocks down, so they're still standing for the sweep. Measured on the hit frame: the elbow point is on the centre line at jaw height, 2.0 studs out.
+  - **Leg sweep:** drop into a deep crouch on the lead leg and scythe the straight rear leg through their ankles (13 damage, unlocks at level 2). Measured: the foot is at ankle height (0.4 above the floor) 2.1 studs out on the hit frame. A whole-move scan every 0.025 s keeps both feet within 0.12 studs of the floor line.
+- **The sweep flips them.** Instead of the usual backwards tip-over, a swept body is popped up and rotated heels over head (`Config.Ragdoll.Sweep`). Measured on a Scrapling: launched at 48 studs/s, spinning 11 rad/s, a full turn in the air, landing flat on its back about 0.35 s after the hit. Bigger bodies fly lower, and the usual knockdown rules (armour, size, bosses, 5 s cooldown) still apply.
+- **Combos menu:** "The 1-2" is now **Jab & Elbow**, "1-2-3" is **Jab, Elbow, Hook**, and the 1-2 Low Kick is replaced by **Elbow into Leg Sweep**. The new ones are discovered fresh. The cross is still there on K P.
+
 ## Bite clamp, spin kick fix, more gym moves (v0.11.1)
 
 - **The Bite clamps and rips:**

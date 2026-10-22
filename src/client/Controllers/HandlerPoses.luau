@@ -161,6 +161,27 @@ local POSES = {
 			stance(0.4),
 		},
 	},
+	-- Elbow (PP, behind the jab): step in close, the rear elbow cocks up and out, then the
+	-- hips and shoulders slam round and the point of the elbow cuts across at head height,
+	-- the forearm folded tight, the bodyweight falling through it; the lead hand stays on
+	-- the chin and the eyes stay on them.
+	Elbow = {
+		Duration = 0.5,
+		Markers = { { 0.07, "Whoosh" }, { 0.17, "Hit" }, { 0.17, "StepL" } },
+		Keys = {
+			stance(0),
+			-- cock it: a small coil right, the rear elbow up and out to the side
+			stance(0.07, { RootPos = { 0, -0.24, 0 }, Root = { -6, -26, 0 }, Waist = { -2, -12, 0 }, Neck = { -12, 12, 0 }, RightShoulder = { 120, 0, 40 }, RightElbow = { 150, 0, 0 }, LeftHip = { 22, 14, 0 }, RightHip = { -16, 14, 0 } }),
+			-- IMPACT: stepped in, hips and shoulders turned hard through, the elbow point on
+			-- the centre line at jaw height (pose lab, measured: 1.0 above your hips, 2.0
+			-- out; Contact.Elbow stops the step-in there)
+			stance(0.17, { RootPos = { 0.1, -0.25, -1.0 }, Root = { -4, 30, 0 }, Waist = { 0, 20, 0 }, Neck = { -14, -16, 0 }, RightShoulder = { 160, 0, -45 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 70, -64, 0 }, LeftElbow = { 136, 0, 0 }, LeftHip = { 32, -30, 0 }, LeftKnee = { -34, 0, 0 }, RightHip = { -10, -26, 0 }, RightKnee = { -10, 0, 0 } }),
+			-- follow-through: the weight keeps turning through, the elbow carrying on across
+			stance(0.25, { RootPos = { 0.15, -0.28, -1.05 }, Root = { -8, 48, 0 }, Waist = { -4, 30, 0 }, Neck = { -16, -24, 0 }, RightShoulder = { 140, 0, -72 }, RightElbow = { 148, 0, 0 }, LeftShoulder = { 70, -64, 0 }, LeftElbow = { 136, 0, 0 }, LeftHip = { 34, -48, 0 }, LeftKnee = { -36, 0, 0 }, RightHip = { -8, -44, 0 }, RightKnee = { -12, 0, 0 } }),
+			stance(0.37, { RootPos = { 0, -0.2, -0.45 }, Root = { -10, 16, 0 }, Waist = { -4, 14, 0 }, RightShoulder = { 66, 40, 0 }, RightElbow = { 140, 0, 0 }, LeftHip = { 24, -20, 0 }, RightHip = { -12, -18, 0 } }),
+			stance(0.5),
+		},
+	},
 	-- Lead hook: the elbow comes up level with the fist, the arm locks at 90 degrees and the
 	-- whole body turns it through like a door slamming; the lead foot pivots on its ball.
 	Hook = {
@@ -261,6 +282,39 @@ local POSES = {
 			stance(0.16, { Root = { 10, -48, -4 }, Waist = { 0, -14, 0 }, RightHip = { 46, 0, -46 }, RightKnee = { -8, 0, 0 }, LeftHip = { 14, 40, 0 }, LeftKnee = { -18, 0, 0 }, RightShoulder = { -24, 0, 36 }, RightElbow = { 30, 0, 0 }, LeftShoulder = { 72, 0, -26 } }),
 			stance(0.28, { Root = { 6, -26, 0 }, RightHip = { 24, 0, -20 }, RightKnee = { -42, 0, 0 } }),
 			stance(0.42),
+		},
+	},
+	-- Leg sweep (PPK, after the elbow): drop into a deep crouch on the lead leg, the rear leg
+	-- stretched out wide, one hand posting toward the floor, then the hips whip round and the
+	-- straight rear leg scythes along the floor through their ankles, carrying on across,
+	-- before you rise back into the stance. (Hips: Y = minus the Root's turn keeps the lead
+	-- foot planted. RightHip +Z swings the leg out to the right.)
+	-- (Tuned in the pose lab by scanning the whole move every 0.025 s: neither foot goes more
+	-- than 0.12 through the floor or lifts off it, and the body holds one crouch height
+	-- through the swing instead of bobbing.)
+	LegSweep = {
+		Duration = 0.85,
+		Markers = { { 0.06, "StepL" }, { 0.21, "Whoosh" }, { 0.3, "Hit" }, { 0.64, "StepR" } },
+		Keys = {
+			stance(0),
+			-- dropping: the lead knee bends, the rear leg starts to swing out
+			stance(0.06, { RootPos = { 0, -0.55, 0.05 }, Root = { -15, -24, 0 }, Waist = { -5, -2, 0 }, Neck = { -7, 16, 0 }, LeftHip = { 52, 10, 0 }, LeftKnee = { -78, 0, 0 }, RightHip = { -10, 0, 40 }, RightKnee = { -14, 0, 0 }, LeftShoulder = { 50, -30, -12 }, LeftElbow = { 80, 0, 0 } }),
+			-- loaded: deep on the lead leg, the rear leg out wide, the body wound right
+			stance(0.12, { RootPos = { 0, -1.15, 0.1 }, Root = { -24, -34, 0 }, Waist = { -8, -8, 0 }, Neck = { -4, 30, 0 }, LeftHip = { 82, 22, 0 }, LeftKnee = { -122, 0, 0 }, RightHip = { -6, 0, 72 }, RightKnee = { -6, 0, 0 }, LeftShoulder = { 36, 0, -24 }, LeftElbow = { 24, 0, 0 }, RightShoulder = { 58, 50, 0 }, RightElbow = { 120, 0, 0 } }),
+			-- the hips whip round, the straight leg swinging in wide and low
+			stance(0.21, { RootPos = { 0, -1.0, -0.05 }, Root = { -22, -12, 0 }, Waist = { -8, 0, 0 }, Neck = { -5, 14, 0 }, LeftHip = { 83, 0, 0 }, LeftKnee = { -123, 0, 0 }, RightHip = { 35, 0, 55 }, RightKnee = { -5, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 20, 0, 0 }, RightShoulder = { 58, 50, 0 }, RightElbow = { 120, 0, 0 } }),
+			stance(0.255, { RootPos = { 0, -0.97, -0.12 }, Root = { -21, -1, 0 }, Waist = { -8, 3, 0 }, Neck = { -6, 5, 0 }, LeftHip = { 76, -11, 0 }, LeftKnee = { -114, 0, 0 }, RightHip = { 70, 0, 28 }, RightKnee = { -4, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 20, 0, 0 }, RightShoulder = { 58, 50, 0 }, RightElbow = { 120, 0, 0 } }),
+			-- IMPACT: the straight leg sweeping across the front through their ankles (measured:
+			-- the foot 0.4 above the floor, 2.1 out in front; Contact.LegSweep stops the
+			-- step-in there)
+			stance(0.3, { RootPos = { 0, -1.02, -0.2 }, Root = { -20, 10, 0 }, Waist = { -8, 6, 0 }, Neck = { -6, -4, 0 }, LeftHip = { 78, -22, 0 }, LeftKnee = { -114, 0, 0 }, RightHip = { 92, 0, 0 }, RightKnee = { -4, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 20, 0, 0 }, RightShoulder = { 58, 50, 0 }, RightElbow = { 120, 0, 0 } }),
+			-- follow-through: the leg carries on across to the left, lifting off the floor
+			stance(0.42, { RootPos = { 0, -1.08, -0.2 }, Root = { -20, 40, 0 }, Waist = { -8, 12, 0 }, Neck = { -6, -24, 0 }, LeftHip = { 68, -52, 0 }, LeftKnee = { -98, 0, 0 }, RightHip = { 92, 0, -45 }, RightKnee = { -8, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 20, 0, 0 }, RightShoulder = { 58, 50, 0 }, RightElbow = { 120, 0, 0 } }),
+			-- the knee folds the leg back in, off the floor
+			stance(0.5, { RootPos = { 0, -0.82, -0.1 }, Root = { -18, 28, 0 }, Waist = { -6, 10, 0 }, Neck = { -6, -16, 0 }, LeftHip = { 62, -40, 0 }, LeftKnee = { -94, 0, 0 }, RightHip = { 66, 0, -28 }, RightKnee = { -120, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 20, 0, 0 }, RightShoulder = { 58, 50, 0 }, RightElbow = { 120, 0, 0 } }),
+			-- rise back into the stance
+			stance(0.64, { RootPos = { 0, -0.32, 0 }, Root = { -12, 10, 0 }, Waist = { -4, 6, 0 }, LeftHip = { 40, -22, 0 }, LeftKnee = { -52, 0, 0 }, RightHip = { 14, 0, 0 }, RightKnee = { -46, 0, 0 } }),
+			stance(0.85),
 		},
 	},
 	-- Spinning back kick (finisher): turn your back on them, eyes over the shoulder, knee

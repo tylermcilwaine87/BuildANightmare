@@ -36,13 +36,15 @@ AnimationDefinitions.Handler = {
 
 	-- Punches, UFC orthodox (MeleeDefinitions: P, PP, PPP, PPPP, KP)
 	Jab = { Id = "", Code = "Jab", Note = "P: lead-hand jab, half-step in" },
-	Cross = { Id = "", Code = "Cross", Note = "PP: rear straight, hips through, back foot pivots" },
+	Cross = { Id = "", Code = "Cross", Note = "KP: rear straight, hips through, back foot pivots" },
+	Elbow = { Id = "", Code = "Elbow", Note = "PP: step-in rear horizontal elbow, whole body through it" },
 	Hook = { Id = "", Code = "Hook", Note = "PPP: lead hook, elbow level, whole body turning" },
 	Overhand = { Id = "", Code = "Overhand", Note = "PPPP (unlock): looping overhand right, knockdown" },
 	Uppercut = { Id = "", Code = "Uppercut", Note = "KP: dip and drive the rear uppercut" },
 	-- Kicks (K, KK, KKK, PK, PPK, KPK, running K)
 	HeadKick = { Id = "", Code = "HeadKick", Note = "K / PPK: UFC head kick, hip turning over" },
 	LegKick = { Id = "", Code = "LegKick", Note = "KK: chopping leg kick" },
+	LegSweep = { Id = "", Code = "LegSweep", Note = "PPK (unlock): drop low, sweep the ankles, flips them" },
 	SpinKick = { Id = "", Code = "SpinKick", Note = "KKK (unlock): spinning kick, knockdown" },
 	Knee = { Id = "", Code = "Knee", Note = "PK: clinch knee" },
 	FrontKick = { Id = "", Code = "FrontKick", Note = "KPK: teep (push kick)" },

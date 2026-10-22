@@ -14,9 +14,10 @@
 	is buffered and fires at Cancel.
 
 	FISTS (the default, fought like a UFC striker):
-	  P Jab · PP Cross · PPP Lead hook · PPPP OVERHAND (knockdown, unlock)
+	  P Jab · PP ELBOW · PPP Lead hook · PPPP OVERHAND (knockdown, unlock)
+	  PPK ELBOW INTO LEG SWEEP: the sweep takes their legs and flips them (unlock)
 	  K Head kick · KK Leg kick · KKK SPIN KICK (knockdown, unlock)
-	  PK Knee · PPK Head kick · KP Uppercut · KPK Teep (push kick)
+	  PK Knee · PKP Uppercut · KP Cross · KPK Teep (push kick)
 	  K while running: DROP KICK (knockdown, unlock)
 	  Right after a step back: P / K = COUNTER punch / kick (dash back in)
 
@@ -59,6 +60,10 @@ local Moves = {
 	-- (Lunge: the step in; the client stops it with your fist on them, see MeleeController)
 	Jab = { Pose = "Jab", Duration = 0.34, HitTime = 0.11, Cancel = 0.2, Damage = 5, Range = 6.5, Arc = 60, Stagger = 3, Lunge = 1.8 },
 	Cross = { Pose = "Cross", Duration = 0.4, HitTime = 0.14, Cancel = 0.24, Damage = 7, Range = 7, Arc = 60, Stagger = 4, Lunge = 2.4 },
+	-- The elbow (after the jab): step in behind it and turn the whole body through a rear
+	-- horizontal elbow. Hits much harder than the cross and rocks them (big stagger), but
+	-- never drops them (NoKnockdown): they're still standing for the sweep that follows.
+	Elbow = { Pose = "Elbow", Duration = 0.5, HitTime = 0.17, Cancel = 0.3, Damage = 12, Range = 5.5, Arc = 90, Knockback = 4, Stagger = 14, Lunge = 2.6, NoKnockdown = true, Display = "Devastating Elbow" },
 	Hook = { Pose = "Hook", Duration = 0.46, HitTime = 0.17, Cancel = 0.28, Damage = 8, Range = 6, Arc = 100, Knockback = 8, Stagger = 6, Lunge = 1.5 },
 	-- (HitDir: the way the force goes, in YOUR frame {right, up, forward}: the overhand
 	-- comes over the top, so it drives down, forward and across to your left. Crumple: a
@@ -69,6 +74,10 @@ local Moves = {
 	HeadKick = { Pose = "HeadKick", Duration = 0.6, HitTime = 0.24, Cancel = 0.4, Damage = 10, Range = 7.5, Arc = 110, Knockback = 18, Stagger = 9, Lunge = 3 }, -- Lunge: steps in until the shin reaches their head
 	LegKick = { Pose = "LegKick", Duration = 0.42, HitTime = 0.16, Cancel = 0.28, Damage = 7, Range = 6.5, Arc = 90, Stagger = 10, Lunge = 1.3 },
 	SpinKick = { Pose = "SpinKick", Duration = 0.75, HitTime = 0.36, Cancel = 0.58, Damage = 13, Range = 8, Arc = 140, Knockback = 34, Stagger = 16, Heavy = true, Lunge = 4, Unlock = { Level = 4 }, Display = "Spin Kick" }, -- Lunge: the spin travels in until the heel reaches them
+	-- Leg sweep (after the elbow): drop low on the lead leg and sweep the rear leg through
+	-- their ankles. Sweep: the knockdown FLIPS them (launched up, heels over head, onto their
+	-- back: CombatService / Config.Ragdoll.Sweep) instead of tipping them backwards.
+	LegSweep = { Pose = "LegSweep", Duration = 0.85, HitTime = 0.3, Cancel = 0.6, Damage = 13, Range = 6, Arc = 140, Knockback = 10, Stagger = 18, Heavy = true, Sweep = true, Lunge = 2, Unlock = { Level = 2 }, Display = "Elbow into Leg Sweep" },
 	Knee = { Pose = "Knee", Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 1.5 },
 	Teep = { Pose = "FrontKick", Duration = 0.46, HitTime = 0.18, Cancel = 0.3, Damage = 7, Range = 7, Arc = 60, Knockback = 20, Stagger = 5, Lunge = 0.8 },
 	-- (the client first SPRINTS at the target, up to SprintTime, then leaps: this move
@@ -108,6 +117,10 @@ local CONTACT = {
 	-- HeadKick measured: the foot is 1.9 out at head height on the hit frame, so stop at 1.7
 	-- (the Head Hunter / CounterKick lands with the head kick's contact pose; its dash now
 	-- brakes on arrival, so the same 1.7)
+	-- Elbow measured: the point is 2.0 out at jaw height on the hit frame, so stop 1.6 from
+	-- their body (it meets the face). LegSweep: the foot is at ankle height 2.1 out, right
+	-- under them, so 1.2.
+	Elbow = 1.6, LegSweep = 1.2,
 	Knee = 1.7, LegKick = 2.8, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 3.2, SpinKick = 2.2, CounterKick = 1.7,
 	BladeSlash = 3.4, BladeSlash2 = 3.4, BladeCleave = 3.4, BladeLunge = 3.6,
 	ScytheReap = 5.5, ScytheReturn = 5.5, -- (the blade is out at arm's length + the snath)
@@ -126,8 +139,8 @@ MeleeDefinitions.Moves = Moves
 -- Combo strings per style. Weapons fall back to the Fists table for kick-led strings.
 local Styles = {
 	Fists = {
-		P = "Jab", PP = "Cross", PPP = "Hook", PPPP = "Overhand",
-		PPK = "LegKick", PPPK = "HeadKickFinisher", -- 1-2 low kick / 1-2-3 head kick
+		P = "Jab", PP = "Elbow", PPP = "Hook", PPPP = "Overhand",
+		PPK = "LegSweep", PPPK = "HeadKickFinisher", -- jab, elbow, leg sweep / 1-2-3 head kick
 		PK = "Knee", PKP = "Uppercut", -- clinch: knee, then the uppercut through the middle
 		K = "HeadKick", KK = "LegKick", KKK = "SpinKick",
 		KP = "Cross", KPP = "Hook", KPK = "Teep", -- kick, then box
@@ -143,10 +156,10 @@ local Styles = {
 -- DISCOVERED (a banner, and it's saved in your FIGHTER menu); until then the menu only shows
 -- the Hint. Seq = the combo string ("Counter" / "Drop" for the step-back and running ones).
 MeleeDefinitions.Combos = {
-	{ Id = "OneTwo", Name = "The 1-2", Seq = "PP", Inputs = "P P", Hint = "Jab, then the straight behind it." },
-	{ Id = "OneTwoThree", Name = "1-2-3", Seq = "PPP", Inputs = "P P P", Hint = "Finish the 1-2 with a hook." },
+	{ Id = "JabElbow", Name = "Jab & Elbow", Seq = "PP", Inputs = "P P", Hint = "Jab, then step in behind it with something sharper." },
+	{ Id = "OneTwoThree", Name = "Jab, Elbow, Hook", Seq = "PPP", Inputs = "P P P", Hint = "Finish the jab and elbow with a hook." },
 	{ Id = "Overhand", Name = "Overhand Knockdown", Seq = "PPPP", Inputs = "P P P P", Hint = "Keep punching after the hook: loop one over the top.", Move = "Overhand" },
-	{ Id = "LowKick", Name = "1-2 Low Kick", Seq = "PPK", Inputs = "P P K", Hint = "Two punches upstairs, then chop the leg." },
+	{ Id = "ElbowSweep", Name = "Elbow into Leg Sweep", Seq = "PPK", Inputs = "P P K", Hint = "Jab, elbow... then take their legs out from under them.", Move = "LegSweep" },
 	{ Id = "HeadKickFinisher", Name = "1-2-3 Head Kick", Seq = "PPPK", Inputs = "P P P K", Hint = "Three punches... and finish with your leg.", Move = "HeadKickFinisher" },
 	{ Id = "KneeUppercut", Name = "Clinch Knee & Uppercut", Seq = "PKP", Inputs = "P K P", Hint = "A jab, a knee, then come up the middle." },
 	{ Id = "SpinKick", Name = "Spin Kick", Seq = "KKK", Inputs = "K K K", Hint = "Kick, kick... and spin.", Move = "SpinKick" },

@@ -327,6 +327,8 @@ function MeleeService:LandHit(player: Player, character: Model, root: BasePart, 
 			Status = move.Status,
 			HitDirection = hitDirection,
 			Crumple = move.Crumple,
+			Sweep = move.Sweep,
+			NoKnockdown = move.NoKnockdown,
 			Source = "Handler:" .. move.Id,
 		})
 		hitSomething = hitSomething or dealt > 0

@@ -201,6 +201,10 @@ Config.Ragdoll = {
 	Duration = 1.3,
 	Cooldown = 5,
 	Launch = 0.9, -- how far the hit throws the body (x the hit's knockback)
+	-- A LEG SWEEP (MeleeDefinitions Sweep) flips the body instead: popped up off its feet
+	-- (Lift, studs/s), a little away (Push) and rotated heels over head (Spin, rad/s) to land
+	-- on its back. (x the size factor: a small body flies higher)
+	Sweep = { Lift = 44, Push = 6, Spin = 11 },
 
 	-- SIZE: every body has a size = the cube root of its hitbox volume (a Handler counts
 	-- as 3 x 5.2 x 2: about 3.2; a Scrapling 2.8, a Biped Nightmare 3.9, bosses 9-13).
