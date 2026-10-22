@@ -42,7 +42,18 @@
 	  Weapon     true: this attack spends one of the weapon's charges
 	  Pull / Throw / Lash   the Magnet's pull, the Spear's throw, the Whip's crack
 	  Status     status effect on hit (StatusDefinitions id)
+	  NoKnockdown  never knocks down (it rocks them; the next strike needs them standing)
+	  Launch     a knockdown that throws them UP, rotating: "Sweep" (Config.Ragdoll.Sweep:
+	             the leg sweep's heels-over-head flip) or { Lift, Push, Spin }
+	  Impale     { Hold, Share }: the weapon sticks in them, held helpless for Hold seconds
+	             (Share of the damage), then ripped out for the rest
+	  Snare      { PullAt, PullTime, KneeAt, KneeDamage, KneeKnockback }: the whip catches
+	             them, drags them in and a knee meets them on arrival
+	  Root       seconds from the start that you're planted (you can't walk off mid-move)
 	  Unlock     { Level = n } (moves and weapons; purchases arrive with the shop)
+
+	WEAPON COMBOS (P P K with the weapon out): Rust Blade GUT STAB, Reaper Scythe HARVEST,
+	Chain Whip CHAIN SNARE.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -77,7 +88,7 @@ local Moves = {
 	-- Leg sweep (after the elbow): drop low on the lead leg and sweep the rear leg through
 	-- their ankles. Sweep: the knockdown FLIPS them (launched up, heels over head, onto their
 	-- back: CombatService / Config.Ragdoll.Sweep) instead of tipping them backwards.
-	LegSweep = { Pose = "LegSweep", Duration = 0.85, HitTime = 0.3, Cancel = 0.6, Damage = 13, Range = 6, Arc = 140, Knockback = 10, Stagger = 18, Heavy = true, Sweep = true, Lunge = 2, Unlock = { Level = 2 }, Display = "Elbow into Leg Sweep" },
+	LegSweep = { Pose = "LegSweep", Duration = 0.85, HitTime = 0.3, Cancel = 0.6, Damage = 13, Range = 6, Arc = 140, Knockback = 10, Stagger = 18, Heavy = true, Launch = "Sweep", Lunge = 2, Unlock = { Level = 2 }, Display = "Elbow into Leg Sweep" },
 	Knee = { Pose = "Knee", Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 1.5 },
 	Teep = { Pose = "FrontKick", Duration = 0.46, HitTime = 0.18, Cancel = 0.3, Damage = 7, Range = 7, Arc = 60, Knockback = 20, Stagger = 5, Lunge = 0.8 },
 	-- (the client first SPRINTS at the target, up to SprintTime, then leaps: this move
@@ -93,16 +104,29 @@ local Moves = {
 	-- Reaper Scythe: wide two-handed sweeps --------------------------------------------
 	ScytheReap = { Pose = "ScytheReap", Duration = 0.66, HitTime = 0.27, Cancel = 0.44, Damage = 16, Range = 9, Arc = 180, Knockback = 16, Stagger = 10, Lunge = 2, Weapon = true, Trail = true },
 	ScytheReturn = { Pose = "ScytheReturn", Duration = 0.66, HitTime = 0.26, Cancel = 0.44, Damage = 16, Range = 9, Arc = 180, Knockback = 16, Stagger = 10, Lunge = 2, Weapon = true, Trail = true },
+	-- HARVEST (P P K): drop low, hook the blade in behind their legs and rip it up over your
+	-- head: they're launched high into the air (Launch), turning slowly, a sitting duck.
+	-- (no Knockback: that shove slid them 32 studs; measured with Lift 78 they flew 21 studs
+	-- up, 1.1 s in the air)
+	ScytheHarvest = { Pose = "ScytheHarvest", Duration = 0.9, HitTime = 0.28, Cancel = 0.72, Damage = 20, Range = 9, Arc = 140, Stagger = 20, Heavy = true, Lunge = 2, Weapon = true, Trail = true, Launch = { Lift = 70, Push = 4, Spin = 5 }, Display = "Harvest" },
 	ScytheWhirl = { Pose = "ScytheWhirl", Duration = 0.95, HitTime = 0.42, Cancel = 0.78, Damage = 24, Range = 10, Arc = 360, Knockback = 40, Stagger = 24, Heavy = true, Weapon = true, Trail = true },
 	-- Rust Blade: full swings through the target ----------------------------------------
 	BladeSlash = { Pose = "BladeForehand", Duration = 0.4, HitTime = 0.15, Cancel = 0.24, Damage = 10, Range = 8, Arc = 150, Stagger = 4, Lunge = 1.2, Weapon = true, Trail = true },
 	BladeSlash2 = { Pose = "BladeBackhand", Duration = 0.4, HitTime = 0.15, Cancel = 0.24, Damage = 10, Range = 8, Arc = 150, Stagger = 4, Lunge = 1.2, Weapon = true, Trail = true },
 	BladeCleave = { Pose = "BladeCleave", Duration = 0.5, HitTime = 0.2, Cancel = 0.32, Damage = 12, Range = 8, Arc = 90, Stagger = 6, Lunge = 1.2, Weapon = true, Trail = true },
 	BladeLunge = { Pose = "Thrust", Duration = 0.6, HitTime = 0.2, Cancel = 0.42, Damage = 16, Range = 10, Arc = 40, Knockback = 22, Stagger = 10, Lunge = 5, Weapon = true, Trail = true },
+	-- GUT STAB (P P K): lunge in and drive the blade up into their stomach. It STICKS:
+	-- they're held on it, helpless, for Impale.Hold seconds (Share of the damage), then you
+	-- rip it out (the rest, and they fold up at your feet). Root: seconds you're planted.
+	BladeGutStab = { Pose = "BladeGutStab", Duration = 1.75, HitTime = 0.24, Cancel = 1.6, Damage = 30, Range = 7, Arc = 60, Stagger = 20, Lunge = 3.5, Weapon = true, Trail = true, Impale = { Hold = 1.0, Share = 0.35 }, Root = 1.45, Display = "Gut Stab" },
 	-- Chain Whip: a physical chain that lashes out --------------------------------------
 	-- (Range = how far the simulated chain actually reaches: arm + ~8.5 studs of chain)
 	WhipCrack = { Pose = "WhipCrack", Duration = 0.6, HitTime = 0.3, Cancel = 0.42, Damage = 11, Range = 11, Arc = 35, Stagger = 6, Lash = true, Weapon = true },
 	WhipCrack2 = { Pose = "WhipCrack", Duration = 0.6, HitTime = 0.3, Cancel = 0.42, Damage = 11, Range = 11, Arc = 35, Stagger = 6, Lash = true, Weapon = true },
+	-- CHAIN SNARE (P P K): the chain lashes out and wraps them; both hands haul them in off
+	-- their feet (Snare.PullAt, over PullTime) straight onto a rising knee (KneeAt: a second,
+	-- heavier hit that pops them up and away).
+	WhipSnare = { Pose = "WhipSnare", Duration = 1.15, HitTime = 0.3, Cancel = 1.0, Damage = 8, Range = 11, Arc = 40, Stagger = 12, Lash = true, Weapon = true, Snare = { PullAt = 0.44, PullTime = 0.28, KneeAt = 0.78, KneeDamage = 16 }, Display = "Chain Snare" },
 	WhipSweep = { Pose = "WhipSweep", Duration = 0.85, HitTime = 0.38, Cancel = 0.6, Damage = 15, Range = 10, Arc = 200, Knockback = 20, Stagger = 12, Lash = true, Weapon = true },
 	-- Storm Spear: thrown ----------------------------------------------------------------
 	SpearThrow = { Pose = "SpearThrow", Duration = 0.7, HitTime = 0.32, Cancel = 0.6, Damage = 24, Range = 45, Arc = 30, Knockback = 30, Stagger = 20, Heavy = true, Status = "Shock", Throw = true, Speed = 110, Weapon = true },
@@ -123,6 +147,10 @@ local CONTACT = {
 	Elbow = 1.6, LegSweep = 1.2,
 	Knee = 1.7, LegKick = 2.8, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 3.2, SpinKick = 2.2, CounterKick = 1.7,
 	BladeSlash = 3.4, BladeSlash2 = 3.4, BladeCleave = 3.4, BladeLunge = 3.6,
+	-- Gut stab measured: the tip is 6.5 out at stomach height on the hit frame; stopping 3.0
+	-- from their body runs the blade through them and a little out of their back
+	BladeGutStab = 3.0,
+	ScytheHarvest = 5.0, -- (the blade sweeps up through them ~7 out, past the snath)
 	ScytheReap = 5.5, ScytheReturn = 5.5, -- (the blade is out at arm's length + the snath)
 }
 for id, contact in CONTACT do
@@ -145,9 +173,9 @@ local Styles = {
 		K = "HeadKick", KK = "LegKick", KKK = "SpinKick",
 		KP = "Cross", KPP = "Hook", KPK = "Teep", -- kick, then box
 	},
-	ReaperScythe = { P = "ScytheReap", PP = "ScytheReturn", PPP = "ScytheWhirl" },
-	RustBlade = { P = "BladeSlash", PP = "BladeSlash2", PPP = "BladeCleave", PPPP = "BladeLunge", KP = "BladeLunge" },
-	ChainWhip = { P = "WhipCrack", PP = "WhipCrack2", PPP = "WhipSweep", KP = "WhipCrack" },
+	ReaperScythe = { P = "ScytheReap", PP = "ScytheReturn", PPP = "ScytheWhirl", PPK = "ScytheHarvest" },
+	RustBlade = { P = "BladeSlash", PP = "BladeSlash2", PPP = "BladeCleave", PPPP = "BladeLunge", KP = "BladeLunge", PPK = "BladeGutStab" },
+	ChainWhip = { P = "WhipCrack", PP = "WhipCrack2", PPP = "WhipSweep", KP = "WhipCrack", PPK = "WhipSnare" },
 	StormSpear = { P = "SpearThrow" },
 	Magnet = { P = "MagnetPull" },
 }
@@ -165,6 +193,10 @@ MeleeDefinitions.Combos = {
 	{ Id = "SpinKick", Name = "Spin Kick", Seq = "KKK", Inputs = "K K K", Hint = "Kick, kick... and spin.", Move = "SpinKick" },
 	{ Id = "KickBox", Name = "Kick & Box", Seq = "KPP", Inputs = "K P P", Hint = "Land a kick, then follow it in with your hands." },
 	{ Id = "Teep", Name = "Kick-Punch-Teep", Seq = "KPK", Inputs = "K P K", Hint = "Kick, punch, then push them away." },
+	-- weapon combos: Seq = "<WeaponId>:<inputs>"
+	{ Id = "GutStab", Name = "Gut Stab", Seq = "RustBlade:PPK", Inputs = "Blade P P K", Hint = "Rust Blade: two swings... then drive it in and leave it there.", Move = "BladeGutStab" },
+	{ Id = "Harvest", Name = "Harvest", Seq = "ReaperScythe:PPK", Inputs = "Scythe P P K", Hint = "Reaper Scythe: reap, return... then hook them up into the sky.", Move = "ScytheHarvest" },
+	{ Id = "ChainSnare", Name = "Chain Snare", Seq = "ChainWhip:PPK", Inputs = "Whip P P K", Hint = "Chain Whip: crack, crack... then catch them and drag them onto your knee.", Move = "WhipSnare" },
 	{ Id = "SupermanPunch", Name = "Superman Punch", Seq = "Counter:P", Inputs = "X then P", Hint = "Step back out of range... then punch.", Move = "CounterPunch" },
 	{ Id = "HeadHunter", Name = "Head Hunter", Seq = "Counter:K", Inputs = "X then K", Hint = "Step back out of range... then kick.", Move = "CounterKick" },
 	{ Id = "DropKick", Name = "Drop Kick", Seq = "Drop:K", Inputs = "Run, then K", Hint = "Get up to full speed... and kick.", Move = "DropKick" },

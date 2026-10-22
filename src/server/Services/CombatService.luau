@@ -213,8 +213,9 @@ end
 	                         knockdown follow it (default: straight away from the attacker)
 	  Crumple: boolean?      a knockdown that buckles the legs and drops the target where it
 	                         stands (an overhand) instead of launching it
-	  Sweep: boolean?        the legs are swept: the knockdown FLIPS the target (up, heels over
-	                         head, onto its back: Config.Ragdoll.Sweep)
+	  Launch: table?         { Lift, Push, Spin }: the knockdown throws the target UP (studs/s),
+	                         a little away, rotating heels over head (rad/s) - a leg sweep
+	                         (Config.Ragdoll.Sweep), a scythe's harvest
 	  NoKnockdown: boolean?  never knocks down (the blow holds or rocks them instead)
 	  Source: string         e.g. "Handler:Jab", "NightmareCombo", "Ability:Bite"
 	}
@@ -340,18 +341,19 @@ function CombatService:ApplyDamage(params): number
 		local worthy = if boss then special else (special or big or knockback >= cfg.MinKnockback)
 		-- NoKnockdown: the blow holds them instead (a bite's clamp keeps them in its jaws)
 		if worthy and not params.NoKnockdown then
-			local chance = self:KnockdownChance(attacker, target, big or params.Sweep)
+			local chance = self:KnockdownChance(attacker, target, big or params.Launch ~= nil)
 			if chance > 0 and random:NextNumber() < chance then
 				local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis
 				local force = math.max(knockback, cfg.MinThrow)
 				local throw
 				local options = boss and { AllowImmune = true, SpinScale = cfg.Boss.SpinScale } or {}
-				if params.Sweep then
-					-- legs taken out from under them: popped UP and rotated heels over head
-					-- (a small body flies higher, a big one barely leaves the floor)
+				local launch = params.Launch
+				if launch then
+					-- thrown UP and rotated heels over head (a small body flies higher, a big
+					-- one barely leaves the floor)
 					local scale = sizeFactor(RAG.SizeThrow, attacker, target)
-					throw = direction * cfg.Sweep.Push * scale + Vector3.new(0, cfg.Sweep.Lift * scale, 0)
-					options.Flip = cfg.Sweep.Spin
+					throw = direction * launch.Push * scale + Vector3.new(0, launch.Lift * scale, 0)
+					options.Flip = launch.Spin
 				elseif params.Crumple then
 					-- the legs go: a short stagger the way the blow drove them, folding down
 					throw = direction * force * cfg.Launch * 0.3 + Vector3.new(0, -force * 0.25, 0)

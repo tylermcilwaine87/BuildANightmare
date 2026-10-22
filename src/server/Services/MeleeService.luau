@@ -212,7 +212,10 @@ function MeleeService:HandleMelee(player: Player, seq, flag)
 	end
 
 	-- a signature combo pulled off for the first time: DISCOVERED
-	local comboKey = (flag == "Counter" and "Counter:" .. seq) or (flag == "Drop" and "Drop:K") or (Melee.Resolve("Fists", seq, level) == moveId and seq) or nil
+	local weaponKey = weapon ~= "Fists" and weapon .. ":" .. seq or nil
+	local comboKey = (flag == "Counter" and "Counter:" .. seq) or (flag == "Drop" and "Drop:K")
+		or (weaponKey and Melee.CombosBySeq[weaponKey] and weaponKey)
+		or (Melee.Resolve("Fists", seq, level) == moveId and seq) or nil
 	local combo = comboKey and Melee.CombosBySeq[comboKey]
 	if combo then
 		self:Discover(player, combo)
@@ -226,6 +229,14 @@ function MeleeService:HandleMelee(player: Player, seq, flag)
 			self:MagnetPull(player, character, root, move)
 		elseif move.Throw then
 			self:ThrowSpear(player, character, root, move)
+		elseif move.Impale then
+			self:Impale(player, character, root, move, function()
+				return state.Move == move and state.Start == now
+			end)
+		elseif move.Snare then
+			self:Snare(player, character, root, move, function()
+				return state.Move == move and state.Start == now
+			end)
 		else
 			self:LandHit(player, character, root, move)
 		end
@@ -309,6 +320,160 @@ function MeleeService:TargetsInArc(player: Player, character: Model, root: BaseP
 	return models
 end
 
+local pullServerBody -- (the Magnet's drag, below; the Chain Snare hauls with it too)
+
+-- A move's Launch: the named one from Config.Ragdoll ("Sweep"), or its own { Lift, Push, Spin }.
+local function launchOf(move)
+	local launch = move.Launch
+	if type(launch) == "string" then
+		return Config.Ragdoll[launch]
+	end
+	return launch
+end
+
+-- A body that can be pinned on a blade or hauled on a chain: not a boss, not bolted down or
+-- already down, and simulated by the server (a player's own character moves itself).
+local function canHold(target: Model): boolean
+	local targetRoot = target:FindFirstChild("HumanoidRootPart")
+	return targetRoot ~= nil and not targetRoot.Anchored and not target:GetAttribute("KnockbackImmune")
+		and not CollectionService:HasTag(target, "Boss") and not target:GetAttribute("Ragdolled")
+		and targetRoot:GetNetworkOwner() == nil
+end
+
+-- THE GUT STAB (move.Impale): the blade goes into the nearest body in front of you and
+-- STICKS. It takes Share of the damage and, if it can be held, hangs there on the blade,
+-- helpless (Gripped: its AI stops), for Hold seconds while you stay planted (move.Root).
+-- Then you rip it out: the rest of the damage, and it folds up at your feet (a knockdown
+-- toward you). A boss or a player just takes both halves. Anything else in the thrust
+-- takes an ordinary share.
+function MeleeService:Impale(player: Player, character: Model, root: BasePart, move, stillOn)
+	local range = move.Range + (move.Lunge or 0) * 0.4
+	local targets = self:TargetsInArc(player, character, root, range, move.Arc)
+	local victim = table.remove(targets, 1)
+	if not victim then
+		return
+	end
+	local combat = self.Services.CombatService
+	local impale = move.Impale
+	local source = "Handler:" .. move.Id
+	for _, other in targets do
+		combat:ApplyDamage({ Attacker = character, Target = other, BaseDamage = move.Damage * impale.Share, AttackPower = 100, Stagger = move.Stagger, Source = source })
+	end
+	local victimRoot = victim:FindFirstChild("HumanoidRootPart") :: BasePart
+	local victimHumanoid = victim:FindFirstChildOfClass("Humanoid")
+	combat:ApplyDamage({
+		Attacker = character,
+		Target = victim,
+		BaseDamage = move.Damage * impale.Share,
+		AttackPower = 100,
+		Stagger = move.Stagger,
+		NoKnockdown = true, -- it's stuck on the blade, not knocked away
+		HitDirection = Util.FlatUnit(victimRoot.Position - root.Position),
+		Source = source,
+	})
+	self.Services.TutorialService:Notify(player, "HandlerHit")
+	local hold = victimHumanoid and victimHumanoid.Health > 0 and canHold(victim)
+	if hold then
+		victim:SetAttribute("Gripped", true)
+		victimRoot.Anchored = true -- pinned where the blade caught it
+	end
+	task.delay(impale.Hold, function()
+		if hold and victimRoot.Parent then
+			victimRoot.Anchored = false
+			victimRoot.AssemblyLinearVelocity = Vector3.zero
+		end
+		if victim.Parent then
+			victim:SetAttribute("Gripped", nil)
+		end
+		if not victim.Parent or not victimHumanoid or victimHumanoid.Health <= 0 or not character.Parent
+			or character:GetAttribute("Ragdolled") or not stillOn() then
+			return
+		end
+		-- RIP IT OUT: pulled toward you as the blade comes free, they fold up at your feet
+		combat:ApplyDamage({
+			Attacker = character,
+			Target = victim,
+			BaseDamage = move.Damage * (1 - impale.Share),
+			AttackPower = 100,
+			Knockback = 12,
+			Stagger = move.Stagger,
+			Heavy = true,
+			Crumple = true,
+			HitDirection = Util.FlatUnit(root.Position - victimRoot.Position),
+			Source = source,
+		})
+	end)
+end
+
+-- THE CHAIN SNARE (move.Snare): the lash catches the first body in its line (a light hit,
+-- no knockdown) and wraps it; at PullAt both hands haul it in off its feet to right in
+-- front of you over PullTime (a boss is too heavy: the chain hauls YOU to it), and at
+-- KneeAt a knee meets it on arrival: a heavy hit that pops it up and away.
+local KNEE_LAUNCH = { Lift = 38, Push = 9, Spin = 6 } -- (popped up and back a few studs, not across the map)
+function MeleeService:Snare(player: Player, character: Model, root: BasePart, move, stillOn)
+	local snare = move.Snare
+	local target = self:TargetsInArc(player, character, root, move.Range, move.Arc)[1]
+	if not target then
+		return
+	end
+	local combat = self.Services.CombatService
+	local source = "Handler:" .. move.Id
+	local targetRoot = target:FindFirstChild("HumanoidRootPart") :: BasePart
+	local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+	combat:ApplyDamage({ Attacker = character, Target = target, BaseDamage = move.Damage, AttackPower = 100, Stagger = move.Stagger, NoKnockdown = true, Source = source })
+	self.Services.TutorialService:Notify(player, "HandlerHit")
+	local held = canHold(target)
+	if held then
+		target:SetAttribute("Gripped", true) -- wrapped up: it can't fight back while it's hauled in
+	end
+	local function release()
+		if held and target.Parent then
+			target:SetAttribute("Gripped", nil)
+		end
+	end
+	task.delay(snare.PullAt - move.HitTime, function()
+		if not stillOn() or not target.Parent or not targetRoot.Parent then
+			release()
+			return
+		end
+		local look = Util.FlatUnit(targetRoot.Position - root.Position) or Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+		local isBoss = target:GetAttribute("KnockbackImmune") or CollectionService:HasTag(target, "Boss")
+		if isBoss then
+			self.PlayerFX:FireClient(player, "MagnetZip", { To = targetRoot.Position - look * (radius + 2.5), Time = snare.PullTime })
+		elseif not targetRoot.Anchored then
+			local dest = root.Position + look * (radius + 1.2) -- right onto the knee
+			local owner = targetRoot:GetNetworkOwner()
+			if owner then
+				self.PlayerFX:FireClient(owner, "Pulled", { Model = target, To = dest, Time = snare.PullTime })
+			else
+				pullServerBody(targetRoot, dest, snare.PullTime)
+			end
+		end
+	end)
+	task.delay(snare.KneeAt - move.HitTime, function()
+		release()
+		if not stillOn() or not target.Parent or not character.Parent or character:GetAttribute("Ragdolled") then
+			return
+		end
+		-- the knee only lands if the haul really brought them in to you
+		if Util.FlatDistance(targetRoot.Position, root.Position) - radius > 4 then
+			return
+		end
+		local look = Util.FlatUnit(targetRoot.Position - root.Position) or Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+		combat:ApplyDamage({
+			Attacker = character,
+			Target = target,
+			BaseDamage = snare.KneeDamage,
+			AttackPower = 100,
+			Stagger = move.Stagger,
+			Heavy = true,
+			Launch = KNEE_LAUNCH,
+			HitDirection = look,
+			Source = source,
+		})
+	end)
+end
+
 function MeleeService:LandHit(player: Player, character: Model, root: BasePart, move)
 	-- the client slid forward during the windup; reach a little further to match
 	local range = move.Range + (move.Lunge or 0) * 0.4 + (move.Leap or 0) * 0.4
@@ -327,7 +492,7 @@ function MeleeService:LandHit(player: Player, character: Model, root: BasePart, 
 			Status = move.Status,
 			HitDirection = hitDirection,
 			Crumple = move.Crumple,
-			Sweep = move.Sweep,
+			Launch = launchOf(move),
 			NoKnockdown = move.NoKnockdown,
 			Source = "Handler:" .. move.Id,
 		})
@@ -342,7 +507,7 @@ end
 -- The Magnet
 ------------------------------------------------------------------------------------------
 -- Drags a body owned by the server toward `to` over `time` seconds.
-local function pullServerBody(targetRoot: BasePart, to: Vector3, time: number)
+function pullServerBody(targetRoot: BasePart, to: Vector3, time: number)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "MagnetPull"
 	attachment.Parent = targetRoot
@@ -626,9 +791,15 @@ function MeleeService:GetWeapon(player: Player): string
 	return stateOf(player).Weapon
 end
 
--- Magnet held: you walk, you don't run (HandlerService asks).
+-- Magnet held: you walk, you don't run; mid gut-stab (a move with Root) you don't move at
+-- all (HandlerService asks).
 function MeleeService:WalkSpeedCap(player: Player): number?
-	local weapon = WEAPONS[stateOf(player).Weapon]
+	local state = stateOf(player)
+	local move = state.Move
+	if move and move.Root and os.clock() < state.Start + move.Root then
+		return 0
+	end
+	local weapon = WEAPONS[state.Weapon]
 	return weapon and weapon.WalkSpeed or nil
 end
 
