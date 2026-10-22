@@ -153,6 +153,20 @@ local function aimTarget(root: BasePart, range: number): BasePart?
 	return best
 end
 
+-- The enemy a combo opened on: every follow-up strike of the same combo goes to them (not
+-- whoever happens to be nearest the camera by then), while they're alive and within `range`
+-- (they may have been knocked back a little).
+local comboTarget: BasePart? = nil
+local function comboTargetValid(root: BasePart, range: number): boolean
+	local model = comboTarget and comboTarget.Parent
+	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 or model:GetAttribute("Defeated") then
+		return false
+	end
+	local radius = math.max(comboTarget.Size.X, comboTarget.Size.Z) / 2
+	return Util.FlatDistance(comboTarget.Position, root.Position) - radius <= range
+end
+
 local function face(root: BasePart, direction: Vector3?)
 	if direction then
 		root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
@@ -298,7 +312,14 @@ function MeleeController:Fire(input: string)
 	-- face what you're fighting, then move into it
 	local reach = move.Range + (move.Lunge or 0)
 	local assist = math.max(AIM_ASSIST_RANGE, flag == "Counter" and Config.Handler.StepBack.CounterDistance + reach or reach + 2)
-	local targetRoot = aimTarget(root, assist)
+	local targetRoot
+	local locked = controllers.LockOnController:GetTarget()
+	if #nextSeq > 1 and flag ~= "Counter" and (locked == nil or locked == (comboTarget and comboTarget.Parent)) and comboTargetValid(root, assist + 4) then
+		targetRoot = comboTarget -- a follow-up: stay on the enemy this combo opened on
+	else
+		targetRoot = aimTarget(root, assist)
+	end
+	comboTarget = targetRoot
 	local direction
 	if targetRoot then
 		direction = Util.FlatUnit(targetRoot.Position - root.Position)
