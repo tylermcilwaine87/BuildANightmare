@@ -300,6 +300,42 @@ Config.Nightmare = {
 		CircleTime = { 0.5, 1.2 },
 		CircleSpeed = 0.75, -- x MoveSpeed while circling
 	},
+	-- THE WILD MOVESET (NightmareAIService.StartString): real fighting strings, the same
+	-- keyframed animations the Nightmare Gym trains on the bag (NightmarePoses.Common
+	-- "Gym_*"), picked at random (by Weight, never the same twice in a row). Arms = needs an
+	-- arm, Legs = needs two legs (Biped). Hits = { time (s), damage x StringDamage,
+	-- knockback, heavy (knockdown), launch }. Times are the animation's contact frames (the
+	-- markers measured on the gym bag), scaled by AttackSpeed. Clinch = grabs and holds the
+	-- target for the knees. ExtraReach = a kick reaches further than a fist.
+	StringDamage = 13,
+	Moveset = {
+		-- (Duration = the animation's length, GymDefinitions.Routines: the client plays it at
+		-- the speed the server's timing implies)
+		{ Action = "Gym_ComboA", Duration = 1.6, Weight = 3, Arms = true, Hits = { { 0.3, 0.55 }, { 0.54, 0.55 }, { 0.8, 0.95, 10 } } }, -- jab, jab, cross
+		{ Action = "Gym_ComboB", Duration = 1.8, Weight = 3, Arms = true, Hits = { { 0.3, 0.55 }, { 0.56, 0.8, 6 }, { 0.86, 1.05, 16 } } }, -- jab, cross, hook
+		{ Action = "Gym_ComboC", Duration = 2.1, Weight = 2, Arms = true, Hits = { { 0.3, 0.55 }, { 0.58, 0.85, 8 }, { 1.04, 1.6, 32, true } } }, -- jab, hook, OVERHAND
+		{ Action = "Gym_BodyRip", Duration = 1.5, Weight = 2, Arms = true, Hits = { { 0.46, 0.9, 6 }, { 0.74, 1.25, 20 } } }, -- body hook, uppercut
+		{ Action = "Gym_Power", Duration = 1.4, Weight = 1, Arms = true, Hits = { { 0.5, 1.9, 34, true } } }, -- one huge overhand
+		{ Action = "Gym_Teep", Duration = 1.3, Weight = 2, Legs = true, ExtraReach = 1.5, Hits = { { 0.42, 1.0, 38 } } }, -- push kick: shoved away
+		{ Action = "Gym_Roundhouse", Duration = 1.5, Weight = 2, Legs = true, ExtraReach = 1.5, Hits = { { 0.5, 1.5, 24, true } } },
+		{ Action = "Gym_KneeClinch", Duration = 1.8, Weight = 1, Legs = true, Clinch = true, Hits = { { 0.5, 0.7 }, { 0.95, 0.7 }, { 1.35, 1.1, 18 } } },
+		{ Action = "Gym_SpinBackKick", Duration = 1.6, Weight = 1, Legs = true, ExtraReach = 2, Hits = { { 0.56, 2.0, 0, true, { Lift = 34, Push = 22, Spin = 7 } } } },
+	},
+	Feint = { Action = "Gym_Bounce", Duration = 1.6, Cut = 1.0 }, -- footwork + slips; cut short
+	Wild = {
+		StringChance = 0.85, -- of attacks: a real string (else the classic 3-hit combo)
+		ChainChance = 0.35, -- straight into another string, no breather (x the Nightmare's flair)
+		FlankChance = 0.18, -- per decision: sprint round to their side / back first (x flair)
+		BossFlankChance = 0.35, -- ...against a boss, more often
+		FlankAngle = { 100, 160 }, -- degrees round the target
+		FlankSpeed = 1.55, -- x MoveSpeed
+		FlankTime = 1.4, -- gives up after this long
+		FeintChance = 0.08, -- a bounce of footwork and slips (feints) before going in
+		HitAndRunHealth = 0.35, -- below this fraction of health it starts hitting and running
+		HitAndRunChance = 0.5, -- after a string, when hurt: sprint off, then dive back in
+		HitAndRunTime = { 0.8, 1.3 },
+		AfterStringRest = 0.3, -- seconds after a string's last hit before it can act again
+	},
 	-- The three-hit basic combo. Durations are scaled by the AttackSpeed stat.
 	Combo = {
 		{ Name = "Combo1", Damage = 12, Windup = 0.22, Recovery = 0.33, Knockback = 0 },

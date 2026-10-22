@@ -14,9 +14,13 @@
 	           followed by a dash straight back in with a hit (Config.Nightmare.Fight)
 	  (busy)   mid-attack or mid-ability: hold, keep facing the target
 	  ABILITY  a queued Q/E ability: path into range, then cast (AbilityService)
-	  ENGAGE   close distance (sometimes with a dash-in lunge), face, 3-hit combo + HEAVY
-	           attack on its cooldown; after a finisher it may hop out and circle the
-	           target for a moment before going back in
+	  ENGAGE   close distance (sometimes with a dash-in lunge), face, then fight WILD
+	           (Config.Nightmare.Moveset / Wild): real strings picked at random - jab-cross-
+	           hook, body hook into uppercut, overhands, teeps, roundhouses, clinch knees,
+	           spinning back kicks - sometimes chained straight into the next, sometimes
+	           sprinting round to the target's side or back first, sometimes a feint; the
+	           HEAVY on a staggered target; hurt, it hits and runs. After a string it may
+	           hop out and circle the target for a moment before going back in.
 	  FOLLOW   stay at the Handler's side; face the Handler when idle; idle personality
 
 	Commands (remote NightmareCommand), shown on the HUD:
@@ -215,6 +219,173 @@ function NightmareAIService:StartAttack(brain, now: number)
 		end
 	end)
 	return true
+end
+
+------------------------------------------------------------------------------------------
+-- THE WILD MOVESET (Config.Nightmare.Moveset): real fighting strings, picked at random
+------------------------------------------------------------------------------------------
+local WILD = NM.Wild
+
+-- What this body can throw: punches need an arm, kicks need two legs (a Biped).
+local function bodyCan(brain)
+	local model = brain.model
+	local arms = model:FindFirstChild("RightArm_Root", true) ~= nil or model:FindFirstChild("LeftArm_Root", true) ~= nil
+	local legs = model:GetAttribute("Archetype") == "Biped" and model:FindFirstChild("Sub_Legs_R", true) ~= nil
+	return arms, legs
+end
+
+-- A string this body can do, by Weight, never the one it just threw (while there's a choice).
+function NightmareAIService:PickString(brain)
+	local arms, legs = bodyCan(brain)
+	local options, total = {}, 0
+	for _, def in NM.Moveset do
+		if (not def.Arms or arms) and (not def.Legs or legs) and def.Action ~= brain.lastString then
+			table.insert(options, def)
+			total += def.Weight
+		end
+	end
+	if total <= 0 then
+		return nil
+	end
+	local roll = math.random() * total
+	for _, def in options do
+		roll -= def.Weight
+		if roll <= 0 then
+			return def
+		end
+	end
+	return options[#options]
+end
+
+-- A short shove toward the target between the hits of a string (no animation of its own, so
+-- the string keeps playing): pressing forward as they back off.
+local function pressIn(brain, direction: Vector3, distance: number)
+	local attachment = brain.root:FindFirstChild("FacingAttachment")
+	if not attachment or distance < 0.5 or brain.root.Anchored then
+		return
+	end
+	local mover = Instance.new("LinearVelocity")
+	mover.Name = "PressIn"
+	mover.Attachment0 = attachment
+	mover.RelativeTo = Enum.ActuatorRelativeTo.World
+	mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	mover.PrimaryTangentAxis = Vector3.xAxis
+	mover.SecondaryTangentAxis = Vector3.zAxis
+	mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * (distance / 0.12)
+	mover.MaxForce = 1e6
+	mover.Parent = brain.root
+	task.delay(0.12, function()
+		mover:Destroy()
+	end)
+end
+
+-- A body small enough to be grabbed in the clinch: an ordinary enemy the server moves
+-- (never a boss or a player).
+local function canClinch(target: Model): boolean
+	local root = target:FindFirstChild("HumanoidRootPart")
+	return root ~= nil and not root.Anchored and not CollectionService:HasTag(target, "Boss") and not target:GetAttribute("KnockbackImmune")
+		and not target:GetAttribute("Ragdolled") and not Players:GetPlayerFromCharacter(target) and root:GetNetworkOwner() == nil
+end
+
+-- Throws string `def` at `target`: the keyframed animation plays at the speed AttackSpeed
+-- gives it, each hit lands on its contact frame on whatever is in front by then (the
+-- Nightmare keeps turning to face the target and presses in if it slipped back), a clinch
+-- holds the target for the knees, and the last hit usually decides what happens next
+-- (chain straight into another string, hit and run...).
+function NightmareAIService:StartString(brain, def, target: Model, now: number)
+	local speedScale = 100 / brain.stats.AttackSpeed
+	local hits = def.Hits
+	local lastHit = hits[#hits][1]
+	brain.busyUntil = now + (lastHit + WILD.AfterStringRest) * speedScale
+	brain.cancelableAt = now + hits[1][1] * speedScale + 0.05
+	brain.comboIndex = 1
+	brain.lastString = def.Action
+	brain.finisherPending = true
+	brain.chainPending = math.random() < WILD.ChainChance * (brain.flair or 1)
+	if not brain.possessedBy then
+		self:Stop(brain)
+	end
+	-- (the client plays the animation at hitTime / windup = 1 / speedScale)
+	self:PlayAction(brain, def.Action, def.Duration * 0.45 * speedScale, def.Duration * speedScale)
+
+	local castToken = brain.castToken
+	local services = self.Services
+	local reach = brain.stats.Reach + (def.ExtraReach or 0)
+	local grabbed = nil
+	local function release()
+		if grabbed then
+			local root = grabbed:FindFirstChild("HumanoidRootPart")
+			if root and root.Parent then
+				root.Anchored = false
+			end
+			grabbed:SetAttribute("Gripped", nil)
+			grabbed = nil
+		end
+	end
+	for index, hit in hits do
+		task.delay(hit[1] * speedScale, function()
+			if brains[brain.model] ~= brain or brain.humanoid.Health <= 0 or brain.castToken ~= castToken
+				or services.StatusService:IsStaggered(brain.model) or brain.model:GetAttribute("Ragdolled") then
+				release()
+				return
+			end
+			local targetRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+			if targetRoot and not grabbed then
+				-- stay on them: square up, and step in if they've slipped just out of reach
+				self:Face(brain, targetRoot.Position)
+				local toTarget = Util.FlatUnit(targetRoot.Position - brain.root.Position)
+				local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+				local gap = Util.FlatDistance(targetRoot.Position, brain.root.Position) - radius - brain.hitboxSize.Z / 2 - reach * 0.8
+				if toTarget and gap > 0 and gap < 4 then
+					pressIn(brain, toTarget, gap + 0.5)
+				end
+			end
+			-- the clinch: grab them on the first knee and hold them for the rest
+			if def.Clinch and index == 1 and targetRoot and canClinch(target) then
+				grabbed = target
+				target:SetAttribute("Gripped", true)
+				targetRoot.Anchored = true
+			end
+			if index == #hits then
+				release() -- the last one sends them flying
+			end
+			local hitbox = brain.hitboxSize
+			local boxCFrame = brain.root.CFrame * CFrame.new(0, 0, -(hitbox.Z / 2 + reach / 2))
+			for _, victim in services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 2, hitbox.Y + 2, reach), ignoreList(brain), brain.root.Position) do
+				services.CombatService:ApplyDamage({
+					Attacker = brain.model,
+					Target = victim,
+					BaseDamage = NM.StringDamage * hit[2],
+					AttackPower = brain.stats.AttackPower,
+					Knockback = hit[3] or 0,
+					Heavy = hit[4] == true,
+					Launch = hit[5],
+					NoKnockdown = grabbed == victim, -- held in the clinch: rocked, not dropped
+					Stagger = 4 + 6 * hit[2],
+					Status = rollOnHitStatus(brain, index == #hits and 3 or 1),
+					Source = "NightmareString",
+				})
+			end
+		end)
+	end
+	-- after it, when it's hurt: hit and RUN (sprint off, then dive back in)
+	local health = brain.humanoid.Health / math.max(brain.humanoid.MaxHealth, 1)
+	if not brain.possessedBy and health < WILD.HitAndRunHealth and math.random() < WILD.HitAndRunChance then
+		brain.runAt = brain.busyUntil
+		brain.chainPending = false
+	end
+	return true
+end
+
+-- A feint: a bounce of footwork and slips (no hit), then straight in.
+function NightmareAIService:StartFeint(brain, now: number)
+	local speedScale = 100 / brain.stats.AttackSpeed
+	local feint = NM.Feint
+	brain.busyUntil = now + feint.Cut * speedScale
+	brain.cancelableAt = brain.busyUntil
+	self:Stop(brain)
+	self:PlayAction(brain, feint.Action, feint.Duration * 0.45 * speedScale, feint.Duration * speedScale)
+	brain.counterAt = brain.busyUntil -- then dash straight in and hit
 end
 
 function NightmareAIService:HeavyReady(brain, now: number): boolean
@@ -513,8 +684,46 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 	local standOff = math.max(reach + targetRadius - 1.5, 1)
 	local aggressive = brain.command == "Aggressive"
 
+	-- HIT AND RUN (hurt): sprint off at an angle for a moment, then dive straight back in.
+	if brain.runAt and now >= brain.runAt then
+		brain.runAt = nil
+		local side = Vector3.new(-toTarget.Z, 0, toTarget.X) * (math.random() < 0.5 and -1 or 1)
+		brain.running = { Until = now + randomIn(WILD.HitAndRunTime), Direction = (-toTarget + side * 0.8).Unit }
+	end
+	if brain.running then
+		if now < brain.running.Until then
+			self:SetSpeed(brain, brain.stats.MoveSpeed * WILD.FlankSpeed)
+			self:StopFacing(brain)
+			brain.nav:Stop()
+			brain.humanoid:MoveTo(brain.root.Position + brain.running.Direction * 12)
+			return
+		end
+		brain.running = nil
+		brain.counterAt = now -- and back in, hard
+	end
+
+	-- FLANK: sprinting round to their side / back, then straight in from there.
+	if brain.flank then
+		local point = targetRoot.Position + brain.flank.Direction * (standOff + 2)
+		if now < brain.flank.Until and Util.FlatDistance(brain.root.Position, point) > 2.5 then
+			self:SetSpeed(brain, brain.stats.MoveSpeed * WILD.FlankSpeed)
+			self:StopFacing(brain)
+			brain.nav:Stop()
+			brain.humanoid:MoveTo(point)
+			return
+		end
+		brain.flank = nil
+		brain.counterAt = now -- arrived (or gave up): dash in and hit
+	end
+
 	-- Just finished a combo or a heavy: hop back out, then circle for a moment instead of
-	-- standing in front of the target trading hits.
+	-- standing in front of the target trading hits. (Unless it's chaining: straight into
+	-- the next string, no breather.)
+	if brain.finisherPending and brain.chainPending then
+		brain.finisherPending = false
+		brain.chainPending = false
+		brain.circleUntil = 0
+	end
 	if brain.finisherPending then
 		brain.finisherPending = false
 		if math.random() < FIGHT.AfterFinisherStepChance * (aggressive and 0.5 or 1) then
@@ -578,10 +787,29 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 	if not (look and wanted and look:Dot(wanted) > 0.8) then
 		return
 	end
-	-- Heavy attack: after finishing a combo, or straight away on a staggered target.
+	-- About to attack. A wild one doesn't always just swing: sometimes it sprints round to
+	-- their side or back first, sometimes it feints.
+	local flair = brain.flair or 1
+	local isBoss = CollectionService:HasTag(target, "Boss")
+	if math.random() < (isBoss and WILD.BossFlankChance or WILD.FlankChance) * flair then
+		local angle = math.rad(randomIn(WILD.FlankAngle)) * (math.random() < 0.5 and -1 or 1)
+		brain.flank = { Direction = CFrame.Angles(0, angle, 0):VectorToWorldSpace(-toTarget), Until = now + WILD.FlankTime }
+		return
+	end
+	if math.random() < WILD.FeintChance * flair then
+		self:StartFeint(brain, now)
+		return
+	end
+	-- Heavy attack: on a staggered target, or now and then when it's ready.
 	local targetStaggered = self.Services.StatusService:IsStaggered(target)
-	if self:HeavyReady(brain, now) and (brain.comboIndex == 1 or targetStaggered) then
+	if self:HeavyReady(brain, now) and (targetStaggered or math.random() < 0.25) then
 		self:StartHeavy(brain, now)
+		return
+	end
+	-- Otherwise a real string (jabs, hooks, uppercuts, kicks...), else the classic combo.
+	local picked = math.random() < WILD.StringChance and self:PickString(brain)
+	if picked then
+		self:StartString(brain, picked, target, now)
 	else
 		self:StartAttack(brain, now)
 	end
@@ -738,6 +966,8 @@ function NightmareAIService:Register(model: Model, owner: Player, stats, info)
 		comboIndex = 1,
 		comboResetAt = 0,
 		lastDamagedAt = 0,
+		-- personality: how wild this one fights (chains, flanks, feints), 0.6 - 1.2
+		flair = 0.6 + math.random() * 0.6,
 		possessedBy = nil,
 		nextIdleAction = now + math.random(NM.IdleActionInterval[1], NM.IdleActionInterval[2]),
 	}
