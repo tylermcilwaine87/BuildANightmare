@@ -88,11 +88,15 @@ AudioDefinitions.Sounds = {
 	Toast = { Id = "", Volume = 0.3, Cooldown = 0.3 },
 }
 
+-- Rock / metal from Roblox's licensed library (APMOfficial, DistrokidOfficial), so they
+-- play in any game. Other picks from the same search: "Fight through Adversity"
+-- rbxassetid://9038254260 (rock), "Cinematic Metal Action Theme for Gaming"
+-- rbxassetid://120519322089791 (metal).
 AudioDefinitions.Music = {
-	Hub = { Id = "", Volume = 0.5 }, -- the Forge, Workshop, Training Arena
-	Boss = { Id = "", Volume = 0.6 },
-	BossOverdrive = { Id = "", Volume = 0.65 }, -- after a boss's phase change (falls back to Boss)
-	Duel = { Id = "", Volume = 0.55 },
+	Hub = { Id = "rbxassetid://139483185512152", Volume = 0.4 }, -- the Forge, Workshop, Training Arena ("Crunch Time", blues-rock groove)
+	Boss = { Id = "rbxassetid://78744747224727", Volume = 0.6 }, -- "Boss Fight!" (metal)
+	BossOverdrive = { Id = "rbxassetid://1842652230", Volume = 0.65 }, -- after a boss's phase change (falls back to Boss) ("Toxic", heavy metal)
+	Duel = { Id = "rbxassetid://1837301451", Volume = 0.55 }, -- "Epic Battle Simulator" (rock)
 }
 
 AudioDefinitions.MusicFadeTime = 1.5 -- seconds to cross-fade between tracks

@@ -388,7 +388,16 @@ Code-side review done in v0.7.6 (details in `docs/DESIGN.md` → 7f). **Note:** 
 2. **Server size:** Game Settings → Places → Max Players (a party is 4 and a 3v3 is 6; 12–16 is a good start).
 3. **Creator Dashboard:** fill in the Experience Questionnaire (maturity rating). This is required before the game can be public. Set the genre, description, and devices (Computer, Phone, Tablet, Console).
 4. **Icon + thumbnails:** a 512×512 icon and at least one 1920×1080 thumbnail.
-5. **Audio:** paste asset ids into `src/shared/AudioDefinitions.luau` (empty = silent).
+5. **Audio:** paste asset ids into `src/shared/AudioDefinitions.luau` (empty = silent). **Music is in (v0.11.6):** rock and metal from Roblox's licensed library (APMOfficial / DistrokidOfficial):
+
+   | Slot | Track | Genre |
+   |---|---|---|
+   | Hub | "Crunch Time – Blues Guitar vs Groove" | blues-rock |
+   | Boss | "Boss Fight!" | metal |
+   | Boss phase 2 | "Toxic" | heavy metal |
+   | Duel | "Epic Battle Simulator" | rock |
+
+   All four load and play in Studio. Sound effects are still empty.
 6. **Real multiplayer test:** a private server with friends. Try 3v3, ranked with 3+ players, and a full 4-player party on each boss.
 7. **Go public:** set the experience to Public. Watch the Analytics tab (funnel, economy, BossWin/BossFail) during the first days.
 
