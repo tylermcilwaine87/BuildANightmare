@@ -349,7 +349,7 @@ Attacks.ShatterNova = {
 		local center = ctx:GroundPosition(ctx.Model)
 		local windup = ctx:WindupTime(1.1)
 		ctx:Circle(center, radius, windup)
-		ctx:Action("Roar", windup, windup + 0.8)
+		ctx:Action("ShatterNova", windup, windup + 0.8)
 		if not ctx:Wait(windup) then
 			return
 		end
@@ -378,7 +378,7 @@ Attacks.PrismBeam = {
 		local windup = ctx:WindupTime(1.4)
 		ctx:Box(beamCF, beamSize, windup)
 		ctx:Box(crossCF, crossSize, windup)
-		ctx:Action("Ultimate", windup, windup + 0.9)
+		ctx:Action("PrismBeam", windup, windup + 0.9)
 		if not ctx:Wait(windup) then
 			return
 		end
