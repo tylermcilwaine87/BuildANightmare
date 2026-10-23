@@ -397,7 +397,12 @@ Code-side review done in v0.7.6 (details in `docs/DESIGN.md` → 7f). **Note:** 
    | Boss phase 2 | "Toxic" | heavy metal |
    | Duel | "Epic Battle Simulator" | rock |
 
-   All four load and play in Studio. Sound effects are still empty.
+   All four load and play in Studio.
+
+   **Every sound effect and ambience slot is filled too**, from Roblox's licensed Pro Sound Effects library. Each line's comment in `AudioDefinitions.luau` gives the track's Creator Store name, so a slot is easy to swap.
+   - **Checked in Studio:** all 55 ids load. Fighting a Scrapling played punch whooshes, hits, footsteps, a heavy hit and a stagger.
+   - **New `MaxLength` field:** a long library take used as a one-shot fades out at that time. It's used on the bite rip (1.4 s), the Ultimate (3.5 s) and the defeat bell (4 s).
+   - I picked by name and length without hearing them. Listen in a playtest and swap any that feel wrong.
 6. **Real multiplayer test:** a private server with friends. Try 3v3, ranked with 3+ players, and a full 4-player party on each boss.
 7. **Go public:** set the experience to Public. Watch the Analytics tab (funnel, economy, BossWin/BossFail) during the first days.
 

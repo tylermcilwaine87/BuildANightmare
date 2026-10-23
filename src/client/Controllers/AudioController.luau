@@ -101,6 +101,19 @@ function AudioController:Play(key: string, position: Vector3?)
 		end
 	end
 	sound.Ended:Connect(cleanup)
+	if def.MaxLength then
+		-- a long library take used as a one-shot: fade it out quickly at MaxLength
+		task.delay(def.MaxLength, function()
+			if sound.Parent then
+				TweenService:Create(sound, TweenInfo.new(0.25), { Volume = 0 }):Play()
+				task.delay(0.25, function()
+					if sound.Parent then
+						cleanup()
+					end
+				end)
+			end
+		end)
+	end
 	task.delay(15, function() -- safety net (e.g. a sound that never loads)
 		if sound.Parent then
 			cleanup()
