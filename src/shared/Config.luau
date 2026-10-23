@@ -540,6 +540,20 @@ Config.Status = {
 	TickRate = 4, -- status ticks per second (definitions in StatusDefinitions)
 }
 
+-- SYNC (SyncService): you and your Nightmare landing hits on the SAME enemy within `Window`
+-- seconds of each other fills the meter (`Gain` per hit); it drains after `DecayDelay`
+-- without one. Full: SYNCED for `Duration` - both of you hit harder and stagger more.
+Config.Sync = {
+	Max = 100,
+	Window = 1.5,
+	Gain = 5,
+	DecayDelay = 3,
+	DecayPerSecond = 12,
+	Duration = 8,
+	DamageMultiplier = 1.25,
+	StaggerMultiplier = 1.5,
+}
+
 -- NIGHTMARE POSSESSION
 Config.Possession = {
 	MeterMax = 100,

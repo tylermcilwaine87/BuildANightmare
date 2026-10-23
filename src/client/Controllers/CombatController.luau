@@ -86,7 +86,10 @@ function CombatController:FindBestTarget(): Model?
 				local toEnemy = (root.Position - camera.CFrame.Position).Unit
 				local alignment = cameraLook:Dot(toEnemy)
 				if alignment > 0.35 then
-					local score = alignment * 2 - distance / TARGET_RANGE
+					-- (distance counts for a lot: an enemy right in front of you beats one
+					-- lined up 50 studs behind it; measured, the old weighting picked a
+					-- Scrapling 57 studs off over a dummy 6 studs ahead)
+					local score = alignment * 2 - distance / 25
 					if score > bestScore then
 						best, bestScore = enemy, score
 					end
@@ -165,6 +168,7 @@ function CombatController:StepBack()
 	end
 	lastStepBack = now
 	counterUsed = false
+	controllers.MeleeController:Interrupt() -- cancels the strike you were in
 
 	-- back = away from whatever you're fighting (lock-on target), else toward the camera
 	local target = controllers.LockOnController:GetTarget()
@@ -222,6 +226,7 @@ function CombatController:Dodge()
 		return
 	end
 	lastDodge = now
+	controllers.MeleeController:Interrupt() -- cancels the strike you were in
 
 	local direction = Util.FlatUnit(humanoid.MoveDirection) or Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
 	-- Facing someone and dodging sideways: the SIDE DIVE (stay facing them, roll over the

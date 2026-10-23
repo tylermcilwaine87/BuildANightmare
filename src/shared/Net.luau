@@ -7,7 +7,7 @@
 
 	  BuildRequest       RemoteFunction  C->S  "GetState" | "SaveBuild" | "SetActive"
 	  CombatAction       RemoteEvent     C->S  "Melee", seq, flag? | "Equip", id | "Dodge", dir | "Guard", bool | "Ability", 1|2
-	  NightmareCommand   RemoteEvent     C->S  "Attack"(target) | "Follow" | "Retreat" | "ToggleSummon"
+	  NightmareCommand   RemoteEvent     C->S  "Attack"(target) | "Focus"(target) | "Follow" | "Retreat" | "ToggleSummon"
 	  BossRequest        RemoteFunction  C->S  "Start", bossId, mode? | "Leave" | "Replay" | "Return"
 	  TutorialAction     RemoteEvent     C->S  "Skip"
 	  CombatFeedback     RemoteEvent     S->all "Damage" | "Defeated" | "Blocked" | "GuardBreak"

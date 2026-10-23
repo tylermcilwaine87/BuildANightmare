@@ -162,6 +162,7 @@ function HandlerService:TryDodge(player: Player, pose: string?): boolean
 		return false -- knocked down: get up first
 	end
 	state.LastDodge = now
+	self.Services.MeleeService:Interrupt(player) -- a dive cuts whatever strike you were in
 	state.InvulnerableUntil = now + H.Dodge.InvulnerableTime
 	state.PerfectCredited = false
 	self:Spend(state, H.Dodge.StaminaCost)
@@ -191,6 +192,7 @@ function HandlerService:TryStepBack(player: Player): boolean
 		return false
 	end
 	state.LastStepBack = now
+	self.Services.MeleeService:Interrupt(player) -- (so does a step back)
 	state.CounterUsed = false
 	state.InvulnerableUntil = math.max(state.InvulnerableUntil, now + cfg.InvulnerableTime)
 	self:Spend(state, cfg.StaminaCost)

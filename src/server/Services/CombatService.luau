@@ -5,7 +5,8 @@
 	The ONE place damage is applied. Everything (Handler swings, Nightmare combos & heavies,
 	abilities, ultimates, status ticks, enemies, bosses) calls :ApplyDamage(), which:
 	  1. checks the target is alive and on the opposing side
-	  2. applies AttackPower, the attacker's Weaken, and the target's Defence
+	  2. applies AttackPower, the attacker's Weaken, the target's Defence and the SYNCED
+	     bonus (SyncService)
 	  3. Handlers: dodge i-frames, guard, possession damage reduction (HandlerService)
 	     Nightmares: possession-dodge i-frames, ability shields
 	  4. applies knockback to server-owned bodies (bosses are immune)
@@ -244,6 +245,9 @@ function CombatService:ApplyDamage(params): number
 	if attacker and not isBoss(target) then
 		amount *= sizeFactor(RAG.SizeDamage, attacker, target)
 	end
+	-- SYNCED (you and your Nightmare fighting as one, SyncService): both hit harder
+	local synced = self.Services.SyncService:DamageMultiplier(attacker)
+	amount *= synced
 	-- a boss caught EXPOSED (just after its attack) or BROKEN (stagger bar full, on its
 	-- knees) takes more (Config.Bosses: the punish windows)
 	local exposed, broken = false, false
@@ -391,7 +395,11 @@ function CombatService:ApplyDamage(params): number
 
 	if humanoid.Health > 0 then
 		if params.Stagger and params.Stagger > 0 then
-			status:AddStagger(target, params.Stagger * (exposed and Config.Bosses.Exposed.StaggerMultiplier or 1), attacker)
+			local stagger = params.Stagger * (exposed and Config.Bosses.Exposed.StaggerMultiplier or 1)
+			if synced > 1 then
+				stagger *= Config.Sync.StaggerMultiplier
+			end
+			status:AddStagger(target, stagger, attacker)
 		end
 		if params.Status and not params.NoStatus then
 			status:Apply(target, params.Status, attacker)
@@ -412,6 +420,7 @@ function CombatService:ApplyDamage(params): number
 		KnockedDown = knockedDown,
 		Exposed = exposed or nil, -- (punished an exposed boss)
 		Broken = broken or nil, -- (hit a broken boss)
+		Synced = synced > 1 or nil, -- (a synced hit)
 	})
 
 	for _, listener in damageListeners do

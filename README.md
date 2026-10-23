@@ -36,6 +36,15 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
 - **Sound slots** (empty until you add ids): `GymDoor`, `BagHit`, `BagHeavy`, `ChainRattle`, `GymReward`, `GymRevealRare`, `GymRevealMythic`, and the `GymAmbience` ambience.
 - **Studio test hook:** `game.ServerStorage.DevBridge:Invoke("GymService", "DevRollNow", player, "Mythic")` rolls the next reward now (optionally forcing its tier). It's Studio only.
 
+## Fighting as one (v0.11.4)
+
+- **Combo trail.** Every press of the combo so far shows as P / K chips above the hotbar, and when the string is a signature move its name lights up in gold, so combos teach themselves.
+- **Two presses buffered.** Mash ahead and up to two presses wait for the move in front of them to finish: three quick clicks (0.16 s apart) came out as Jab, Elbow, Hook, in order.
+- **Dive or step back to cancel.** Diving or stepping back mid-strike ends it, and the hit is dropped on the server too. Tested: an elbow started at 4.2 studs and a dive 0.1 s later meant no damage.
+- **Lock-on prefers what's close.** Distance now counts as much as camera aim, so a dummy 6 studs ahead wins over a Scrapling 57 studs away.
+- **Your Nightmare fights who you fight.** Locking on (Z) sends your Nightmare after that enemy, without changing its Defend / Aggressive stance. Tested: re-locking onto a second dummy switched the Nightmare's target.
+- **SYNC meter.** You and your Nightmare landing hits on the same enemy within 1.5 s of each other fills the SYNC bar (it drains when you stop). When full, you're **SYNCED** for 8 s: both of you deal 25% more damage and stagger, with a cyan outline and a banner. Tested: hits went from 10 to 13 damage.
+
 ## Fights that feel alive (v0.11.3)
 
 - **Duel camera.** Lock on (Z) up close and the camera glides in over your shoulder (8 back, 6 up, 7 to the side), so your own body never hides the enemy. It takes the right shoulder unless your Nightmare is standing behind that side, then the left. Measured by sampling the camera every 0.2 s while locked on.

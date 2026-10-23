@@ -36,6 +36,7 @@ local LOAD_ORDER = {
 	"UltimateService",
 	"NightmareAIService",
 	"PossessionService",
+	"SyncService",
 	"NightmareSpawnService",
 	"NightmareBuildService",
 	"TutorialService",

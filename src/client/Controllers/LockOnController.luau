@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Util = require(Shared:WaitForChild("Util"))
+local Net = require(Shared:WaitForChild("Net"))
 
 local LockOnController = {}
 
@@ -37,8 +38,11 @@ local releasing = nil -- { From: CFrame, Start: number } while gliding back afte
 local shoulder = 1 -- the duel camera's side: 1 = over your right shoulder, -1 = left
 local lockButton: TextButton? = nil
 
+local focusRemote: RemoteEvent
+
 function LockOnController:Init(registry)
 	controllers = registry
+	focusRemote = Net.Get("NightmareCommand")
 end
 
 local function rootOf(model: Model?): BasePart?
@@ -107,6 +111,10 @@ function LockOnController:Lock(model: Model)
 	setAutoRotate(lockedBody, false)
 	if lockButton then
 		lockButton.Text = "UNLOCK"
+	end
+	-- you and your Nightmare fight the same enemy: it goes after whoever you lock onto
+	if not controllers.PossessionController:IsPossessing() then
+		focusRemote:FireServer("Focus", model)
 	end
 end
 

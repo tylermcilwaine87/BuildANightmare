@@ -28,6 +28,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -56,7 +57,7 @@ local combatAction: RemoteEvent
 local seq = "" -- the combo so far
 local current = nil -- the move playing now
 local currentStart = -math.huge
-local buffered: string? = nil
+local queue: { string } = {} -- presses made mid-move (up to 2), fired in order as each move can be chained
 local lastStrike = -math.huge
 local runningFor = 0 -- seconds of continuous running (drop kick)
 local hotbar = {} -- UI
@@ -195,7 +196,7 @@ local sprinting = false
 function MeleeController:DropKick(character: Model, humanoid: Humanoid, root: BasePart)
 	local move = MOVES.DropKick
 	sprinting = true
-	seq, current, buffered = "", nil, nil
+	seq, current, queue = "", nil, {}
 	lastStrike = os.clock()
 	local targetRoot = aimTarget(root, move.SprintRange)
 	local attachment = root:FindFirstChild("RootAttachment")
@@ -255,9 +256,12 @@ function MeleeController:Press(input: string)
 		return -- committed to the drop kick
 	end
 	local now = os.clock()
-	-- mid-move: remember the press and fire it the moment the move can be chained
+	-- mid-move: remember the press (up to two of them) and fire each the moment the move
+	-- before it can be chained, so mashing a rhythm never drops an input
 	if current and now < currentStart + current.Cancel then
-		buffered = input
+		if #queue < 2 then
+			table.insert(queue, input)
+		end
 		return
 	end
 	self:Fire(input)
@@ -306,8 +310,8 @@ function MeleeController:Fire(input: string)
 	seq = nextSeq
 	current = move
 	currentStart = now
-	buffered = nil
 	lastStrike = now
+	self:ShowTrail(seq, weapon, flag)
 
 	-- face what you're fighting, then move into it
 	local reach = move.Range + (move.Lunge or 0)
@@ -363,12 +367,86 @@ function MeleeController:Fire(input: string)
 	end
 	-- fire a buffered press as soon as this move can be chained
 	task.delay(move.Cancel, function()
-		if current == move and currentStart == now and buffered then
-			local nextInput = buffered
-			buffered = nil
-			self:Fire(nextInput)
+		if current == move and currentStart == now and #queue > 0 then
+			self:Fire(table.remove(queue, 1))
 		end
 	end)
+	-- the combo window closes: clear the trail
+	task.delay(move.Duration + Melee.ComboWindow, function()
+		if current == move and currentStart == now then
+			self:ShowTrail("", nil, nil)
+		end
+	end)
+end
+
+-- A dive / step back cuts the strike you're in (the server drops its hit too): the combo
+-- is over and nothing queued fires after it.
+function MeleeController:Interrupt()
+	seq, current, queue = "", nil, {}
+	self:ShowTrail("", nil, nil)
+end
+
+------------------------------------------------------------------------------------------
+-- The input trail: the presses of the combo so far, above the hotbar; when the string is
+-- a signature move its name lights up (so combos teach themselves)
+------------------------------------------------------------------------------------------
+local trail = {}
+
+local function buildTrail(parent: Instance)
+	trail.Frame = UIKit.New("Frame", {
+		Name = "InputTrail",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -216),
+		Size = UDim2.fromOffset(360, 56),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = parent,
+	})
+	trail.Chips = UIKit.New("Frame", { Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, Parent = trail.Frame }, { UIKit.List(5, Enum.FillDirection.Horizontal) })
+	trail.Chips:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Center
+	trail.Name = UIKit.Label({ Text = "", Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = Color3.fromRGB(255, 205, 80), Font = UIKit.FontHeavy, MaxTextSize = 20, Parent = trail.Frame })
+	UIKit.AutoScale(trail.Frame)
+end
+
+function MeleeController:ShowTrail(sequence: string, weapon: string?, flag: string?)
+	if not trail.Frame then
+		return
+	end
+	for _, chip in trail.Chips:GetChildren() do
+		if chip:IsA("GuiObject") then
+			chip:Destroy()
+		end
+	end
+	trail.Frame.Visible = sequence ~= ""
+	if sequence == "" then
+		trail.Name.Text = ""
+		return
+	end
+	for i = 1, #sequence do
+		local key = sequence:sub(i, i)
+		local chip = UIKit.Label({
+			Text = key,
+			Size = UDim2.fromOffset(28, 28),
+			BackgroundColor3 = key == "K" and Color3.fromRGB(200, 100, 60) or Color3.fromRGB(90, 110, 200),
+			BackgroundTransparency = 0,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Font = UIKit.FontHeavy,
+			MaxTextSize = 16,
+			LayoutOrder = i,
+			Parent = trail.Chips,
+		})
+		UIKit.Corner(6).Parent = chip
+	end
+	-- a signature move? (weapon combos are keyed "<Weapon>:<inputs>")
+	local key = (flag == "Counter" and "Counter:" .. sequence) or (flag == "Drop" and "Drop:K")
+		or (weapon and weapon ~= "Fists" and weapon .. ":" .. sequence) or sequence
+	local combo = Melee.CombosBySeq[key] or (weapon == "Fists" and Melee.CombosBySeq[sequence]) or nil
+	trail.Name.Text = combo and string.upper(combo.Name) or ""
+	if combo then
+		trail.Name.TextTransparency = 0
+		trail.Name.Size = UDim2.new(1, 0, 0, 30)
+		TweenService:Create(trail.Name, TweenInfo.new(0.18, Enum.EasingStyle.Back), { Size = UDim2.new(1, 0, 0, 24) }):Play()
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -408,7 +486,7 @@ function MeleeController:EquipSlot(slot: number)
 			return
 		end
 	end
-	seq, current, buffered = "", nil, nil
+	seq, current, queue = "", nil, {}
 	combatAction:FireServer("Equip", weaponId)
 end
 
@@ -422,7 +500,7 @@ function MeleeController:CycleWeapon()
 		end
 	end
 	local index = table.find(order, held) or 1
-	seq, current, buffered = "", nil, nil
+	seq, current, queue = "", nil, {}
 	combatAction:FireServer("Equip", order[index % #order + 1])
 end
 
@@ -447,13 +525,14 @@ local function buildHotbar()
 	local bar = UIKit.New("Frame", {
 		Name = "Slots",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -140),
+		Position = UDim2.new(0.5, 0, 1, -152),
 		Size = UDim2.fromOffset(count * 58 + (count - 1) * 6, 58),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, { UIKit.List(6, Enum.FillDirection.Horizontal) })
 	bar:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Center
 	UIKit.AutoScale(bar)
+	buildTrail(gui)
 	hotbar.Gui = gui
 	hotbar.Slots = {}
 	local keyboard = UserInputService.KeyboardEnabled
@@ -554,16 +633,16 @@ function MeleeController:Start()
 	buildHotbar()
 	local function watch(character: Model)
 		character:GetAttributeChangedSignal("Weapon"):Connect(function()
-			seq, current, buffered = "", nil, nil -- a new weapon starts a new combo
+			seq, current, queue = "", nil, {} -- a new weapon starts a new combo
 			refreshHotbar()
 		end)
 		-- knocked down mid-combo: the combo is over
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(function()
-			seq, current, buffered = "", nil, nil
+			seq, current, queue = "", nil, {}
 		end)
 	end
 	localPlayer.CharacterAdded:Connect(function(character)
-		seq, current, buffered = "", nil, nil
+		seq, current, queue = "", nil, {}
 		watch(character)
 	end)
 	if localPlayer.Character then

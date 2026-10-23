@@ -243,6 +243,18 @@ function MeleeService:HandleMelee(player: Player, seq, flag)
 	end)
 end
 
+-- A dive / step back cuts the strike you're in: its hit never lands (it was thrown away),
+-- you're free to move, and the combo starts over.
+function MeleeService:Interrupt(player: Player)
+	local state = stateOf(player)
+	state.Move = nil
+	state.Seq = ""
+	local character = player.Character
+	if character then
+		character:SetAttribute("Striking", nil)
+	end
+end
+
 function MeleeService:Discover(player: Player, combo)
 	local profile = self.Services.PlayerDataService:Get(player)
 	if not profile or profile.Combos[combo.Id] then

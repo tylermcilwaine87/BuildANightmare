@@ -141,18 +141,22 @@ local function buildAbilityBar(gui: ScreenGui)
 	end
 end
 
+local SYNC_COLOR = Color3.fromRGB(80, 230, 230)
+
 local function buildMeters(gui: ScreenGui)
 	local frame = UIKit.New("Frame", {
 		Name = "Meters",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -92),
-		Size = UDim2.fromOffset(330, 40),
+		Size = UDim2.fromOffset(330, 53),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
 	UIKit.AutoScale(frame)
-	ui.PossessionBar = UIKit.Bar({ Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(170, 100, 255), MaxTextSize = 12, Parent = frame })
-	ui.UltimateBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 21), Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(255, 190, 60), MaxTextSize = 12, Parent = frame })
+	-- SYNC (SyncService): you and your Nightmare hitting the same enemy together
+	ui.SyncBar = UIKit.Bar({ Size = UDim2.new(1, 0, 0, 12), Color = SYNC_COLOR, MaxTextSize = 10, Parent = frame })
+	ui.PossessionBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 15), Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(170, 100, 255), MaxTextSize = 12, Parent = frame })
+	ui.UltimateBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 36), Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(255, 190, 60), MaxTextSize = 12, Parent = frame })
 	ui.Meters = frame
 end
 
@@ -493,6 +497,39 @@ function HUDController:RefreshMeters(character: Model?, nightmare: Model?)
 			ui.PossessionBar.Label.Text = "POSSESSION READY  ·  press F"
 		else
 			ui.PossessionBar.Label.Text = ("POSSESSION  %d%%"):format(meter)
+		end
+	end
+
+	-- SYNC: a banner as it fills, both bodies outlined while it lasts
+	local syncedLeft = math.max(0, (character and character:GetAttribute("SyncedUntil") or 0) - Workspace:GetServerTimeNow())
+	if syncedLeft > 0 then
+		UIKit.SetBar(ui.SyncBar, syncedLeft, Config.Sync.Duration)
+		ui.SyncBar.Label.Text = ("SYNCED  %.1fs  ·  you both hit harder"):format(syncedLeft)
+		if not ui.Synced then
+			self:Toast("SYNCED! You and your Nightmare fight as one", SYNC_COLOR, 2.5)
+		end
+	else
+		local sync = character and character:GetAttribute("Sync") or 0
+		UIKit.SetBar(ui.SyncBar, sync, Config.Sync.Max)
+		ui.SyncBar.Label.Text = sync > 0 and ("SYNC  %d%%"):format(sync) or "SYNC  ·  hit the same enemy as your Nightmare"
+	end
+	ui.Synced = syncedLeft > 0
+	for _, entry in { { "SyncGlowHandler", character }, { "SyncGlowNightmare", nightmare } } do
+		local glow = ui[entry[1]]
+		local adornee = ui.Synced and entry[2] or nil
+		if adornee and not glow then
+			glow = UIKit.New("Highlight", {
+				FillTransparency = 1,
+				OutlineColor = SYNC_COLOR,
+				OutlineTransparency = 0.15,
+				DepthMode = Enum.HighlightDepthMode.Occluded,
+				Parent = Workspace:FindFirstChild("ClientEffects") or Workspace,
+			})
+			ui[entry[1]] = glow
+		end
+		if glow then
+			glow.Adornee = adornee
+			glow.Enabled = adornee ~= nil
 		end
 	end
 

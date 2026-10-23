@@ -25,6 +25,7 @@
 
 	Commands (remote NightmareCommand), shown on the HUD:
 	  "Attack", target   focus a specific enemy
+	  "Focus", target    (sent when you lock on) go after that enemy, keeping the stance
 	  "Defend"           stay close, only fight enemies near the Handler (default)
 	  "Aggressive"       hunt enemies further out, use heavy attacks more often
 	  "Retreat"          ignore enemies and return to the Handler for a few seconds
@@ -1039,6 +1040,23 @@ function NightmareAIService:HandleCommand(player: Player, command, arg)
 		end
 		setCommand(brain, "Attack", arg)
 		self.Services.TutorialService:Notify(player, "CommandAttack")
+	elseif command == "Focus" then
+		-- your lock-on target: go after them, keeping the stance (Defend / Aggressive); a
+		-- focused Attack switches to them too. A Retreat is left alone.
+		local handlerRoot = getHandlerRoot(player)
+		if brain.command == "Retreat" or typeof(arg) ~= "Instance" or not arg:IsA("Model") or not handlerRoot then
+			return
+		end
+		if not isValidEnemy(brain, arg, handlerRoot) then
+			return
+		end
+		if brain.command == "Attack" then
+			setCommand(brain, "Attack", arg)
+		end
+		if brain.target ~= arg then
+			brain.target = arg
+			brain.targetSince = os.clock()
+		end
 	elseif command == "Defend" or command == "Follow" then
 		setCommand(brain, "Defend", nil)
 	elseif command == "Aggressive" then
