@@ -80,6 +80,14 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
   - **Abyssal Maw:** Burrow, Erupt, Tentacle Slam, an Abyssal Inhale that bites, Ink Spit and Abyss Pools.
 
   Every frame was checked against the floor, and each boss was fought live using its new moves.
+- **Tested live:**
+  - **Harvest on a Scrapling:** Reap 16, Return 16, Harvest 20 on its hit frame. The Scrapling flew 14.7 studs straight up.
+  - **Two-player duel** (Studio Server & Clients):
+    - a Handler's hits damage the other player
+    - a parry against a player takes no damage and stuns the attacker
+    - a mashed guard gets no parry
+    - a real Jab, Elbow, Leg Sweep from one player's keyboard landed its 13-damage sweep on the other on the hit frame
+  - 0 script errors.
 - **SYNC meter.** You and your Nightmare landing hits on the same enemy within 1.5 s of each other fills the SYNC bar (it drains when you stop). When full, you're **SYNCED** for 8 s: both of you deal 25% more damage and stagger, with a cyan outline and a banner. Tested: hits went from 10 to 13 damage.
 
 ## Fights that feel alive (v0.11.3)

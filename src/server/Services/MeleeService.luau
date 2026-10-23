@@ -648,12 +648,15 @@ function MeleeService:Equip(player: Player, weaponId)
 	self:ApplyWeapon(player)
 end
 
--- Studio only: hold a weapon that isn't in your saved loadout (tests). Nothing is saved.
+-- Studio only: hold a weapon that isn't in your saved loadout (tests), charges full.
+-- Nothing is saved.
 function MeleeService:DevEquip(player: Player, weaponId: string)
 	if not game:GetService("RunService"):IsStudio() or not WEAPONS[weaponId] then
 		return
 	end
 	local state = stateOf(player)
+	state.Uses[weaponId] = nil
+	state.ReadyAt[weaponId] = nil
 	state.Weapon = weaponId
 	state.Seq = ""
 	self:ApplyWeapon(player)
