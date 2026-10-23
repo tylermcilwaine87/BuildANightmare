@@ -25,6 +25,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local UIKit = require(script.Parent:WaitForChild("UIKit"))
 local StatusDefinitions = require(Shared:WaitForChild("StatusDefinitions"))
+local Passives = require(Shared:WaitForChild("PassiveDefinitions"))
 
 local EffectsController = {}
 
@@ -249,7 +250,9 @@ function EffectsController:Afterimage(character: Model?)
 	if not character then
 		return
 	end
-	for _, d in character:GetChildren() do
+	-- (a player's body parts are its children; a Nightmare's pieces sit deeper)
+	local parts = Players:GetPlayerFromCharacter(character) and character:GetChildren() or character:GetDescendants()
+	for _, d in parts do
 		if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" and d.Transparency < 1 then
 			local ghost = newEffectPart({
 				Size = d.Size,
@@ -774,6 +777,27 @@ function EffectsController:Start()
 	effectsFolder = Instance.new("Folder")
 	effectsFolder.Name = "ClientEffects"
 	effectsFolder.Parent = Workspace
+
+	-- AFTERIMAGE passive (PassiveDefinitions): a Nightmare's sidesteps, step-backs and
+	-- dash-ins leave a trail of ghosts (the server makes it untouchable mid-step)
+	local function watchNightmare(model: Instance)
+		model:GetAttributeChangedSignal("ActionSeq"):Connect(function()
+			local action = model:GetAttribute("ActionName")
+			if (action == "StepBack" or action == "Sidestep" or action == "DashIn") and Passives.Has(model, "Afterimage") then
+				for i = 0, 2 do
+					task.delay(i * 0.07, function()
+						if model.Parent then
+							self:Afterimage(model)
+						end
+					end)
+				end
+			end
+		end)
+	end
+	for _, model in CollectionService:GetTagged("Nightmare") do
+		watchNightmare(model)
+	end
+	CollectionService:GetInstanceAddedSignal("Nightmare"):Connect(watchNightmare)
 
 	-- Animation event markers (HandlerAnimator.MarkerReached), on every character you see:
 	--   Whoosh          the strike cutting the air (sound at the body)

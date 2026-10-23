@@ -313,7 +313,7 @@ function ArenaBuilder.BuildJunkyard(origin: CFrame, name: string, isWorld: boole
 					table.insert(positions, vent.Position)
 					ctx:Impact(vent.Position, 7)
 				end
-				ctx:DamageCircles(positions, 7, 10, { Knockback = 45 })
+				ctx:DamageCircles(positions, 7, 10, { Knockback = 45, Ground = true })
 			end,
 		},
 		{
@@ -736,7 +736,7 @@ function ArenaBuilder.BuildSunkenAbyss(origin: CFrame, name: string, isWorld: bo
 				for _, p in spots do
 					ctx:Impact(p, 5)
 				end
-				ctx:DamageCircles(spots, 5, 9, { Status = "Weaken" })
+				ctx:DamageCircles(spots, 5, 9, { Status = "Weaken", Ground = true })
 			end,
 		},
 	}

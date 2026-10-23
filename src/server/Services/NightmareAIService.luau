@@ -48,6 +48,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local Util = require(Shared:WaitForChild("Util"))
 local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
+local Passives = require(Shared:WaitForChild("PassiveDefinitions"))
 
 local NightmareAIService = {}
 
@@ -512,6 +513,10 @@ function NightmareAIService:QuickStep(brain, direction: Vector3, distance: numbe
 		self:Face(brain, facing)
 	end
 	self:PlayAction(brain, action, 0, FIGHT.DashTime + 0.2)
+	if Passives.Has(brain.model, "Afterimage") then
+		-- (passive) mid-step it's only an afterimage: nothing connects
+		brain.model:SetAttribute("PhaseUntil", Workspace:GetServerTimeNow() + FIGHT.DashTime + 0.1)
+	end
 
 	local mover = Instance.new("LinearVelocity")
 	mover.Name = "QuickStep"
@@ -708,7 +713,11 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 	local targetRadius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
 	local reach = brain.hitboxSize.Z / 2 + brain.stats.Reach
 	local distance = Util.FlatDistance(brain.root.Position, targetRoot.Position)
-	self:SetSpeed(brain, brain.stats.MoveSpeed)
+	-- (Sprint passive) a far target: it breaks into a four-legged sprint to close in
+	local sprint = Passives.ById.Sprint
+	local sprinting = Passives.Has(brain.model, "Sprint") and distance > sprint.Distance
+	brain.model:SetAttribute("Sprinting", sprinting or nil)
+	self:SetSpeed(brain, brain.stats.MoveSpeed * (sprinting and sprint.SpeedMultiplier or 1))
 
 	-- Target behind a wall or pillar: head for the target itself so the navigator paths
 	-- around the obstacle. (Aiming for a stand-off point in front of it would pick a spot

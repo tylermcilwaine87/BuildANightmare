@@ -35,6 +35,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local StatCalculator = require(Shared:WaitForChild("StatCalculator"))
 local Util = require(Shared:WaitForChild("Util"))
+local Passives = require(Shared:WaitForChild("PassiveDefinitions"))
 
 local CombatService = {}
 
@@ -98,7 +99,8 @@ function CombatService:KnockdownChance(attacker: Model?, target: Model, big: boo
 		local ready = os.clock() - (bossDownAt[target] or -math.huge) >= RAG.Boss.Cooldown
 		return ready and RAG.Boss.Chance or 0
 	end
-	return math.min(1, (1 - knockdownResist(target)) * sizeFactor(RAG.SizeChance, attacker, target) * (big and 1.25 or 1))
+	local sturdy = Passives.Has(target, "Sturdy") and Passives.ById.Sturdy.KnockdownMultiplier or 1
+	return math.min(1, (1 - knockdownResist(target)) * sizeFactor(RAG.SizeChance, attacker, target) * (big and 1.25 or 1) * sturdy)
 end
 
 function CombatService:Init(services)
@@ -219,6 +221,8 @@ end
 	                         a little away, rotating heels over head (rad/s) - a leg sweep
 	                         (Config.Ragdoll.Sweep), a scythe's harvest
 	  NoKnockdown: boolean?  never knocks down (the blow holds or rocks them instead)
+	  Ground: boolean?       comes up out of the floor (arena hazards): misses a hovering
+	                         Nightmare (Hover passive)
 	  Source: string         e.g. "Handler:Jab", "NightmareCombo", "Ability:Bite"
 	}
 	Returns the damage actually dealt.
@@ -233,6 +237,9 @@ function CombatService:ApplyDamage(params): number
 		attacker = nil
 	elseif not self:CanDamage(attacker, target) then
 		return 0
+	end
+	if params.Ground and Passives.Has(target, "Hover") then
+		return 0 -- (passive) floor hazards pass underneath a hovering Nightmare
 	end
 
 	local humanoid = target:FindFirstChildOfClass("Humanoid")
@@ -289,6 +296,8 @@ function CombatService:ApplyDamage(params): number
 		amount = self.Services.HandlerService:ModifyIncomingDamage(targetPlayer, amount, params)
 	elseif CollectionService:HasTag(target, "Nightmare") and self.Services.PossessionService:IsNightmareInvulnerable(target) then
 		amount = 0
+	elseif (target:GetAttribute("PhaseUntil") or 0) > Workspace:GetServerTimeNow() then
+		amount = 0 -- (Afterimage passive) mid-step: the blow hits the afterimage
 	end
 
 	-- Shields (abilities) absorb damage before health.
@@ -334,6 +343,9 @@ function CombatService:ApplyDamage(params): number
 	-- client-owned, so impulses from the server would be ignored or fight the client.
 	-- (a small body gets sent much further than a big one)
 	local knockback = (params.Knockback or 0) * (attacker and sizeFactor(RAG.SizeThrow, attacker, target) or 1)
+	if Passives.Has(target, "Sturdy") then
+		knockback *= Passives.ById.Sturdy.KnockbackMultiplier -- (passive) planted
+	end
 	if attacker and knockback > 0 and root and not root.Anchored and not target:GetAttribute("KnockbackImmune") and (self:IsEnemy(target) or CollectionService:HasTag(target, "Nightmare")) and root:GetNetworkOwner() == nil then
 		local direction = Util.FlatUnit(position - attacker:GetPivot().Position)
 		if direction then

@@ -32,6 +32,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
+local Passives = require(Shared:WaitForChild("PassiveDefinitions"))
 
 local RagdollService = {}
 
@@ -191,6 +192,9 @@ function RagdollService:Ragdoll(model: Model, throw: Vector3?, direction: Vector
 	if active[model] or (model:GetAttribute("KnockbackImmune") and not (options and options.AllowImmune)) then
 		return false
 	end
+	if Passives.Has(model, "Hover") then
+		return false -- (passive) it just drifts with the blow: never floored
+	end
 	local now = os.clock()
 	if lastDown[model] and now - lastDown[model] < CFG.Cooldown then
 		return false
@@ -247,6 +251,9 @@ function RagdollService:Ragdoll(model: Model, throw: Vector3?, direction: Vector
 	local spin = dir and Vector3.yAxis:Cross(dir) * (options and options.Flip or 7) * (options and options.SpinScale or 1) or nil
 
 	local length = duration or CFG.Duration
+	if Passives.Has(model, "Bouncy") then
+		length *= Passives.ById.Bouncy.DurationMultiplier -- (passive) springs back up
+	end
 	local player = Players:GetPlayerFromCharacter(model)
 	if player then
 		self.PlayerFX:FireClient(player, "Ragdoll", { Velocity = throw or Vector3.zero, Spin = spin, Duration = length })

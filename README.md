@@ -36,6 +36,20 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
 - **Sound slots** (empty until you add ids): `GymDoor`, `BagHit`, `BagHeavy`, `ChainRattle`, `GymReward`, `GymRevealRare`, `GymRevealMythic`, and the `GymAmbience` ambience.
 - **Studio test hook:** `game.ServerStorage.DevBridge:Invoke("GymService", "DevRollNow", player, "Mythic")` rolls the next reward now (optionally forcing its tier). It's Studio only.
 
+## Part passives that actually work (v0.11.5)
+
+Seven parts promised a passive in the Workshop that did nothing. Now each one is real, and the Workshop line says exactly what it does ([PassiveDefinitions.luau](src/shared/PassiveDefinitions.luau)). Each was tested in Studio:
+
+| Part | Passive | What it does | Tested |
+|---|---|---|---|
+| Wooden Body | **Splinters** | anything that hits it up close takes 3 damage back (once a second each) | 3 back up close, 0 from 20 studs away |
+| Peeper Orb | **Glare** | its first hit every 6 s CHILLS the target (35% slower) | chilled 5 times in a 30 s fight (the 6 s cap) |
+| Jelly Legs | **Bouncy** | bounces back up from knockdowns 40% faster | down 0.80 s vs 1.33 s |
+| Drifting Wisp | **Hover** | can't be knocked down; floats over floor hazards (steam vents, abyss bubbles and pools) | no ragdoll; hazard 0 damage, normal hit 7 |
+| Phantom Legs | **Afterimage** | its sidesteps, step-backs and dash-ins leave ghosts, and nothing can hit it mid-step | 13 steps, 0 hits landed during one |
+| Scrap Legs | **Sturdy** | knockdowns 75% less likely, knockback halved | knockdown chance 0.12 vs 0.52; shoved 8.7 vs 17.7 studs |
+| Mangy Hound Legs | **Sprint** | chasing something over 15 studs away: +40% speed | speed 28 vs 20 on a long chase, back to 20 up close |
+
 ## Fighting as one (v0.11.4)
 
 - **Combo trail.** Every press of the combo so far shows as P / K chips above the hotbar, and when the string is a signature move its name lights up in gold, so combos teach themselves.

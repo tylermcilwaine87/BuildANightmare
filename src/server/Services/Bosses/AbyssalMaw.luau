@@ -362,7 +362,7 @@ Attacks.AbyssPools = {
 			for _, point in points do
 				ctx:Impact(point, radius)
 			end
-			ctx:DamageCircles(points, radius, 6, {})
+			ctx:DamageCircles(points, radius, 6, { Ground = true }) -- (a hovering Nightmare floats over the pools)
 			if not ctx:Wait(interval) then
 				return
 			end

@@ -27,6 +27,7 @@ local NightmareAssembler = require(Shared:WaitForChild("NightmareAssembler"))
 local BuildValidator = require(Shared:WaitForChild("BuildValidator"))
 local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
 local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
+local PassiveDefinitions = require(Shared:WaitForChild("PassiveDefinitions"))
 local MutationDefinitions = require(Shared:WaitForChild("MutationDefinitions"))
 local LevelUnlocks = require(Shared:WaitForChild("LevelUnlocks"))
 
@@ -193,7 +194,8 @@ function NightmareSpawnService:Spawn(player: Player): Model?
 	local build = devBuild[player] or profile.Builds[buildOverride[player] or profile.ActiveBuild] or profile.Builds[profile.ActiveBuild]
 	-- Safety net: if a saved build became illegal (e.g. after a balance patch), fall back
 	-- to a starter build instead of spawning something the rules don't allow.
-	if not BuildValidator.Validate(build, profile.Inventory, LevelUnlocks.PvEBudget(profile.Level), profile.Mutations) then
+	-- (a Studio DevSpawn test body may use parts this profile doesn't own)
+	if not devBuild[player] and not BuildValidator.Validate(build, profile.Inventory, LevelUnlocks.PvEBudget(profile.Level), profile.Mutations) then
 		build = BuildValidator.Sanitize(Config.StarterBuilds[1])
 		build.Name = profile.Builds[profile.ActiveBuild].Name
 	end
@@ -248,6 +250,8 @@ function NightmareSpawnService:Spawn(player: Player): Model?
 	model:SetAttribute("PowerCost", stats.PowerCost)
 	model:SetAttribute("ActionSeq", 0)
 	model:SetAttribute("Command", "Follow")
+	-- always-on part passives (PassiveDefinitions): "Splinters,Sprint"
+	model:SetAttribute("Passives", table.concat(PassiveDefinitions.ForBuild(build, PartDefinitions), ","))
 	model:SetAttribute("Shield", 0)
 	model:SetAttribute("StaggerPower", stats.StaggerPower)
 	model:SetAttribute("StaggerResist", stats.StaggerResist)

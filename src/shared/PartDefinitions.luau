@@ -23,6 +23,8 @@
 	  Crafting (Phase 5), AnimationSet, SoundId, EffectId, Sockets (cores), Groups, Visual
 ]]
 
+local Passives = require(script.Parent:WaitForChild("PassiveDefinitions"))
+
 local PartDefinitions = {}
 PartDefinitions.ById = {}
 
@@ -146,8 +148,9 @@ local function define(def)
 	def.ModelAsset = def.ModelAsset or def.Id -- optional art override (see header)
 	def.Stats = def.Stats or {}
 	def.AbilityId = def.AbilityId -- nil in Phase 1: abilities arrive in Phase 2/3
-	def.PlannedAbility = def.PlannedAbility or "None"
+	-- Passive: an always-on effect (PassiveDefinitions id); the UI line describes it
 	def.Passive = def.Passive
+	def.PlannedAbility = (def.Passive and Passives.Describe(def.Passive)) or def.PlannedAbility or "None"
 	def.Source = def.Source or "Starter"
 	def.Crafting = def.Crafting -- recipes live in Shared/CraftingDefinitions
 	def.AnimationSet = def.AnimationSet or "Default"
@@ -169,7 +172,7 @@ define({
 	Description = "A splintery crate that somehow has a heartbeat. Cheap, sturdy, and slightly haunted.",
 	Stats = { MaxHealth = 40, Defence = 6 },
 	PowerCost = 10,
-	PlannedAbility = "Low-cost defence",
+	Passive = "Splinters",
 	UltimateId = "SplinterStorm",
 	Sockets = {
 		Head = V(0, 1.5, 0),
@@ -196,7 +199,7 @@ define({
 	Description = "One enormous, unblinking eye. It has never lost a staring contest.",
 	Stats = { MaxHealth = -20, AttackSpeed = 8, MoveSpeed = 1 },
 	PowerCost = 7,
-	PlannedAbility = "Glare (brief slow)",
+	Passive = "Glare",
 	UltimateId = "ThousandEyeGlare",
 	Sockets = {
 		Head = V(0, 1.55, 0),
@@ -446,7 +449,7 @@ do
 		Description = "Wobbly, bouncy, and surprisingly reliable.",
 		Stats = { MoveSpeed = 1, MaxHealth = 10 },
 		PowerCost = 6,
-		PlannedAbility = "Bouncy movement",
+		Passive = "Bouncy",
 		Groups = groups,
 		Visual = visual,
 	})
@@ -461,7 +464,7 @@ define({
 	Description = "Who needs legs? A trail of ghost-light keeps this Nightmare aloft.",
 	Stats = { MoveSpeed = 1, MaxHealth = -10 },
 	PowerCost = 6,
-	PlannedAbility = "Hover (floating archetype)",
+	Passive = "Hover",
 	Visual = {
 		ball(1.2, V(0, -0.7, 0), RGB(150, 220, 255), Mat.Neon, { Transparency = 0.25 }),
 		ball(0.7, V(0, -1.5, 0), RGB(150, 220, 255), Mat.Neon, { Transparency = 0.45 }),
@@ -486,7 +489,7 @@ do
 		Description = "Half here, half somewhere else. Very hard to pin down.",
 		Stats = { MoveSpeed = 4, AttackSpeed = 6, MaxHealth = -15 },
 		PowerCost = 19,
-		PlannedAbility = "Afterimage dash",
+		Passive = "Afterimage",
 		Source = "The Mirror Warden / The Abyssal Maw",
 		Groups = groups,
 		Visual = visual,
@@ -667,7 +670,7 @@ do
 		Description = "Two exhaust pipes and a lot of optimism.",
 		Stats = { MaxHealth = 25, Defence = 3, StaggerResist = 10 },
 		PowerCost = 7,
-		PlannedAbility = "Sturdy stance (passive)",
+		Passive = "Sturdy",
 		Source = "The Scrap Titan",
 		Groups = groups,
 		Visual = visual,
@@ -692,7 +695,7 @@ do
 		Description = "Four scruffy legs that never stop running. Smells faintly of wet dog.",
 		Stats = { MoveSpeed = 2, MaxHealth = 15 },
 		PowerCost = 7,
-		PlannedAbility = "Four-legged sprint (Quadruped)",
+		Passive = "Sprint",
 		Source = "Starter",
 		Groups = groups,
 		Visual = visual,

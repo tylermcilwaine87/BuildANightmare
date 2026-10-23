@@ -230,6 +230,7 @@ local function damage(self, targets, amount: number, opts)
 			HitDirection = hitDirection,
 			Unblockable = opts.Unblockable,
 			Status = opts.Status, -- e.g. "Shock" (Storm Beast), "Weaken" (Abyssal Maw)
+			Ground = opts.Ground, -- comes up out of the floor (a hovering Nightmare is above it)
 			Source = "Boss:" .. self.Definition.Id,
 		})
 	end
