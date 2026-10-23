@@ -396,7 +396,7 @@ local function buildTrail(parent: Instance)
 	trail.Frame = UIKit.New("Frame", {
 		Name = "InputTrail",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -216),
+		Position = UDim2.new(UIKit.HudCenterX(), 0, 1, -216),
 		Size = UDim2.fromOffset(360, 56),
 		BackgroundTransparency = 1,
 		Visible = false,
@@ -404,6 +404,11 @@ local function buildTrail(parent: Instance)
 	})
 	trail.Chips = UIKit.New("Frame", { Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, Parent = trail.Frame }, { UIKit.List(5, Enum.FillDirection.Horizontal) })
 	trail.Chips:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Center
+	-- just above the weapon hotbar (152 up, 58 tall at full scale) on any screen; on phones
+	-- a touch right of the stack, clear of the status panel's corner (measured: iPhone 7)
+	UIKit.PlaceHudCenter(trail.Frame, function(scale)
+		return 152 + 58 * scale + 6
+	end, 0.04)
 	trail.Name = UIKit.Label({ Text = "", Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = Color3.fromRGB(255, 205, 80), Font = UIKit.FontHeavy, MaxTextSize = 20, Parent = trail.Frame })
 	UIKit.AutoScale(trail.Frame)
 end
@@ -525,13 +530,14 @@ local function buildHotbar()
 	local bar = UIKit.New("Frame", {
 		Name = "Slots",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -152),
+		Position = UDim2.new(UIKit.HudCenterX(), 0, 1, -152),
 		Size = UDim2.fromOffset(count * 58 + (count - 1) * 6, 58),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, { UIKit.List(6, Enum.FillDirection.Horizontal) })
 	bar:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Center
 	UIKit.AutoScale(bar)
+	UIKit.PlaceHudCenter(bar, 152)
 	buildTrail(gui)
 	hotbar.Gui = gui
 	hotbar.Slots = {}

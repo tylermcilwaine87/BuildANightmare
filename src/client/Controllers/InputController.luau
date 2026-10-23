@@ -40,6 +40,7 @@
 
 local UserInputService = game:GetService("UserInputService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local GuiService = game:GetService("GuiService")
 
 local InputController = {}
 
@@ -265,6 +266,16 @@ function InputController:Start()
 		-- Controller B backs out of menus. Checked before gameProcessed: while you're
 		-- navigating a menu with the pad, Roblox marks B as processed.
 		if input.KeyCode == Enum.KeyCode.ButtonB and closeTopMenu() then
+			return
+		end
+		-- Controller Select = lock-on. Roblox marks Select as processed (it's the pad's
+		-- UI-navigation toggle), so outside menus take it here and drop the button Roblox
+		-- just auto-selected; menus pick their own first button when they open.
+		if input.KeyCode == Enum.KeyCode.ButtonSelect and not anyMenuOpen() and not controllers.RewardController:IsOpen() then
+			self:Perform("LockOn")
+			task.defer(function()
+				GuiService.SelectedObject = nil
+			end)
 			return
 		end
 		if gameProcessed then

@@ -106,13 +106,14 @@ local function buildAbilityBar(gui: ScreenGui)
 	local bar = UIKit.New("Frame", {
 		Name = "Abilities",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -16),
+		Position = UDim2.new(UIKit.HudCenterX(), 0, 1, -16),
 		Size = UDim2.fromOffset(330, 70),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, { UIKit.List(10, Enum.FillDirection.Horizontal) })
 	bar:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Center
 	UIKit.AutoScale(bar)
+	UIKit.PlaceHudCenter(bar, 16)
 	ui.AbilitySlots = {}
 	for slot, key in { "Q", "E" } do
 		local button = UIKit.Button({
@@ -147,12 +148,13 @@ local function buildMeters(gui: ScreenGui)
 	local frame = UIKit.New("Frame", {
 		Name = "Meters",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -92),
+		Position = UDim2.new(UIKit.HudCenterX(), 0, 1, -92),
 		Size = UDim2.fromOffset(330, 53),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
 	UIKit.AutoScale(frame)
+	UIKit.PlaceHudCenter(frame, 92)
 	-- SYNC (SyncService): you and your Nightmare hitting the same enemy together
 	ui.SyncBar = UIKit.Bar({ Size = UDim2.new(1, 0, 0, 12), Color = SYNC_COLOR, MaxTextSize = 10, Parent = frame })
 	ui.PossessionBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 15), Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(170, 100, 255), MaxTextSize = 12, Parent = frame })

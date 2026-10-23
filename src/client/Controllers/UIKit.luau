@@ -183,6 +183,49 @@ function UIKit.AutoScale(guiObject: GuiObject)
 	return scale
 end
 
+-- Where the bottom-centre HUD stack (abilities, meters, weapon hotbar, combo trail) is
+-- centred: on touch screens left of the middle, far enough to clear the touch-button
+-- cluster in the bottom-right (HUDController: 280 wide, 140 from the right edge; the stack
+-- is 330 wide; both AutoScale), measured on an iPhone XR and an iPhone 7.
+function UIKit.HudCenterX(): number
+	local input = game:GetService("UserInputService")
+	local camera = Workspace.CurrentCamera
+	if not (input.TouchEnabled and not input.KeyboardEnabled) or not camera then
+		return 0.5
+	end
+	local viewport = camera.ViewportSize
+	if viewport.X < 200 then
+		return 0.44 -- (the viewport isn't known yet)
+	end
+	local scale = math.clamp(math.min(viewport.X / 1280, viewport.Y / 720), 0.6, 1.25)
+	local fits = (viewport.X - 140 - 280 * scale - 165 * scale - 16) / viewport.X
+	return math.clamp(fits, 0.36, 0.5)
+end
+
+-- Places a bottom-centre HUD piece (AnchorPoint 0.5, 1) `fromBottom` px up, at
+-- HudCenterX, and keeps it there when the screen size changes (on phones the size isn't
+-- known yet when the HUD is first built).
+-- (`fromBottom` may be a function of the current AutoScale, for a piece stacked on top of
+-- a scaled one)
+-- (`touchNudge`: extra X, as a fraction of the screen, on touch screens only)
+function UIKit.PlaceHudCenter(guiObject: GuiObject, fromBottom: number | (number) -> number, touchNudge: number?)
+	local function place()
+		local camera = Workspace.CurrentCamera
+		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+		local scale = math.clamp(math.min(viewport.X / 1280, viewport.Y / 720), 0.6, 1.25)
+		local offset = type(fromBottom) == "function" and fromBottom(scale) or fromBottom
+		local x = UIKit.HudCenterX()
+		if x < 0.5 then
+			x += touchNudge or 0
+		end
+		guiObject.Position = UDim2.new(x, 0, 1, -offset)
+	end
+	place()
+	if Workspace.CurrentCamera then
+		Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(place)
+	end
+end
+
 -- Small screens (phones): a centred menu panel grows to almost full screen so its text
 -- and buttons stay readable and tappable. Desktop keeps the panel's own size.
 UIKit.SmallScreenHeight = 560

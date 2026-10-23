@@ -36,6 +36,21 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
 - **Sound slots** (empty until you add ids): `GymDoor`, `BagHit`, `BagHeavy`, `ChainRattle`, `GymReward`, `GymRevealRare`, `GymRevealMythic`, and the `GymAmbience` ambience.
 - **Studio test hook:** `game.ServerStorage.DevBridge:Invoke("GymService", "DevRollNow", player, "Mythic")` rolls the next reward now (optionally forcing its tier). It's Studio only.
 
+## Phone and controller check of the new combat (v0.11.6)
+
+The new combat (combo trail, SYNC bar, parry, lock-on, dive / step back) was played on phones (Studio Device Simulator) and on a gamepad (Controller Emulator).
+
+- **Phones:** the HUD stack in the middle (abilities, meters, weapon hotbar, combo trail) used to sit under the touch-button cluster on narrow phones. It now sits left of centre, as far as that screen needs, and moves again when the screen size changes ([UIKit.luau](src/client/Controllers/UIKit.luau) `PlaceHudCenter`). Checked on an iPhone 7, iPhone XR and iPhone 16 Pro Max: there's a clear gap to the buttons, and the trail sits above the hotbar, clear of the status panel. On touch, ATTACK, ATTACK, KICK showed "ELBOW INTO LEG SWEEP". Each GUARD tap is a fresh press, so parries work.
+- **Controller:** Select (lock-on) never reached the game, because Roblox keeps that button for its own menu navigation. Outside menus the game now takes it first ([InputController.luau](src/client/Controllers/InputController.luau)); menus still choose their own first button. Tested:
+
+  | Input | Result |
+  |---|---|
+  | Select | locked onto a Scrapling, with no UI button grabbed |
+  | R2 R2 X | "ELBOW INTO LEG SWEEP" trail |
+  | L2 held 1.5 s | guarding for 1.35 s, then released |
+  | B | a 26-stud dive |
+  | stick back + B | an 8.6-stud step back, straight away from the enemy |
+
 ## Part passives that actually work (v0.11.5)
 
 Seven parts promised a passive in the Workshop that did nothing. Now each one is real, and the Workshop line says exactly what it does ([PassiveDefinitions.luau](src/shared/PassiveDefinitions.luau)). Each was tested in Studio:
