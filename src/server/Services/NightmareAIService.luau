@@ -228,20 +228,35 @@ end
 ------------------------------------------------------------------------------------------
 local WILD = NM.Wild
 
--- What this body can throw: punches need an arm, kicks need two legs (a Biped).
+-- What this body can throw: punches need an arm, kicks need two legs (a Biped); the beast
+-- moves need four legs (Quad), a head (Head) or a tail (Tail).
 local function bodyCan(brain)
 	local model = brain.model
-	local arms = model:FindFirstChild("RightArm_Root", true) ~= nil or model:FindFirstChild("LeftArm_Root", true) ~= nil
-	local legs = model:GetAttribute("Archetype") == "Biped" and model:FindFirstChild("Sub_Legs_R", true) ~= nil
-	return arms, legs
+	return {
+		Arms = model:FindFirstChild("RightArm_Root", true) ~= nil or model:FindFirstChild("LeftArm_Root", true) ~= nil,
+		Legs = model:GetAttribute("Archetype") == "Biped" and model:FindFirstChild("Sub_Legs_R", true) ~= nil,
+		Quad = model:GetAttribute("Archetype") == "Quadruped",
+		Head = model:FindFirstChild("Joint_Head", true) ~= nil,
+		Tail = model:FindFirstChild("Joint_Tail", true) ~= nil,
+	}
+end
+
+local function canThrow(def, can): boolean
+	for _, need in { "Arms", "Legs", "Quad", "Head", "Tail" } do
+		if def[need] and not can[need] then
+			return false
+		end
+	end
+	return true
 end
 
 -- A string this body can do, by Weight, never the one it just threw (while there's a choice).
-function NightmareAIService:PickString(brain)
-	local arms, legs = bodyCan(brain)
+-- (`filter`: only strings it accepts, e.g. ones that leap far enough)
+function NightmareAIService:PickString(brain, filter: ((any) -> boolean)?)
+	local can = bodyCan(brain)
 	local options, total = {}, 0
 	for _, def in NM.Moveset do
-		if (not def.Arms or arms) and (not def.Legs or legs) and def.Action ~= brain.lastString then
+		if canThrow(def, can) and def.Action ~= brain.lastString and (not filter or filter(def)) then
 			table.insert(options, def)
 			total += def.Weight
 		end
@@ -260,8 +275,10 @@ function NightmareAIService:PickString(brain)
 end
 
 -- A short shove toward the target between the hits of a string (no animation of its own, so
--- the string keeps playing): pressing forward as they back off.
-local function pressIn(brain, direction: Vector3, distance: number)
+-- the string keeps playing): pressing forward as they back off. (Over `duration`: a
+-- pounce's leap, a rolling charge.)
+local function pressIn(brain, direction: Vector3, distance: number, duration: number?)
+	duration = duration or 0.12
 	local attachment = brain.root:FindFirstChild("FacingAttachment")
 	if not attachment or distance < 0.5 or brain.root.Anchored then
 		return
@@ -273,10 +290,10 @@ local function pressIn(brain, direction: Vector3, distance: number)
 	mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
 	mover.PrimaryTangentAxis = Vector3.xAxis
 	mover.SecondaryTangentAxis = Vector3.zAxis
-	mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * (distance / 0.12)
+	mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * (distance / duration)
 	mover.MaxForce = 1e6
 	mover.Parent = brain.root
-	task.delay(0.12, function()
+	task.delay(duration, function()
 		mover:Destroy()
 	end)
 end
@@ -323,6 +340,25 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			grabbed:SetAttribute("Gripped", nil)
 			grabbed = nil
 		end
+	end
+	-- a LEAP (pounce, rolling charge, headbutt): the body really travels onto them, timed
+	-- to arrive on the first hit
+	local leap = def.Leap
+	if leap then
+		task.delay(leap.At * speedScale, function()
+			if brains[brain.model] ~= brain or brain.humanoid.Health <= 0 or brain.castToken ~= castToken or brain.model:GetAttribute("Ragdolled") then
+				return
+			end
+			local targetRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+			local toTarget = targetRoot and Util.FlatUnit(targetRoot.Position - brain.root.Position)
+			if not toTarget then
+				return
+			end
+			self:Face(brain, targetRoot.Position)
+			local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+			local gap = Util.FlatDistance(targetRoot.Position, brain.root.Position) - radius - brain.hitboxSize.Z / 2 - reach * 0.4
+			pressIn(brain, toTarget, math.clamp(gap, 0, leap.Max), leap.Time * speedScale)
+		end)
 	end
 	for index, hit in hits do
 		task.delay(hit[1] * speedScale, function()
@@ -767,8 +803,24 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 	end
 
 	if distance > reach + targetRadius - 0.5 then
-		-- Gap closer: from a little outside reach, dash straight in (once per approach).
 		local gap = distance - standOff
+		-- A LEAPING string (pounce, rolling charge) can open from out here: the leap itself
+		-- closes the gap (once per approach)
+		if not brain.leapRolled and gap > 2.5 then
+			brain.leapRolled = true
+			if math.random() < WILD.LeapFromRangeChance * (brain.flair or 1) then
+				local picked = self:PickString(brain, function(def)
+					return def.Leap ~= nil and def.Leap.Max >= gap
+				end)
+				if picked then
+					self:Stop(brain)
+					self:Face(brain, targetRoot.Position)
+					self:StartString(brain, picked, target, now)
+					return
+				end
+			end
+		end
+		-- Gap closer: from a little outside reach, dash straight in (once per approach).
 		if not brain.lungeRolled and gap > 2 and gap <= FIGHT.LungeDistance then
 			brain.lungeRolled = true
 			if math.random() < FIGHT.LungeChance and self:QuickStep(brain, toTarget, gap, "DashIn", targetRoot.Position) then
@@ -779,6 +831,7 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 		return
 	end
 	brain.lungeRolled = false
+	brain.leapRolled = false
 
 	self:Stop(brain)
 	self:Face(brain, targetRoot.Position)

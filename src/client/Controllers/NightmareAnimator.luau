@@ -78,6 +78,11 @@ local ACTION_ARMS = {
 	Ability_Shield = "None",
 	Heavy = "Heavy",
 	Ultimate = "Ultimate",
+	-- the beast moves are keyframed whole-body (NightmarePoses): no procedural arm swing
+	Beast_Pounce = "None",
+	Beast_Roll = "None",
+	Beast_TailWhip = "None",
+	Beast_Headbutt = "None",
 	-- footwork (NightmareAIService Fight)
 	StepBack = "Hop",
 	Sidestep = "Hop",

@@ -332,6 +332,16 @@ Config.Nightmare = {
 		{ Action = "Gym_Roundhouse", Duration = 1.5, Weight = 2, Legs = true, ExtraReach = 1.5, Hits = { { 0.5, 1.5, 24, true } } },
 		{ Action = "Gym_KneeClinch", Duration = 1.8, Weight = 1, Legs = true, Clinch = true, Hits = { { 0.5, 0.7 }, { 0.95, 0.7 }, { 1.35, 1.1, 18 } } },
 		{ Action = "Gym_SpinBackKick", Duration = 1.6, Weight = 1, Legs = true, ExtraReach = 2, Hits = { { 0.56, 2.0, 0, true, { Lift = 34, Push = 22, Spin = 7 } } } },
+		-- BEAST MOVES (NightmarePoses Common): for bodies that can't box. Quad = four legs,
+		-- Head / Tail = needs one. Leap = { At, Time, Max }: the body travels onto them.
+		-- POUNCE: crouch, spring, land on them, maul and tear loose
+		{ Action = "Beast_Pounce", Duration = 1.5, Weight = 3, Quad = true, Leap = { At = 0.3, Time = 0.28, Max = 12 }, Hits = { { 0.58, 1.3, 0, true }, { 0.82, 0.5 }, { 1.02, 0.7, 18 } } },
+		-- ROLLING CHARGE: curl up into a ball and roll right into them
+		{ Action = "Beast_Roll", Duration = 1.4, Weight = 2, Quad = true, Leap = { At = 0.3, Time = 0.4, Max = 14 }, Hits = { { 0.5, 0.8 }, { 0.68, 1.0, 26 } } },
+		-- TAIL WHIP: spin the whole body round so the tail scythes through them
+		{ Action = "Beast_TailWhip", Duration = 1.2, Weight = 2, Tail = true, ExtraReach = 1.5, Hits = { { 0.52, 1.4, 30, true } } },
+		-- HEADBUTT: rear back and slam the skull in
+		{ Action = "Beast_Headbutt", Duration = 1.0, Weight = 2, Head = true, Leap = { At = 0.22, Time = 0.16, Max = 3 }, Hits = { { 0.4, 1.2, 14 } } },
 	},
 	Feint = { Action = "Gym_Bounce", Duration = 1.6, Cut = 1.0 }, -- footwork + slips; cut short
 	Wild = {
@@ -343,6 +353,7 @@ Config.Nightmare = {
 		FlankSpeed = 1.55, -- x MoveSpeed
 		FlankTime = 1.4, -- gives up after this long
 		FeintChance = 0.08, -- a bounce of footwork and slips (feints) before going in
+		LeapFromRangeChance = 0.5, -- per approach: a pounce / rolling charge from out of reach
 		HitAndRunHealth = 0.35, -- below this fraction of health it starts hitting and running
 		HitAndRunChance = 0.5, -- after a string, when hurt: sprint off, then dive back in
 		HitAndRunTime = { 0.8, 1.3 },

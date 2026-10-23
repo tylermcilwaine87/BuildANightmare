@@ -36,6 +36,7 @@ local active: { [Player]: Model } = {}
 local summoned: { [Player]: boolean } = {}
 local tokens: { [Player]: number } = {}
 local buildOverride: { [Player]: number } = {} -- duels: fight with a chosen saved build without changing the active one
+local devBuild: { [Player]: any } = {} -- Studio tests: a build table to spawn, never saved
 
 local function bumpToken(player: Player): number
 	local token = (tokens[player] or 0) + 1
@@ -154,6 +155,18 @@ end
 
 function NightmareSpawnService:ClearOverride(player: Player)
 	buildOverride[player] = nil
+	devBuild[player] = nil
+end
+
+-- Studio only: spawn a test body from a build table ({ Parts = {...} }, e.g. four legs and no
+-- arms) without touching the saved builds. ClearOverride + Refresh puts yours back.
+function NightmareSpawnService:DevSpawn(player: Player, build)
+	if not game:GetService("RunService"):IsStudio() or type(build) ~= "table" then
+		return nil
+	end
+	devBuild[player] = build
+	summoned[player] = true
+	return self:Spawn(player)
 end
 
 function NightmareSpawnService:Despawn(player: Player)
@@ -177,7 +190,7 @@ function NightmareSpawnService:Spawn(player: Player): Model?
 		return nil
 	end
 
-	local build = profile.Builds[buildOverride[player] or profile.ActiveBuild] or profile.Builds[profile.ActiveBuild]
+	local build = devBuild[player] or profile.Builds[buildOverride[player] or profile.ActiveBuild] or profile.Builds[profile.ActiveBuild]
 	-- Safety net: if a saved build became illegal (e.g. after a balance patch), fall back
 	-- to a starter build instead of spawning something the rules don't allow.
 	if not BuildValidator.Validate(build, profile.Inventory, LevelUnlocks.PvEBudget(profile.Level), profile.Mutations) then

@@ -50,6 +50,13 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
   - kicks: leg kick 0.9, knee 0.8, teep 1.5. The leg kick was stopping 1.75 studs short and the teep 1.4 short. Both, and the knee, now step in further.
   - Live, locked on a dummy: the jab lands 0.25 into the body, the leg kick 0.54, the teep 0.28.
 - **Blades swing properly.** Weapons now sit on a turnable wrist (a "Wrist" key in the poses). Before, the Rust Blade's forehand, backhand and thrust all had the blade pointing at the sky on the hit frame, and the slashes turned the body the wrong way. Now the slashes unwind the body through the cut, and on the hit frame the blade runs straight out through the target: tip 6.8 out, on the centre line. The thrust starts with the point forward at the hip and drives it 7.2 out at stomach height.
+- **Beast moves for bodies that can't box.** Four-legged, armless and tailed Nightmares used to fall back to the plain 3-hit combo. Now they fight like animals:
+  - **Pounce:** crouch, spring with the jaws wide, land on them, maul and tear loose.
+  - **Rolling Charge:** curl into a ball and roll right into them.
+  - **Tail Whip:** a full spin so the tail scythes through them.
+  - **Headbutt:** rear back and slam the skull in.
+
+  A leaping move can open from out of reach, and the body really travels: the test hound rolled in from 12 studs to contact. Any body with a head or tail mixes the headbutt and tail whip into its strings too. Every frame was checked against the floor: no part sinks more than about 0.3 studs deeper than standing.
 - **SYNC meter.** You and your Nightmare landing hits on the same enemy within 1.5 s of each other fills the SYNC bar (it drains when you stop). When full, you're **SYNCED** for 8 s: both of you deal 25% more damage and stagger, with a cyan outline and a banner. Tested: hits went from 10 to 13 damage.
 
 ## Fights that feel alive (v0.11.3)

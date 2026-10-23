@@ -383,6 +383,78 @@ local GYM = {
 	},
 }
 
+-- BEAST MOVES (Config.Nightmare.Moveset: four-legged, armless, tailed bodies). No "Hit"
+-- marker: like the gym strings they play at 1 / the AttackSpeed scale, the server landing
+-- each hit at its time. Four legs: Sub_Legs_FL / FR / BL / BR (+X swings a leg forward).
+-- The server slides the body onto the target during a leap (Leap), so the keys only carry
+-- the height and the body's shape, not the distance.
+local BEAST = {
+	-- POUNCE: sink low on coiled hind legs, eyes up on them; spring, front paws reaching,
+	-- jaws wide; land ON them nose-down; maul (two savage shakes) and tear loose.
+	Beast_Pounce = {
+		Duration = 1.5,
+		Markers = { { 0.3, "StepL" }, { 0.32, "Whoosh" }, { 0.58, "Land" }, { 0.58, "JawSnap" }, { 0.82, "Grind" }, { 1.0, "Rip" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.28, Joint_CorePos = { 0, -0.12, 0.45 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { 16, 0, 0 }, Sub_Head_Jaw = { -8, 0, 0 }, Sub_Legs_FL = { -22, 0, 0 }, Sub_Legs_FR = { -22, 0, 0 }, Sub_Legs_BL = { 34, 0, 0 }, Sub_Legs_BR = { 34, 0, 0 }, Joint_Tail = { 0, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { 30, 0, 0 } },
+			{ T = 0.45, Joint_CorePos = { 0, 1.5, -0.3 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Head_Jaw = { -48, 0, 0 }, Sub_Legs_FL = { 72, 0, 0 }, Sub_Legs_FR = { 72, 0, 0 }, Sub_Legs_BL = { -52, 0, 0 }, Sub_Legs_BR = { -52, 0, 0 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { -30, 0, 0 }, Joint_RightArm = { 120, 0, 20 }, Joint_LeftArm = { 120, 0, -20 } },
+			{ T = 0.58, Joint_CorePos = { 0, 0.15, -0.6 }, Joint_Core = { -20, 0, 0 }, Joint_Head = { -22, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 42, 0, 0 }, Sub_Legs_FR = { 42, 0, 0 }, Sub_Legs_BL = { -12, 0, 0 }, Sub_Legs_BR = { -12, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -10, 0, 0 }, Joint_RightArm = { 80, 0, 10 }, Joint_LeftArm = { 80, 0, -10 } },
+			-- maul: head and shoulders wrenching side to side, jaw clamping
+			{ T = 0.72, Joint_CorePos = { 0, 0.1, -0.6 }, Joint_Core = { -16, 12, 6 }, Joint_Head = { -30, 26, 8 }, Sub_Head_Jaw = { -30, 0, 0 }, Sub_Legs_FL = { 34, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 } },
+			{ T = 0.82, Joint_CorePos = { 0, 0.1, -0.6 }, Joint_Core = { -18, -14, -6 }, Joint_Head = { -34, -28, -8 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 34, 0, 0 } },
+			-- tear loose: rip the head up and away, hopping back off them
+			{ T = 1.02, Joint_CorePos = { 0, 0.1, 0.1 }, Joint_Core = { 10, 24, 0 }, Joint_Head = { 18, 36, 6 }, Sub_Head_Jaw = { -26, 0, 0 }, Sub_Legs_FL = { 20, 0, 0 }, Sub_Legs_FR = { 20, 0, 0 }, Sub_Legs_BL = { -10, 0, 0 }, Sub_Legs_BR = { -10, 0, 0 } },
+			{ T = 1.25, Joint_Core = { 2, 8, 0 }, Joint_Head = { 4, 10, 0 }, Sub_Head_Jaw = { -6, 0, 0 } },
+			{ T = 1.5 },
+		},
+	},
+	-- ROLLING CHARGE: tuck everything in and curl into a ball, then roll forward twice right
+	-- into them (one whole turn per hit), and uncurl back onto its feet.
+	Beast_Roll = {
+		Duration = 1.4,
+		Markers = { { 0.28, "Whoosh" }, { 0.5, "StepL" }, { 0.68, "StepR" }, { 1.05, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.24, Joint_CorePos = { 0, -0.1, 0.2 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { -40, 0, 0 }, Sub_Legs_FL = { -60, 0, 0 }, Sub_Legs_FR = { -60, 0, 0 }, Sub_Legs_BL = { 60, 0, 0 }, Sub_Legs_BR = { 60, 0, 0 }, Sub_Legs_L = { 80, 0, 0 }, Sub_Legs_R = { 80, 0, 0 }, Joint_RightArm = { 60, 0, -30 }, Joint_LeftArm = { 60, 0, 30 }, Joint_Tail = { 0, 0, 0 } },
+			-- (rolling high, a bouncing ball: the long body turning about its middle would
+			-- sweep through the floor)
+			{ T = 0.5, Joint_CorePos = { 0, 1.2, 0 }, Joint_Core = { -210, 0, 0 }, Joint_Head = { -40, 0, 0 }, Sub_Legs_FL = { -60, 0, 0 }, Sub_Legs_FR = { -60, 0, 0 }, Sub_Legs_BL = { 60, 0, 0 }, Sub_Legs_BR = { 60, 0, 0 }, Sub_Legs_L = { 80, 0, 0 }, Sub_Legs_R = { 80, 0, 0 }, Joint_RightArm = { 60, 0, -30 }, Joint_LeftArm = { 60, 0, 30 } },
+			{ T = 0.68, Joint_CorePos = { 0, 0.5, 0 }, Joint_Core = { -390, 0, 0 }, Joint_Head = { -40, 0, 0 }, Sub_Legs_FL = { -60, 0, 0 }, Sub_Legs_FR = { -60, 0, 0 }, Sub_Legs_BL = { 60, 0, 0 }, Sub_Legs_BR = { 60, 0, 0 }, Sub_Legs_L = { 80, 0, 0 }, Sub_Legs_R = { 80, 0, 0 }, Joint_RightArm = { 60, 0, -30 }, Joint_LeftArm = { 60, 0, 30 } },
+			-- uncurl onto its feet, shaking it off
+			{ T = 1.05, Joint_CorePos = { 0, 0, 0 }, Joint_Core = { -366, 0, 4 }, Joint_Head = { 6, 0, 0 }, Sub_Legs_FL = { 10, 0, 0 }, Sub_Legs_FR = { 10, 0, 0 }, Sub_Legs_BL = { -6, 0, 0 }, Sub_Legs_BR = { -6, 0, 0 } },
+			{ T = 1.4, Joint_Core = { -360, 0, 0 } },
+		},
+	},
+	-- TAIL WHIP: wind the body one way, then spin hard the other way, the whole body coming
+	-- round a full turn so the tail scythes through them at the front, and settle facing them.
+	Beast_TailWhip = {
+		Duration = 1.2,
+		Markers = { { 0.24, "StepL" }, { 0.4, "Whoosh" }, { 0.52, "StepR" }, { 0.9, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.24, Joint_CorePos = { 0, -0.05, 0 }, Joint_Core = { 0, 40, 0 }, Joint_Head = { -6, -30, 0 }, Joint_Tail = { 0, -40, 0 } },
+			{ T = 0.52, Joint_CorePos = { 0, 0, 0 }, Joint_Core = { 0, -180, 0 }, Joint_Head = { -6, 40, 0 }, Joint_Tail = { 0, 34, 0 } },
+			{ T = 0.75, Joint_CorePos = { 0, 0, 0 }, Joint_Core = { 0, -300, 0 }, Joint_Head = { -4, 30, 0 }, Joint_Tail = { 0, 40, 0 } },
+			{ T = 0.95, Joint_CorePos = { 0, -0.1, 0 }, Joint_Core = { 0, -360, 0 }, Joint_Head = { 0, 6, 0 }, Joint_Tail = { 0, 10, 0 } },
+			{ T = 1.2, Joint_Core = { 0, -360, 0 } },
+		},
+	},
+	-- HEADBUTT: rear back with the head pulled up, then drive the whole body forward behind the
+	-- skull and slam it into them.
+	Beast_Headbutt = {
+		Duration = 1.0,
+		Markers = { { 0.2, "StepL" }, { 0.32, "Whoosh" }, { 0.4, "StepR" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.22, Joint_CorePos = { 0, 0.15, 0.45 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 26, 0, 0 }, Joint_RightArm = { 30, 0, 20 }, Joint_LeftArm = { 30, 0, -20 }, Sub_Legs_FL = { -14, 0, 0 }, Sub_Legs_FR = { -14, 0, 0 }, Sub_Legs_BL = { 18, 0, 0 }, Sub_Legs_BR = { 18, 0, 0 } },
+			{ T = 0.4, Joint_CorePos = { 0, 0.1, -0.9 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -38, 0, 0 }, Joint_RightArm = { -20, 0, 20 }, Joint_LeftArm = { -20, 0, -20 }, Sub_Legs_FL = { 26, 0, 0 }, Sub_Legs_FR = { 26, 0, 0 }, Sub_Legs_BL = { -24, 0, 0 }, Sub_Legs_BR = { -24, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.56, Joint_CorePos = { 0, 0.05, -0.8 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -22, 0, 0 } },
+			{ T = 0.8, Joint_CorePos = { 0, -0.1, -0.2 }, Joint_Core = { -4, 0, 0 }, Joint_Head = { 2, 0, 0 } },
+			{ T = 1.0 },
+		},
+	},
+}
+
 local POSES = {
 	-- Any body (Nightmares, enemies, bosses: everything has Joint_Core; legs / arms / head
 	-- are used where they exist). The gym's bag work (GYM above) is merged in below.
@@ -435,6 +507,9 @@ local POSES = {
 }
 
 for name, def in GYM do
+	POSES.Common[name] = def
+end
+for name, def in BEAST do
 	POSES.Common[name] = def
 end
 
