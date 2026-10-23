@@ -237,6 +237,28 @@ local function applyHold(rig, dt: number)
 	end
 end
 
+-- The weapon's WRIST (WeaponModels: the held weapon hangs off a "Wrist" weld): a move's
+-- "Wrist" keys turn the weapon in the fist; otherwise it sits as built.
+local wristSeats = setmetatable({}, { __mode = "k" }) -- [Weld] = its built C0
+local function setWrist(rig, x: number, y: number, z: number)
+	local weapon = rig.model:FindFirstChild("HeldWeapon")
+	local grip = weapon and weapon:FindFirstChild("Grip")
+	local wrist = grip and grip:FindFirstChild("Wrist")
+	if not wrist then
+		return
+	end
+	local seat = wristSeats[wrist]
+	if not seat then
+		seat = wrist.C0
+		wristSeats[wrist] = seat
+	end
+	local turned = x ~= 0 or y ~= 0 or z ~= 0
+	if turned or rig.wristTurned == wrist then
+		wrist.C0 = seat * CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+		rig.wristTurned = turned and wrist or nil
+	end
+end
+
 local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 	local pose = rig.pose
 	if not rig.isLocal and cameraPosition then
@@ -255,6 +277,7 @@ local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 		end
 	end
 	if not pose then
+		setWrist(rig, 0, 0, 0)
 		local weaponOut = (rig.model:GetAttribute("Weapon") or "Fists") ~= "Fists"
 		if weaponOut then
 			rig.runWeight = 0
@@ -315,6 +338,7 @@ local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 			motor.Transform = from and from:Lerp(target, blend) or target
 		end
 	end
+	setWrist(rig, angleAt(def, "Wrist", t))
 end
 
 local lastStep = os.clock()

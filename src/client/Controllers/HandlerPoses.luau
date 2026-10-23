@@ -16,6 +16,9 @@
 	  Neck  +X tilts the head back (-X = chin tucked)
 	  RootPos (studs, X right / Y up / -Z forward) moves the whole body off its feet's spot:
 	  the weight shifting forward into a punch, dipping under, leaping...
+	  Wrist (weapon moves) turns the held weapon in the fist: it's built pointing out of the
+	  front of the fist, so with the arm reaching forward it points UP; Wrist -X tips it
+	  forward until, at -90, it runs straight on from the forearm (a thrust).
 	Joints not listed in a key are neutral (0) for the pose's duration.
 	UpperBody = true: only the waist, neck and arms are posed, the legs keep Roblox's
 	walk / run cycle. Hold = true: a single static key, blended in as an OVERLAY while a
@@ -508,25 +511,29 @@ local POSES = {
 			{ T = 0.9, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
 		},
 	},
-	-- Blade forehand: cocked back by the right ear, ripped across through the target.
+	-- Blade forehand: cocked back by the right ear (shoulders turned away), then the body
+	-- unwinds and rips the blade across through the target. On the hit frame the blade runs
+	-- straight out through them like a clock hand passing twelve (pose lab, measured: the
+	-- tip 6.5 out, crossing the centre line at waist height).
 	BladeForehand = {
 		Duration = 0.4,
 		Keys = {
 			{ T = 0, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
-			{ T = 0.06, Root = { 0, 36, 0 }, Waist = { 0, 42, 0 }, RightShoulder = { 72, 0, 84 }, RightElbow = { 52, 0, 0 }, LeftShoulder = { 45, 0, -20 }, LeftElbow = { 60, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightKnee = { -24, 0, 0 } },
-			{ T = 0.15, Root = { -8, -36, 0 }, Waist = { -8, -46, 0 }, RightShoulder = { 86, 0, -56 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { 30, 0, -40 }, LeftElbow = { 40, 0, 0 }, LeftHip = { 28, 0, 0 }, LeftKnee = { -30, 0, 0 }, RightHip = { -12, -22, 0 } },
-			{ T = 0.26, Root = { -4, -46, 0 }, Waist = { -4, -52, 0 }, RightShoulder = { 56, 0, -76 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 30, 0, -40 }, LeftElbow = { 40, 0, 0 } },
+			{ T = 0.06, Root = { 0, -36, 0 }, Waist = { 0, -42, 0 }, RightShoulder = { 72, 0, 84 }, RightElbow = { 52, 0, 0 }, LeftShoulder = { 45, 0, -20 }, LeftElbow = { 60, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightKnee = { -24, 0, 0 }, Wrist = { -70, 0, 0 } },
+			{ T = 0.15, Root = { -8, -8, 0 }, Waist = { -8, -10, 0 }, RightShoulder = { 86, 0, -30 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { 30, 0, -40 }, LeftElbow = { 40, 0, 0 }, LeftHip = { 28, 0, 0 }, LeftKnee = { -30, 0, 0 }, RightHip = { -12, 0, 0 }, Wrist = { -80, 0, 0 } },
+			{ T = 0.26, Root = { -4, 40, 0 }, Waist = { -4, 46, 0 }, RightShoulder = { 56, 0, -76 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 30, 0, -40 }, LeftElbow = { 40, 0, 0 }, Wrist = { -60, 0, 0 } },
 			{ T = 0.4, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
 		},
 	},
-	-- Blade backhand: the return swing straight back across.
+	-- Blade backhand: the return swing straight back across, the body unwinding the other way
+	-- (the same blade-through-them hit frame).
 	BladeBackhand = {
 		Duration = 0.4,
 		Keys = {
 			{ T = 0, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
-			{ T = 0.06, Root = { 0, -36, 0 }, Waist = { 0, -42, 0 }, RightShoulder = { 78, 0, -72 }, RightElbow = { 80, 0, 0 }, LeftShoulder = { 45, 0, -20 }, LeftElbow = { 60, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightKnee = { -24, 0, 0 } },
-			{ T = 0.15, Root = { -8, 36, 0 }, Waist = { -8, 46, 0 }, RightShoulder = { 86, 0, 72 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 40, 0, 0 }, RightHip = { 26, 0, 0 }, RightKnee = { -30, 0, 0 } },
-			{ T = 0.26, Root = { -4, 46, 0 }, Waist = { -4, 52, 0 }, RightShoulder = { 56, 0, 82 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 40, 0, 0 } },
+			{ T = 0.06, Root = { 0, 36, 0 }, Waist = { 0, 42, 0 }, RightShoulder = { 78, 0, -72 }, RightElbow = { 80, 0, 0 }, LeftShoulder = { 45, 0, -20 }, LeftElbow = { 60, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightKnee = { -24, 0, 0 }, Wrist = { -70, 0, 0 } },
+			{ T = 0.15, Root = { -8, -8, 0 }, Waist = { -8, -10, 0 }, RightShoulder = { 86, 0, -30 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 40, 0, 0 }, RightHip = { 26, 0, 0 }, RightKnee = { -30, 0, 0 }, Wrist = { -80, 0, 0 } },
+			{ T = 0.26, Root = { -4, -40, 0 }, Waist = { -4, -46, 0 }, RightShoulder = { 56, 0, 82 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 40, 0, 0 }, Wrist = { -60, 0, 0 } },
 			{ T = 0.4, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
 		},
 	},
@@ -541,14 +548,16 @@ local POSES = {
 			{ T = 0.5, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
 		},
 	},
-	-- Straight stab: step in on the front foot and drive the point forward.
+	-- Straight stab: the hand drawn back to the hip with the point already forward, then step
+	-- in on the front foot and drive it straight through them, the blade running on from the
+	-- forearm (pose lab, measured: the tip 7.2 out on the centre line at stomach height).
 	Thrust = {
 		Duration = 0.5,
 		Keys = {
 			{ T = 0 },
-			{ T = 0.08, Root = { 4, 0, 0 }, Waist = { 0, 25, 0 }, RightShoulder = { 55, 0, 10 }, RightElbow = { 110, 0, 0 }, LeftShoulder = { 60, 0, -20 }, LeftElbow = { 80, 0, 0 } },
-			{ T = 0.16, Root = { -18, 0, 0 }, Waist = { 0, -15, 0 }, RightShoulder = { 92, 0, 2 }, RightElbow = { 0, 0, 0 }, LeftShoulder = { 30, 0, -25 }, LeftElbow = { 40, 0, 0 }, LeftHip = { 45, 0, 0 }, LeftKnee = { -42, 0, 0 }, RightHip = { -25, 0, 0 } },
-			{ T = 0.3, Root = { -14, 0, 0 }, Waist = { 0, -12, 0 }, RightShoulder = { 88, 0, 2 }, RightElbow = { 6, 0, 0 }, LeftShoulder = { 30, 0, -25 }, LeftElbow = { 40, 0, 0 }, LeftHip = { 40, 0, 0 }, LeftKnee = { -40, 0, 0 }, RightHip = { -20, 0, 0 } },
+			{ T = 0.08, Root = { 4, 0, 0 }, Waist = { 0, -20, 0 }, RightShoulder = { -20, 0, 10 }, RightElbow = { 100, 0, 0 }, LeftShoulder = { 60, 0, -20 }, LeftElbow = { 80, 0, 0 }, Wrist = { -85, 0, 0 } },
+			{ T = 0.16, Root = { -18, 0, 0 }, Waist = { 0, 10, 0 }, RightShoulder = { 92, 0, -8 }, RightElbow = { 0, 0, 0 }, LeftShoulder = { 30, 0, -25 }, LeftElbow = { 40, 0, 0 }, LeftHip = { 45, 0, 0 }, LeftKnee = { -42, 0, 0 }, RightHip = { -25, 0, 0 }, Wrist = { -76, 0, 0 } },
+			{ T = 0.3, Root = { -14, 0, 0 }, Waist = { 0, 10, 0 }, RightShoulder = { 88, 0, -8 }, RightElbow = { 6, 0, 0 }, LeftShoulder = { 30, 0, -25 }, LeftElbow = { 40, 0, 0 }, LeftHip = { 40, 0, 0 }, LeftKnee = { -40, 0, 0 }, RightHip = { -20, 0, 0 }, Wrist = { -76, 0, 0 } },
 			{ T = 0.5 },
 		},
 	},

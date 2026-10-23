@@ -186,17 +186,28 @@ function WeaponModels.Build(id: string, hand: BasePart): Model?
 	model.Name = "HeldWeapon"
 	build(model)
 	-- lay it out in the hand: grip a little below the hand's centre, pointing forward
-	-- (or turned, for weapons that sit differently in the fist: see GRIPS)
-	local grip = hand.CFrame * CFrame.new(0, -0.2, 0) * (GRIPS[id] or CFrame.identity)
+	-- (or turned, for weapons that sit differently in the fist: see GRIPS). Everything hangs
+	-- off an invisible GRIP part on a "Wrist" weld, so a move can turn the weapon in the
+	-- fist (HandlerPoses "Wrist" keys: a thrust points the blade along the forearm).
+	local seat = CFrame.new(0, -0.2, 0) * (GRIPS[id] or CFrame.identity)
+	local gripCFrame = hand.CFrame * seat
+	local grip = part(model, "Grip", V(0.2, 0.2, 0.2), gripCFrame, RGB(0, 0, 0), M.SmoothPlastic)
+	grip.Transparency = 1
 	for _, p in model:GetChildren() do
-		if p:IsA("BasePart") then
-			p.CFrame = grip * p.CFrame
+		if p:IsA("BasePart") and p ~= grip then
+			p.CFrame = gripCFrame * p.CFrame
 			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = hand
+			weld.Part0 = grip
 			weld.Part1 = p
 			weld.Parent = p
 		end
 	end
+	local wrist = Instance.new("Weld")
+	wrist.Name = "Wrist"
+	wrist.Part0 = hand
+	wrist.Part1 = grip
+	wrist.C0 = seat
+	wrist.Parent = grip
 	model:SetAttribute("WeaponId", id)
 	return model
 end

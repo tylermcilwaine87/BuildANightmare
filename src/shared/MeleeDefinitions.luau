@@ -83,14 +83,14 @@ local Moves = {
 	Overhand = { Pose = "Overhand", Duration = 0.86, HitTime = 0.34, Cancel = 0.62, Damage = 14, Range = 7, Arc = 70, Knockback = 35, Stagger = 18, Heavy = true, Lunge = 3, HitDir = { -0.4, -0.65, 0.65 }, Crumple = true, Unlock = { Level = 2 }, Display = "Overhand Knockdown" },
 	Uppercut = { Pose = "Uppercut", Duration = 0.48, HitTime = 0.18, Cancel = 0.3, Damage = 9, Range = 5.5, Arc = 60, Knockback = 12, Stagger = 9, Lunge = 1.8 },
 	HeadKick = { Pose = "HeadKick", Duration = 0.6, HitTime = 0.24, Cancel = 0.4, Damage = 10, Range = 7.5, Arc = 110, Knockback = 18, Stagger = 9, Lunge = 3 }, -- Lunge: steps in until the shin reaches their head
-	LegKick = { Pose = "LegKick", Duration = 0.42, HitTime = 0.16, Cancel = 0.28, Damage = 7, Range = 6.5, Arc = 90, Stagger = 10, Lunge = 1.3 },
+	LegKick = { Pose = "LegKick", Duration = 0.42, HitTime = 0.16, Cancel = 0.28, Damage = 7, Range = 6.5, Arc = 90, Stagger = 10, Lunge = 2.2 },
 	SpinKick = { Pose = "SpinKick", Duration = 0.75, HitTime = 0.36, Cancel = 0.58, Damage = 13, Range = 8, Arc = 140, Knockback = 34, Stagger = 16, Heavy = true, Lunge = 4, Unlock = { Level = 4 }, Display = "Spin Kick" }, -- Lunge: the spin travels in until the heel reaches them
 	-- Leg sweep (after the elbow): drop low on the lead leg and sweep the rear leg through
 	-- their ankles. Sweep: the knockdown FLIPS them (launched up, heels over head, onto their
 	-- back: CombatService / Config.Ragdoll.Sweep) instead of tipping them backwards.
 	LegSweep = { Pose = "LegSweep", Duration = 0.85, HitTime = 0.3, Cancel = 0.6, Damage = 13, Range = 6, Arc = 140, Knockback = 10, Stagger = 18, Heavy = true, Launch = "Sweep", Lunge = 2, Unlock = { Level = 2 }, Display = "Elbow into Leg Sweep" },
-	Knee = { Pose = "Knee", Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 1.5 },
-	Teep = { Pose = "FrontKick", Duration = 0.46, HitTime = 0.18, Cancel = 0.3, Damage = 7, Range = 7, Arc = 60, Knockback = 20, Stagger = 5, Lunge = 0.8 },
+	Knee = { Pose = "Knee", Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 2.0 },
+	Teep = { Pose = "FrontKick", Duration = 0.46, HitTime = 0.18, Cancel = 0.3, Damage = 7, Range = 7, Arc = 60, Knockback = 20, Stagger = 5, Lunge = 1.6 },
 	-- (the client first SPRINTS at the target, up to SprintTime, then leaps: this move
 	-- starts at the leap)
 	DropKick = { Pose = "DropKick", Duration = 1.3, HitTime = 0.26, Cancel = 1.2, Damage = 14, Range = 8, Arc = 70, Knockback = 40, Stagger = 15, Heavy = true, Leap = 11, SprintRange = 30, SprintSpeed = 30, SprintTime = 1.1, Unlock = { Level = 6 }, Display = "Drop Kick" },
@@ -145,8 +145,16 @@ local CONTACT = {
 	-- their body (it meets the face). LegSweep: the foot is at ankle height 2.1 out, right
 	-- under them, so 1.2.
 	Elbow = 1.6, LegSweep = 1.2,
-	Knee = 1.7, LegKick = 2.8, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 3.2, SpinKick = 2.2, CounterKick = 1.7,
-	BladeSlash = 3.4, BladeSlash2 = 3.4, BladeCleave = 3.4, BladeLunge = 3.6,
+	-- Measured 2026-10-23 on each hit frame (fist / foot centre, knee joint, mid-shin; studs
+	-- out in front of you), stopping ~0.3 short so it lands ON them: jab 3.37, cross 3.73,
+	-- hook 2.81, uppercut 1.13 (rising under the chin), overhand 2.69, Superman punch 4.54,
+	-- leg kick 1.05 (mid-shin at thigh height), knee 1.12, teep 1.81 (the sole)
+	Jab = 3.0, Cross = 3.4, Hook = 2.5, Uppercut = 1.0, Overhand = 2.4, CounterPunch = 4.2,
+	Knee = 0.8, LegKick = 0.9, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 1.5, SpinKick = 2.2, CounterKick = 1.7,
+	-- Blades: the swings carry the blade straight out through them at the hit frame (Wrist
+	-- keys), the tip ~6.8 out for slashes and 7.2 for the thrust: stop so the blade cuts
+	-- through the body (the thrust sinks ~2 studs in)
+	BladeSlash = 4.2, BladeSlash2 = 4.2, BladeCleave = 3.4, BladeLunge = 5.0,
 	-- Gut stab measured: the tip is 6.5 out at stomach height on the hit frame; stopping 3.0
 	-- from their body runs the blade through them and a little out of their back
 	BladeGutStab = 3.0,
