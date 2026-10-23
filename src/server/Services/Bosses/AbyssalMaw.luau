@@ -203,7 +203,7 @@ Attacks.BurrowErupt = {
 		return distance > 16 and 40 or 25
 	end,
 	Run = function(ctx, target)
-		ctx:Action("Roar", 0.3, 1)
+		ctx:Action("Burrow", 0.3, 1)
 		if not ctx:Wait(0.5) then
 			return
 		end
@@ -227,7 +227,7 @@ Attacks.BurrowErupt = {
 			return
 		end
 		emerge(position)
-		ctx:Action("Slam", 0.05, 0.8)
+		ctx:Action("Erupt", 0.05, 0.8)
 		ctx:Impact(position, 10)
 		ctx:DamageCircle(position, 10, 30, { Heavy = true, Knockback = 50 })
 		ctx:Wait(1.5) -- recovery: the punish window
@@ -257,7 +257,7 @@ Attacks.TentacleSlam = {
 		for _, box in boxes do
 			ctx:Box(box.CFrame, box.Size, windup)
 		end
-		ctx:Action("Combo3", windup, windup + 0.8)
+		ctx:Action("TentacleSlam", windup, windup + 0.8)
 		if not ctx:Wait(windup) then
 			return
 		end
@@ -276,7 +276,7 @@ Attacks.AbyssalInhale = {
 		local center = ctx:GroundPosition(ctx.Model)
 		ctx:Circle(center, 32, windup, "Pull")
 		ctx:Circle(center, 9, windup + 0.7, "Hostile")
-		ctx:Action("Roar", windup, windup + 1.4)
+		ctx:Action("Inhale", windup, windup + 1.4)
 		if not ctx:Wait(windup) then
 			return
 		end
@@ -302,7 +302,7 @@ Attacks.InkSpit = {
 		end
 		local windup = ctx:WindupTime(1.0)
 		local count = (ctx.Overdrive and 6 or 4) + (ctx.ModeConfig.BarrageBonus or 0)
-		ctx:Action("Barrage", windup, windup + 0.8)
+		ctx:Action("InkSpit", windup, windup + 0.8)
 		local mouth = ctx.Root.Position + Vector3.new(0, 8, 0)
 		for i = 1, count do
 			local victim = targets[ctx.Random:NextInteger(1, #targets)]
@@ -351,7 +351,7 @@ Attacks.AbyssPools = {
 		end
 		local windup = ctx:WindupTime(1.0)
 		local pulses, interval = 4, 0.75
-		ctx:Action("Roar", windup, windup + 0.6)
+		ctx:Action("AbyssPools", windup, windup + 0.6)
 		for _, point in points do
 			ctx:Circle(point, radius, windup + pulses * interval) -- stays up while it hurts
 		end

@@ -126,9 +126,272 @@ local MirrorWarden = {
 	},
 }
 
+-- Scrap Titan: no ankles, so the SHINS stay vertical (the foot flat on the floor): the
+-- thigh tilts forward by the angle that drops the hips exactly as far as the body sinks
+-- (thigh ~3.1 studs), the knee bends back by the same angle, and the hips also take up
+-- any lean of the torso (leaning forward would otherwise swing the legs back).
+local THIGH = 3.1
+local function titanKey(t: number, sink: number, changes)
+	local drop = 0.6 * sink
+	local angle = math.deg(math.acos(math.clamp(1 - drop / THIGH, -1, 1)))
+	local lean = changes.Joint_Core and changes.Joint_Core[1] or 0
+	local key = { T = t, Joint_CorePos = { 0, -drop, 0 }, Sub_Legs_L = { angle - lean, 0, 0 }, Sub_Legs_R = { angle - lean, 0, 0 }, Knee_L = { -angle, 0, 0 }, Knee_R = { -angle, 0, 0 } }
+	for joint, v in changes do
+		key[joint] = v
+	end
+	return key
+end
+local ScrapTitan = {
+	-- SWIPE: the wrecking-ball fist swung out wide to the right, then backhanded right across
+	-- the front through everything in the box, the whole torso turning after it.
+	Swipe = {
+		Duration = 1.75,
+		Markers = { { 0.35, "StepR" }, { 0.65, "Whoosh" }, { 0.85, "Hit" }, { 0.85, "StepL" } },
+		Keys = {
+			{ T = 0 },
+			titanKey(0.5, 1, { Joint_Core = { 4, -25, 0 }, Joint_Head = { 0, 20, 0 }, Joint_RightArm = { 70, 0, 75 }, Joint_LeftArm = { 30, 0, -20 } }),
+			titanKey(0.85, 1.2, { Joint_Core = { -10, 20, 0 }, Joint_Head = { -4, -10, 0 }, Joint_RightArm = { 85, 0, -30 }, Joint_LeftArm = { 20, 0, -30 } }),
+			titanKey(1.1, 1.2, { Joint_Core = { -12, 35, 0 }, Joint_Head = { -4, -20, 0 }, Joint_RightArm = { 70, 0, -70 }, Joint_LeftArm = { 20, 0, -30 } }),
+			titanKey(1.45, 0.5, { Joint_Core = { -4, 20, 0 }, Joint_RightArm = { 30, 0, -20 } }),
+			{ T = 1.75 },
+		},
+	},
+	-- SCRAP BARRAGE: it hunkers down and the reactor builds, then it throws its chest up to
+	-- the sky, arms flung up and out, venting a storm of scrap into the air.
+	Barrage = {
+		Duration = 1.9,
+		Markers = { { 0.4, "StepL" }, { 0.95, "Whoosh" }, { 1.1, "Hit" } },
+		Keys = {
+			{ T = 0 },
+			titanKey(0.7, 1.3, { Joint_Core = { -14, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 } }),
+			titanKey(1.1, 0, { Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 20, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 125, 0, 60 }, Joint_LeftArm = { 125, 0, -60 } }),
+			titanKey(1.5, 0.2, { Joint_CorePos = { 0, 0.15, 0 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 118, 0, 56 }, Joint_LeftArm = { 118, 0, -56 } }),
+			{ T = 1.9 },
+		},
+	},
+	-- MAGNET PULL: braced wide, the magnet arm thrust out at them, shaking as it drags them
+	-- in (the pull lands at the windup), then the wrecking ball comes up and SMASHES down at
+	-- its feet into whoever it dragged in (0.7 s later).
+	MagnetPull = {
+		Duration = 2.6,
+		Markers = { { 0.5, "StepL" }, { 1.2, "Hit" }, { 1.65, "Whoosh" }, { 1.9, "Land" } },
+		Keys = {
+			{ T = 0 },
+			titanKey(0.8, 1, { Joint_Core = { -6, -15, 0 }, Joint_Head = { -6, 10, 0 }, Joint_LeftArm = { 95, 0, 10 }, Joint_RightArm = { 30, 0, 20 } }),
+			titanKey(1.2, 1, { Joint_Core = { -6, -15, 3 }, Joint_Head = { -6, 10, 0 }, Joint_LeftArm = { 98, 0, 8 }, Joint_RightArm = { 30, 0, 20 } }),
+			titanKey(1.35, 1, { Joint_Core = { -6, -15, -3 }, Joint_Head = { -6, 10, 0 }, Joint_LeftArm = { 93, 0, 12 }, Joint_RightArm = { 30, 0, 20 } }),
+			titanKey(1.65, 0.3, { Joint_Core = { 12, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 175, 0, 10 }, Joint_LeftArm = { 60, 0, -10 } }),
+			titanKey(1.9, 1.8, { Joint_Core = { -30, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 50, 0, 0 }, Joint_LeftArm = { 40, 0, -10 } }),
+			titanKey(2.2, 1.6, { Joint_Core = { -26, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 46, 0, 0 }, Joint_LeftArm = { 40, 0, -10 } }),
+			{ T = 2.6 },
+		},
+	},
+	-- OVERDRIVE: the reactor overheats: chest thrown out, arms wide, head back, shuddering.
+	Roar = {
+		Duration = 2.0,
+		Markers = { { 0.3, "Hit" }, { 0.3, "Land" } },
+		Keys = {
+			{ T = 0 },
+			titanKey(0.3, 0.4, { Joint_Core = { 16, 0, 0 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 80, 0, 70 }, Joint_LeftArm = { 80, 0, -70 } }),
+			titanKey(0.7, 0.4, { Joint_Core = { 16, 0, 5 }, Joint_Head = { 30, 6, 0 }, Joint_RightArm = { 84, 0, 74 }, Joint_LeftArm = { 76, 0, -66 } }),
+			titanKey(1.1, 0.4, { Joint_Core = { 16, 0, -5 }, Joint_Head = { 30, -6, 0 }, Joint_RightArm = { 76, 0, 66 }, Joint_LeftArm = { 84, 0, -74 } }),
+			titanKey(1.6, 0.3, { Joint_Core = { 10, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 60, 0, 50 }, Joint_LeftArm = { 60, 0, -50 } }),
+			{ T = 2.0 },
+		},
+	},
+}
+
+-- Storm Beast: four rigid legs on the core (Sub_Legs_FL/FR/BL/BR, no knees). REARING: the
+-- body pitches back about its middle, so it rises to keep the hind paws on the floor and the
+-- hind legs turn against the pitch to stay upright (measured hips: 4.4 back, 2 down).
+local function rear(t: number, pitch: number, changes)
+	local a = math.rad(pitch)
+	local rise = 2 * (1 - math.cos(a)) + 4.4 * math.sin(a)
+	local key = { T = t, Joint_CorePos = { 0, rise, 0 }, Joint_Core = { pitch, 0, 0 }, Sub_Legs_BL = { -pitch, 0, 0 }, Sub_Legs_BR = { -pitch, 0, 0 } }
+	for joint, v in changes do
+		key[joint] = v
+	end
+	return key
+end
+local StormBeast = {
+	-- THUNDER POUNCE: crouch, spring HIGH (it vanishes up into the air: the server lands it on
+	-- the marked spot at the windup), and come down paws-first on them.
+	ThunderPounce = {
+		Duration = 1.4,
+		Markers = { { 0.3, "StepL" }, { 0.55, "Whoosh" }, { 1.0, "Hit" }, { 1.0, "Land" } },
+		Keys = {
+			{ T = 0 },
+			-- (rigid legs: the paws tip with them, so the crouch is a lean, not a sink)
+			{ T = 0.45, Joint_CorePos = { 0, 0, 0.6 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 14, 0, 0 }, Sub_Legs_FL = { -10, 0, 0 }, Sub_Legs_FR = { -10, 0, 0 }, Sub_Legs_BL = { 6, 0, 0 }, Sub_Legs_BR = { 6, 0, 0 }, Joint_Tail = { 0, 0, 0 } },
+			{ T = 0.7, Joint_CorePos = { 0, 7, -1 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { -10, 0, 0 }, Sub_Legs_FL = { 70, 0, 0 }, Sub_Legs_FR = { 70, 0, 0 }, Sub_Legs_BL = { -50, 0, 0 }, Sub_Legs_BR = { -50, 0, 0 } },
+			{ T = 0.9, Joint_CorePos = { 0, 9, -1 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -20, 0, 0 }, Sub_Legs_FL = { 50, 0, 0 }, Sub_Legs_FR = { 50, 0, 0 }, Sub_Legs_BL = { -20, 0, 0 }, Sub_Legs_BR = { -20, 0, 0 } },
+			-- IMPACT on the spot: landed on them, chest down, paws spread
+			{ T = 1.0, Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { -4, 0, 0 }, Joint_Head = { -20, 0, 0 }, Sub_Legs_FL = { 10, 0, -5 }, Sub_Legs_FR = { 10, 0, 5 }, Sub_Legs_BL = { -6, 0, -3 }, Sub_Legs_BR = { -6, 0, 3 } },
+			{ T = 1.2, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { -3, 0, 0 }, Joint_Head = { -8, 0, 0 }, Sub_Legs_FL = { 6, 0, -3 }, Sub_Legs_FR = { 6, 0, 3 } },
+			{ T = 1.4 },
+		},
+	},
+	-- CHAIN LIGHTNING: it rears back, head thrown up, horns crackling, then snaps the head
+	-- forward and spits the bolt that hops between them.
+	ChainLightning = {
+		Duration = 1.8,
+		Markers = { { 0.3, "StepL" }, { 0.75, "Whoosh" }, { 0.9, "Hit" } },
+		Keys = {
+			{ T = 0 },
+			rear(0.6, 18, { Joint_Head = { 30, 0, 0 }, Sub_Legs_FL = { 20, 0, 0 }, Sub_Legs_FR = { 10, 0, 0 }, Joint_Tail = { 20, 0, 0 } }),
+			rear(0.9, 4, { Joint_Head = { -24, 0, 0 }, Sub_Legs_FL = { -10, 0, 0 }, Sub_Legs_FR = { -10, 0, 0 } }),
+			rear(1.3, 4, { Joint_Head = { -20, 0, 0 } }),
+			{ T = 1.8 },
+		},
+	},
+	-- THUNDERSTORM: it rears up high on its hind legs and howls at the sky, front paws
+	-- pawing the air, then slams them down as the storm breaks.
+	Thunderstorm = {
+		Duration = 1.8,
+		Markers = { { 0.4, "StepR" }, { 0.85, "Whoosh" }, { 1.0, "Hit" }, { 1.0, "Land" } },
+		Keys = {
+			{ T = 0 },
+			rear(0.5, 32, { Joint_Head = { 34, 0, 0 }, Sub_Legs_FL = { 60, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 } }),
+			rear(0.75, 34, { Joint_Head = { 38, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 64, 0, 0 } }),
+			{ T = 1.0, Joint_CorePos = { 0, 0.15, 0 }, Joint_Core = { -3, 0, 0 }, Joint_Head = { -14, 0, 0 }, Sub_Legs_FL = { 8, 0, -4 }, Sub_Legs_FR = { 8, 0, 4 }, Sub_Legs_BL = { 3, 0, 0 }, Sub_Legs_BR = { 3, 0, 0 } },
+			{ T = 1.4, Joint_CorePos = { 0, 0.05, 0 }, Joint_Core = { -2, 0, 0 }, Joint_Head = { -8, 0, 0 }, Sub_Legs_FL = { 4, 0, -2 }, Sub_Legs_FR = { 4, 0, 2 } },
+			{ T = 1.8 },
+		},
+	},
+	-- CLAW SWIPE: it rises onto its hind legs a little and rakes the right forepaw out and
+	-- across the front, the head lunging after it.
+	Swipe = {
+		Duration = 1.5,
+		Markers = { { 0.3, "StepL" }, { 0.65, "Whoosh" }, { 0.8, "Hit" } },
+		Keys = {
+			{ T = 0 },
+			rear(0.5, 14, { Joint_Head = { 10, -14, 0 }, Sub_Legs_FR = { 80, 0, 40 }, Sub_Legs_FL = { 10, 0, 0 } }),
+			rear(0.8, 4, { Joint_CorePos = { 0, 0.4, -0.8 }, Joint_Head = { -14, 16, 0 }, Sub_Legs_FR = { 55, 0, -40 }, Sub_Legs_FL = { 6, 0, 0 } }),
+			rear(1.05, 2, { Joint_Head = { -8, 20, 0 }, Sub_Legs_FR = { 30, 0, -40 } }),
+			{ T = 1.5 },
+		},
+	},
+	-- STATIC NOVA: it hunkers down, every spike blazing, shuddering, then jolts up stiff-legged
+	-- as the ring of static bursts out of it.
+	StaticNova = {
+		Duration = 1.9,
+		Markers = { { 1.1, "Hit" }, { 1.1, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.6, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { -2, 0, 3 }, Joint_Head = { -24, 0, 0 }, Sub_Legs_FL = { 3, 0, -5 }, Sub_Legs_FR = { 3, 0, 5 }, Sub_Legs_BL = { -3, 0, -5 }, Sub_Legs_BR = { -3, 0, 5 } },
+			{ T = 0.85, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { -2, 0, -3 }, Joint_Head = { -24, 0, 0 }, Sub_Legs_FL = { 3, 0, -5 }, Sub_Legs_FR = { 3, 0, 5 }, Sub_Legs_BL = { -3, 0, -5 }, Sub_Legs_BR = { -3, 0, 5 } },
+			{ T = 1.1, Joint_CorePos = { 0, 1.2, 0 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 24, 0, 0 }, Sub_Legs_FL = { 0, 0, -22 }, Sub_Legs_FR = { 0, 0, 22 }, Sub_Legs_BL = { 0, 0, -22 }, Sub_Legs_BR = { 0, 0, 22 }, Joint_Tail = { 30, 0, 0 } },
+			{ T = 1.45, Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 2, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Legs_FL = { 0, 0, -8 }, Sub_Legs_FR = { 0, 0, 8 }, Sub_Legs_BL = { 0, 0, -8 }, Sub_Legs_BR = { 0, 0, 8 } },
+			{ T = 1.9 },
+		},
+	},
+}
+
+-- Abyssal Maw: a worm rising out of the floor (its lower body lives below it): Joint_Core
+-- (the body column), Joint_Head (the maw), Joint_LeftArm / Joint_RightArm (tentacles).
+local AbyssalMaw = {
+	-- BURROW: it rears up, then dives head-first back down into the ground.
+	Burrow = {
+		Duration = 1.0,
+		Markers = { { 0.3, "Hit" }, { 0.5, "Whoosh" }, { 0.8, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.3, Joint_CorePos = { 0, 1.5, 0 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 140, 0, 30 }, Joint_LeftArm = { 140, 0, -30 } },
+			{ T = 0.8, Joint_CorePos = { 0, -8, -2 }, Joint_Core = { -45, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { -20, 0, 20 }, Joint_LeftArm = { -20, 0, -20 } },
+			{ T = 1.0, Joint_CorePos = { 0, -10, -2 }, Joint_Core = { -45, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { -20, 0, 20 }, Joint_LeftArm = { -20, 0, -20 } },
+		},
+	},
+	-- ERUPT: it bursts up out of the ground under them, maw gaping, tentacles flung up, then
+	-- crashes back to its height.
+	Erupt = {
+		Duration = 0.8,
+		Markers = { { 0.05, "Hit" }, { 0.05, "Land" } },
+		Keys = {
+			{ T = 0, Joint_CorePos = { 0, -6, 0 }, Joint_Core = { 0, 0, 0 }, Joint_Head = { 30, 0, 0 } },
+			{ T = 0.05, Joint_CorePos = { 0, 3, 0 }, Joint_Core = { 18, 0, 0 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 160, 0, 50 }, Joint_LeftArm = { 160, 0, -50 } },
+			{ T = 0.35, Joint_CorePos = { 0, 1.2, 0 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 12, 0, 0 }, Joint_RightArm = { 90, 0, 40 }, Joint_LeftArm = { 90, 0, -40 } },
+			{ T = 0.8 },
+		},
+	},
+	-- TENTACLE SLAM: both tentacles rear up high behind it, then whip down and forward along
+	-- the lines at them, the maw dipping after them.
+	TentacleSlam = {
+		Duration = 1.9,
+		Markers = { { 0.9, "Whoosh" }, { 1.1, "Hit" }, { 1.1, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.75, Joint_CorePos = { 0, 0.8, 0.5 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 14, 0, 0 }, Joint_RightArm = { 175, 0, 20 }, Joint_LeftArm = { 175, 0, -20 } },
+			{ T = 1.1, Joint_CorePos = { 0, -0.8, -1.2 }, Joint_Core = { -22, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 55, 0, -10 }, Joint_LeftArm = { 55, 0, 10 } },
+			{ T = 1.4, Joint_CorePos = { 0, -0.8, -1.2 }, Joint_Core = { -20, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 50, 0, -10 }, Joint_LeftArm = { 50, 0, 10 } },
+			{ T = 1.9 },
+		},
+	},
+	-- ABYSSAL INHALE: the maw gapes up and back, tentacles spread wide, dragging everything in
+	-- (the pull lands at the windup), then the whole head slams forward in a BITE (0.7 s on).
+	Inhale = {
+		Duration = 2.6,
+		Markers = { { 1.2, "Hit" }, { 1.75, "Whoosh" }, { 1.9, "JawSnap" }, { 1.9, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.8, Joint_CorePos = { 0, 1, 0.6 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 26, 0, 0 }, Joint_RightArm = { 90, 0, 75 }, Joint_LeftArm = { 90, 0, -75 } },
+			{ T = 1.2, Joint_CorePos = { 0, 1.2, 0.8 }, Joint_Core = { 20, 0, 0 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 95, 0, 40 }, Joint_LeftArm = { 95, 0, -40 } },
+			{ T = 1.6, Joint_CorePos = { 0, 1.2, 0.8 }, Joint_Core = { 20, 0, 0 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 80, 0, 10 }, Joint_LeftArm = { 80, 0, -10 } },
+			{ T = 1.9, Joint_CorePos = { 0, -1, -2.2 }, Joint_Core = { -32, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { 40, 0, 20 }, Joint_LeftArm = { 40, 0, -20 } },
+			{ T = 2.2, Joint_CorePos = { 0, -0.9, -2 }, Joint_Core = { -28, 0, 0 }, Joint_Head = { -26, 0, 0 }, Joint_RightArm = { 40, 0, 20 }, Joint_LeftArm = { 40, 0, -20 } },
+			{ T = 2.6 },
+		},
+	},
+	-- INK SPIT: it rears back, then pumps its head forward, spitting a glob at each one.
+	InkSpit = {
+		Duration = 1.8,
+		Markers = { { 0.85, "Whoosh" }, { 1.0, "Hit" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.7, Joint_CorePos = { 0, 0.6, 0.6 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 40, 0, 30 }, Joint_LeftArm = { 40, 0, -30 } },
+			{ T = 1.0, Joint_CorePos = { 0, 0, -0.6 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -18, 0, 0 } },
+			{ T = 1.1, Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 6, 0, 0 } },
+			{ T = 1.2, Joint_CorePos = { 0, 0, -0.6 }, Joint_Core = { -10, 6, 0 }, Joint_Head = { -18, 6, 0 } },
+			{ T = 1.3, Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 6, 0, 0 } },
+			{ T = 1.4, Joint_CorePos = { 0, 0, -0.6 }, Joint_Core = { -10, -6, 0 }, Joint_Head = { -18, -6, 0 } },
+			{ T = 1.8 },
+		},
+	},
+	-- ABYSS POOLS: it curls over and drives its maw into the ground, and the dark pools well up.
+	AbyssPools = {
+		Duration = 1.6,
+		Markers = { { 0.8, "Whoosh" }, { 1.0, "Hit" }, { 1.0, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.6, Joint_CorePos = { 0, 1, 0.5 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 120, 0, 40 }, Joint_LeftArm = { 120, 0, -40 } },
+			{ T = 1.0, Joint_CorePos = { 0, -2, -1.5 }, Joint_Core = { -40, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { 20, 0, 50 }, Joint_LeftArm = { 20, 0, -50 } },
+			{ T = 1.3, Joint_CorePos = { 0, -1.8, -1.4 }, Joint_Core = { -36, 0, 0 }, Joint_Head = { -26, 0, 0 }, Joint_RightArm = { 20, 0, 50 }, Joint_LeftArm = { 20, 0, -50 } },
+			{ T = 1.6 },
+		},
+	},
+	-- THE ABYSS OPENS: it rears to its full height, maw wide at the sky, tentacles thrashing.
+	Roar = {
+		Duration = 2.0,
+		Markers = { { 0.3, "Hit" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.3, Joint_CorePos = { 0, 2, 0 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 34, 0, 0 }, Joint_RightArm = { 150, 0, 60 }, Joint_LeftArm = { 150, 0, -60 } },
+			{ T = 0.7, Joint_CorePos = { 0, 2, 0 }, Joint_Core = { 16, 0, 6 }, Joint_Head = { 34, 8, 0 }, Joint_RightArm = { 120, 0, 80 }, Joint_LeftArm = { 170, 0, -40 } },
+			{ T = 1.1, Joint_CorePos = { 0, 2, 0 }, Joint_Core = { 16, 0, -6 }, Joint_Head = { 34, -8, 0 }, Joint_RightArm = { 170, 0, 40 }, Joint_LeftArm = { 120, 0, -80 } },
+			{ T = 1.6, Joint_CorePos = { 0, 1, 0 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 90, 0, 40 }, Joint_LeftArm = { 90, 0, -40 } },
+			{ T = 2.0 },
+		},
+	},
+}
+
 return {
+	AbyssalMaw = AbyssalMaw,
+	StormBeast = StormBeast,
 	MirrorWarden = MirrorWarden,
 	ScrapTitan = {
+		Swipe = ScrapTitan.Swipe,
+		Barrage = ScrapTitan.Barrage,
+		MagnetPull = ScrapTitan.MagnetPull,
+		Roar = ScrapTitan.Roar,
 		-- GROUND SLAM: it squats deep with both fists coming up, springs into the air
 		-- arching back with the fists high over its head, then comes down with its whole
 		-- weight: a deep landing squat as both fists smash the floor in front of it. Holds
@@ -138,16 +401,17 @@ return {
 			Markers = { { 0.35, "StepL" }, { 0.8, "Whoosh" }, { 1.3, "Hit" }, { 1.3, "Land" } },
 			Keys = {
 				{ T = 0 },
-				-- load: squat, lean in, fists starting up
-				{ T = 0.35, Joint_CorePos = { 0, -1.3, 0.2 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 70, 0, 18 }, Joint_LeftArm = { 70, 0, -18 }, Sub_Legs_L = { 40, 0, 0 }, Knee_L = { -70, 0, 0 }, Sub_Legs_R = { 40, 0, 0 }, Knee_R = { -70, 0, 0 } },
+				-- load: squat, lean in, fists starting up (squats keep the shins vertical so the
+				-- ankle-less feet stay flat on the floor: titanKey)
+				titanKey(0.35, 1.3 / 0.6, { Joint_CorePos = { 0, -1.3, 0.2 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 70, 0, 18 }, Joint_LeftArm = { 70, 0, -18 } }),
 				-- spring: legs drive straight, arching back, fists overhead
 				{ T = 0.8, Joint_CorePos = { 0, 0.6, 0 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 172, 0, 10 }, Joint_LeftArm = { 172, 0, -10 }, Sub_Legs_L = { -6, 0, 0 }, Knee_L = { -8, 0, 0 }, Sub_Legs_R = { -6, 0, 0 }, Knee_R = { -8, 0, 0 } },
 				-- airborne: legs tucked, fists drawn right back for the hammer blow
 				{ T = 1.05, Joint_CorePos = { 0, 0.4, 0 }, Joint_Core = { 18, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 188, 0, 8 }, Joint_LeftArm = { 188, 0, -8 }, Sub_Legs_L = { 34, 0, 0 }, Knee_L = { -55, 0, 0 }, Sub_Legs_R = { 26, 0, 0 }, Knee_R = { -48, 0, 0 } },
 				-- IMPACT: lands in a deep squat, bent right over, both fists into the floor
-				{ T = 1.3, Joint_CorePos = { 0, -1.9, -0.4 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 72, 0, 8 }, Joint_LeftArm = { 72, 0, -8 }, Sub_Legs_L = { 72, 0, 0 }, Knee_L = { -105, 0, 0 }, Sub_Legs_R = { 66, 0, 0 }, Knee_R = { -100, 0, 0 } },
+				titanKey(1.3, 1.9 / 0.6, { Joint_CorePos = { 0, -1.9, -0.4 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 72, 0, 8 }, Joint_LeftArm = { 72, 0, -8 } }),
 				-- holds the impact: the punish window
-				{ T = 1.52, Joint_CorePos = { 0, -1.7, -0.35 }, Joint_Core = { -34, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 64, 0, 8 }, Joint_LeftArm = { 64, 0, -8 }, Sub_Legs_L = { 66, 0, 0 }, Knee_L = { -96, 0, 0 }, Sub_Legs_R = { 60, 0, 0 }, Knee_R = { -92, 0, 0 } },
+				titanKey(1.52, 1.7 / 0.6, { Joint_CorePos = { 0, -1.7, -0.35 }, Joint_Core = { -34, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 64, 0, 8 }, Joint_LeftArm = { 64, 0, -8 } }),
 				-- heaves itself upright
 				{ T = 1.9 },
 			},

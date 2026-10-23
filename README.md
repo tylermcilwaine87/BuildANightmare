@@ -73,6 +73,13 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
   - The six ultimates follow their own pulses: Splinter Storm bursts three times, Bastion Quake slams twice, Scrap Apocalypse throws three times, and the rest likewise.
 
   Every frame was checked against the floor (none dip lower than the existing heavy and boxing moves). The Hit frame sits exactly on the server's timing.
+- **Every boss attack has its own animation.** Before, all four bosses shared a handful of generic swings, roars and slams.
+  - **Mirror Warden:** a three-cut blade combo (the blade crosses the centre line on every hit frame), the mirror shield brought down for the Reflected Slam, a Shard Storm summoned to the sky, a Shatter Nova, a Prism Beam, and its cracking.
+  - **Scrap Titan:** a wrecking-ball Swipe, a reactor-venting Scrap Barrage, a Magnet Pull ending in a smash at its feet, and an Overdrive roar. Its ankle-less legs keep the shins vertical in squats, which also fixed the old Ground Slam: its feet used to sink almost 2 studs into the floor, now 0.28.
+  - **Storm Beast:** a Thunder Pounce leaping high, Chain Lightning, a Thunderstorm reared up on its hind legs, a Claw Swipe and a Static Nova.
+  - **Abyssal Maw:** Burrow, Erupt, Tentacle Slam, an Abyssal Inhale that bites, Ink Spit and Abyss Pools.
+
+  Every frame was checked against the floor, and each boss was fought live using its new moves.
 - **SYNC meter.** You and your Nightmare landing hits on the same enemy within 1.5 s of each other fills the SYNC bar (it drains when you stop). When full, you're **SYNCED** for 8 s: both of you deal 25% more damage and stagger, with a cyan outline and a banner. Tested: hits went from 10 to 13 damage.
 
 ## Fights that feel alive (v0.11.3)

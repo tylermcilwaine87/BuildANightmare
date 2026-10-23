@@ -198,7 +198,7 @@ local function staticNova(ctx, radius: number, damage: number)
 	local center = ctx:GroundPosition(ctx.Model)
 	local windup = ctx:WindupTime(1.1)
 	ctx:Circle(center, radius, windup)
-	ctx:Action("Roar", windup, windup + 0.8)
+	ctx:Action("StaticNova", windup, windup + 0.8)
 	if not ctx:Wait(windup) then
 		return false
 	end
@@ -243,7 +243,7 @@ Attacks.ThunderPounce = {
 			ctx:Face(position)
 			local windup = ctx:WindupTime(i == 1 and 1.0 or 0.8)
 			ctx:Circle(position, 8, windup)
-			ctx:Action("Ability_Dash", windup * 0.6, windup + 0.4)
+			ctx:Action("ThunderPounce", windup, windup + 0.4)
 			if not ctx:Wait(windup) then
 				return
 			end
@@ -269,7 +269,7 @@ Attacks.ChainLightning = {
 			return
 		end
 		local windup = ctx:WindupTime(0.9)
-		ctx:Action("Roar", windup, windup + 0.9)
+		ctx:Action("ChainLightning", windup, windup + 0.9)
 		local from = ctx.Root.Position + Vector3.new(0, 6, 0)
 		local hops = math.min(3, #targets)
 		for i = 1, hops do
@@ -302,7 +302,7 @@ Attacks.Thunderstorm = {
 	Run = function(ctx)
 		local windup = ctx:WindupTime(1.0)
 		local count = (supercharged(ctx) and 12 or 8) + (ctx.ModeConfig.BarrageBonus or 0)
-		ctx:Action("Roar", windup, windup + 0.8)
+		ctx:Action("Thunderstorm", windup, windup + 0.8)
 		local targets = ctx:Targets()
 		if #targets == 0 then
 			return
