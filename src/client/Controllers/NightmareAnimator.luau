@@ -398,7 +398,8 @@ local function animate(state, root: BasePart, dt: number, now: number)
 
 		-- (an ability with no keyframed animation yet falls back to its type's motion)
 		local abilityDef = action:sub(1, 8) == "Ability_" and AbilityDefinitions.Get(action:sub(9))
-		local style = ACTION_ARMS[action] or (abilityDef and ACTION_ARMS["Ability_" .. abilityDef.Type]) or "Both"
+		local style = ACTION_ARMS[action] or (abilityDef and ACTION_ARMS["Ability_" .. abilityDef.Type])
+			or (action:sub(1, 9) == "Ultimate_" and "Ultimate") or "Both"
 		if action == "IdleLook" then
 			headYaw = math.sin(actionTime / state.duration * math.pi * 2) * 0.7
 		elseif style == "Roar" then

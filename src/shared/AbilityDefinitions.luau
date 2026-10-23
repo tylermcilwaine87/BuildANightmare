@@ -215,6 +215,9 @@ AbilityDefinitions.SecondarySlotOrder = { "Core", "RightArm", "LeftArm", "Back",
 for id, def in AbilityDefinitions.ById do
 	def.Id = id
 end
+for id, def in AbilityDefinitions.Ultimates do
+	def.Id = id
+end
 
 function AbilityDefinitions.Get(id: string?)
 	if type(id) ~= "string" then

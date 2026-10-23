@@ -145,7 +145,8 @@ function UltimateService:Execute(brain, def)
 	if not brain.possessedBy then
 		ai:Stop(brain)
 	end
-	ai:PlayAction(brain, "Ultimate", def.Startup, def.Startup + extra)
+	-- each ultimate has its own animation (NightmarePoses "Ultimate_<Id>")
+	ai:PlayAction(brain, "Ultimate_" .. def.Id, def.Startup, def.Startup + extra)
 	Net.FireNearby(telegraphs.WorldFX, root.Position, Config.Performance.EffectRadius, "UltimateBanner", { Name = def.DisplayName, Model = brain.model, Position = root.Position })
 
 	local function alive()

@@ -57,6 +57,22 @@ A real place in the world. **The lift** stands on the east side of the Forge, be
   - **Headbutt:** rear back and slam the skull in.
 
   A leaping move can open from out of reach, and the body really travels: the test hound rolled in from 12 studs to contact. Any body with a head or tail mixes the headbutt and tail whip into its strings too. Every frame was checked against the floor: no part sinks more than about 0.3 studs deeper than standing.
+- **Every ability and ultimate has its own animation.** Each is performed by the limb it comes from, and arm abilities are mirrored when they come from a left arm:
+  - Frost Ram: head down, charging horns-first.
+  - Visor Glare: rocks back, then glares level.
+  - Tentacle Lash: coils high, then whips out long.
+  - Demon Rend: rears up and rips down across.
+  - Magnet Pull: arm thrust out shaking, then yanked back.
+  - Hammer Slam: heaved overhead, then driven into the ground.
+  - Bat Dive: wings snap up, then a tipped-forward dive.
+  - Blink Dash: coils, then tears forward flat.
+  - Tail Sweep: a full spin.
+  - Reinforced Guard: hunkered behind crossed arms.
+  - Crystal Barrier: arms sweep up and wide.
+  - Energy Overload: shaking harder and harder, then venting with arms flung wide.
+  - The six ultimates follow their own pulses: Splinter Storm bursts three times, Bastion Quake slams twice, Scrap Apocalypse throws three times, and the rest likewise.
+
+  Every frame was checked against the floor (none dip lower than the existing heavy and boxing moves). The Hit frame sits exactly on the server's timing.
 - **SYNC meter.** You and your Nightmare landing hits on the same enemy within 1.5 s of each other fills the SYNC bar (it drains when you stop). When full, you're **SYNCED** for 8 s: both of you deal 25% more damage and stagger, with a cyan outline and a banner. Tested: hits went from 10 to 13 damage.
 
 ## Fights that feel alive (v0.11.3)
