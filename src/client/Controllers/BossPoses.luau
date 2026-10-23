@@ -146,7 +146,7 @@ local ScrapTitan = {
 	-- the front through everything in the box, the whole torso turning after it.
 	Swipe = {
 		Duration = 1.75,
-		Markers = { { 0.35, "StepR" }, { 0.65, "Whoosh" }, { 0.85, "Hit" }, { 0.85, "StepL" } },
+		Markers = { { 0.5, "StepR" }, { 0.5, "Whoosh" }, { 0.85, "Hit" }, { 0.85, "StepL" } },
 		Keys = {
 			{ T = 0 },
 			titanKey(0.5, 1, { Joint_Core = { 4, -25, 0 }, Joint_Head = { 0, 20, 0 }, Joint_RightArm = { 70, 0, 75 }, Joint_LeftArm = { 30, 0, -20 } }),
@@ -160,7 +160,7 @@ local ScrapTitan = {
 	-- the sky, arms flung up and out, venting a storm of scrap into the air.
 	Barrage = {
 		Duration = 1.9,
-		Markers = { { 0.4, "StepL" }, { 0.95, "Whoosh" }, { 1.1, "Hit" } },
+		Markers = { { 0.7, "StepL" }, { 0.7, "Whoosh" }, { 1.1, "Hit" } },
 		Keys = {
 			{ T = 0 },
 			titanKey(0.7, 1.3, { Joint_Core = { -14, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 } }),
@@ -174,7 +174,7 @@ local ScrapTitan = {
 	-- its feet into whoever it dragged in (0.7 s later).
 	MagnetPull = {
 		Duration = 2.6,
-		Markers = { { 0.5, "StepL" }, { 1.2, "Hit" }, { 1.65, "Whoosh" }, { 1.9, "Land" } },
+		Markers = { { 0.8, "StepL" }, { 1.2, "Hit" }, { 1.65, "Whoosh" }, { 1.9, "Land" } },
 		Keys = {
 			{ T = 0 },
 			titanKey(0.8, 1, { Joint_Core = { -6, -15, 0 }, Joint_Head = { -6, 10, 0 }, Joint_LeftArm = { 95, 0, 10 }, Joint_RightArm = { 30, 0, 20 } }),

@@ -497,13 +497,16 @@ local POSES = {
 	-- them and on over your head, rising onto your toes, eyes following them into the sky.
 	ScytheHarvest = {
 		Duration = 0.9,
-		Markers = { { 0.2, "Whoosh" }, { 0.28, "Hit" } },
+		Markers = { { 0.16, "Whoosh" }, { 0.28, "Hit" } },
 		Keys = {
 			{ T = 0, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
 			-- hooked low: crouched deep, the blade down at their ankles (pose lab grid, measured:
 			-- the tip just off the floor 6.5 studs out in front; the snath runs along the
 			-- forearms, so the arms reach well forward to keep it out of the ground)
 			{ T = 0.16, RootPos = { 0, -1.0, -0.4 }, Root = { -30, 0, 0 }, Waist = { -10, 0, 0 }, Neck = { 10, 0, 0 }, RightShoulder = { 85, 0, 30 }, RightElbow = { 35, 0, 0 }, LeftShoulder = { 95, 0, 10 }, LeftElbow = { 45, 0, 0 }, LeftHip = { 60, 0, 0 }, LeftKnee = { -90, 0, 0 }, RightHip = { 20, 0, 0 }, RightKnee = { -90, 0, 0 } },
+			-- the Hit frame: on its way up through them (the in-between pose, so the motion is
+			-- unchanged and an exported asset keeps the marker)
+			{ T = 0.28, RootPos = { 0, -0.22, -0.72 }, Root = { -6.7, 6.5, 0 }, Waist = { 0.4, 3.9, 0 }, Neck = { 16.5, 0, 0 }, RightShoulder = { 127, 0, 17 }, RightElbow = { 25.3, 0, 0 }, LeftShoulder = { 124, 0, -3 }, LeftElbow = { 35.3, 0, 0 }, LeftHip = { 34.1, 0, 0 }, LeftKnee = { -44.6, 0, 0 }, RightHip = { 0.6, 0, 0 }, RightKnee = { -38.2, 0, 0 } },
 			-- RIP UP: rising out of the crouch, the blade tearing up through them
 			{ T = 0.36, RootPos = { 0, 0.2, -0.9 }, Root = { 6, 10, 0 }, Waist = { 6, 6, 0 }, Neck = { 20, 0, 0 }, RightShoulder = { 150, 0, 10 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 140, 0, -10 }, LeftElbow = { 30, 0, 0 }, LeftHip = { 20, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightHip = { -10, 0, 0 }, RightKnee = { -10, 0, 0 } },
 			-- carried on over the head, up on the toes, watching them fly
@@ -583,7 +586,7 @@ local POSES = {
 			{ T = 0.9, RootPos = { 0, -0.55, -1.36 }, Root = { -19, 8, 0 }, Waist = { -9, 4, 0 }, Neck = { -20, -6, 0 }, RightShoulder = { 50, -14, -10 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { 102, 0, -12 }, LeftElbow = { 42, 0, 0 }, LeftHip = { 60, -8, 0 }, LeftKnee = { -70, 0, 0 }, RightHip = { -27, -8, 0 }, RightKnee = { -12, 0, 0 } },
 			{ T = 1.18, RootPos = { 0, -0.52, -1.3 }, Root = { -14, 8, 0 }, Waist = { -6, 4, 0 }, Neck = { -18, -6, 0 }, RightShoulder = { 50, -14, -10 }, RightElbow = { 6, 0, 0 }, LeftShoulder = { 100, 0, -12 }, LeftElbow = { 36, 0, 0 }, LeftHip = { 58, -8, 0 }, LeftKnee = { -68, 0, 0 }, RightHip = { -26, -8, 0 }, RightKnee = { -12, 0, 0 } },
 			-- RIP: wrench it out with the whole body, the free hand shoving them off the blade
-			{ T = 1.32, RootPos = { 0, -0.35, -0.5 }, Root = { -2, -20, 0 }, Waist = { 2, -14, 0 }, Neck = { -8, 10, 0 }, RightShoulder = { -40, 0, 30 }, RightElbow = { 50, 0, 0 }, LeftShoulder = { 82, 0, -8 }, LeftElbow = { 0, 0, 0 }, LeftHip = { 40, 20, 0 }, LeftKnee = { -40, 0, 0 }, RightHip = { -30, 20, 0 }, RightKnee = { -20, 0, 0 } },
+			{ T = 1.26, RootPos = { 0, -0.35, -0.5 }, Root = { -2, -20, 0 }, Waist = { 2, -14, 0 }, Neck = { -8, 10, 0 }, RightShoulder = { -40, 0, 30 }, RightElbow = { 50, 0, 0 }, LeftShoulder = { 82, 0, -8 }, LeftElbow = { 0, 0, 0 }, LeftHip = { 40, 20, 0 }, LeftKnee = { -40, 0, 0 }, RightHip = { -30, 20, 0 }, RightKnee = { -20, 0, 0 } },
 			-- and flick it clean off to the side
 			{ T = 1.48, RootPos = { 0, -0.2, -0.25 }, Root = { 0, -6, 0 }, RightShoulder = { 60, 0, 50 }, RightElbow = { 80, 0, 0 }, LeftShoulder = { 30, 0, -20 }, LeftElbow = { 40, 0, 0 } },
 			{ T = 1.75, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
@@ -607,12 +610,12 @@ local POSES = {
 	-- (MeleeService.Snare: the haul starts at 0.44 s, the knee lands at 0.78 s.)
 	WhipSnare = {
 		Duration = 1.15,
-		Markers = { { 0.2, "Whoosh" }, { 0.3, "Hit" }, { 0.78, "Knee" } },
+		Markers = { { 0.15, "Whoosh" }, { 0.3, "Hit" }, { 0.78, "Knee" } },
 		Keys = {
 			{ T = 0, RightShoulder = { 15, 0, 10 }, RightElbow = { 25, 0, 0 } },
 			{ T = 0.15, Root = { 6, 18, 0 }, Waist = { 10, 24, 0 }, RightShoulder = { 176, 0, 16 }, RightElbow = { 62, 0, 0 }, LeftShoulder = { 45, 0, -25 }, LeftElbow = { 50, 0, 0 }, RightHip = { -14, 0, 0 } },
-			-- the crack that wraps them
-			{ T = 0.28, Root = { -12, -16, 0 }, Waist = { -12, -14, 0 }, RightShoulder = { 96, 0, 0 }, RightElbow = { 0, 0, 0 }, LeftShoulder = { 70, 0, -10 }, LeftElbow = { 30, 0, 0 }, LeftHip = { 34, 0, 0 }, LeftKnee = { -36, 0, 0 } },
+			-- the crack that wraps them (on the Hit frame, so an exported asset keeps the marker)
+			{ T = 0.3, Root = { -12, -16, 0 }, Waist = { -12, -14, 0 }, RightShoulder = { 96, 0, 0 }, RightElbow = { 0, 0, 0 }, LeftShoulder = { 70, 0, -10 }, LeftElbow = { 30, 0, 0 }, LeftHip = { 34, 0, 0 }, LeftKnee = { -36, 0, 0 } },
 			-- both hands on the chain, sitting back into the haul
 			{ T = 0.44, RootPos = { 0, -0.35, 0.6 }, Root = { 16, 8, 0 }, Waist = { 8, 4, 0 }, Neck = { -10, -6, 0 }, RightShoulder = { 50, 0, 10 }, RightElbow = { 90, 0, 0 }, LeftShoulder = { 80, 0, -10 }, LeftElbow = { 60, 0, 0 }, LeftHip = { -10, -8, 0 }, LeftKnee = { -30, 0, 0 }, RightHip = { 30, -8, 0 }, RightKnee = { -50, 0, 0 } },
 			-- hauled in past the hip
