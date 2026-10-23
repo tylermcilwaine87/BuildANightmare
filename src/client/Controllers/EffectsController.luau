@@ -843,6 +843,14 @@ function EffectsController:Start()
 			self:Flash(target)
 			local dir = typeof(data.Dir) == "Vector3" and data.Dir or nil
 			controllers.NightmareAnimator:Flinch(target, dir, data.Heavy)
+			-- a Handler takes it: head snaps, body driven the way of the blow, a heavy one
+			-- staggers you out of your strike
+			if target and Players:GetPlayerFromCharacter(target) and not data.KnockedDown then
+				controllers.HandlerAnimator:React(target, dir, data.Heavy, data.Amount)
+				if target == localPlayer.Character and data.Heavy then
+					controllers.MeleeController:Interrupt()
+				end
+			end
 			-- contact effects for abilities that physically connect (bites crunch, claws spark)
 			local source = type(data.Source) == "string" and data.Source or ""
 			local root = target and target:FindFirstChild("HumanoidRootPart")
@@ -870,6 +878,24 @@ function EffectsController:Start()
 			self:PopText(data.Position + Vector3.new(0, 2, 0), "DEFEATED!", C.Warn, 34)
 		elseif kind == "Blocked" then
 			self:PopText(data.Position, "BLOCKED", Color3.fromRGB(150, 200, 255), 22)
+		elseif kind == "Parried" then
+			-- the guard snapped out at the last instant: the blow is knocked away
+			local defender = typeof(data.Target) == "Instance" and data.Target or nil
+			local attacker = typeof(data.Attacker) == "Instance" and data.Attacker or nil
+			self:PopText(data.Position + Vector3.new(0, 2, 0), "PARRY!", Color3.fromRGB(255, 225, 120), 34)
+			controllers.HandlerAnimator:PlayOn(defender, "Parry")
+			if attacker and Players:GetPlayerFromCharacter(attacker) then
+				controllers.HandlerAnimator:PlayOn(attacker, "Parried")
+				if attacker == localPlayer.Character then
+					controllers.MeleeController:Interrupt()
+				end
+			elseif attacker and defender then
+				controllers.NightmareAnimator:Flinch(attacker, attacker:GetPivot().Position - defender:GetPivot().Position, true)
+			end
+			if defender == localPlayer.Character or attacker == localPlayer.Character then
+				self:Shake(0.18, 0.12)
+				controllers.HandlerAnimator:HitStop(0.08)
+			end
 		elseif kind == "GuardBreak" then
 			self:PopText(data.Position, "GUARD BREAK!", C.Bad, 30)
 		elseif kind == "KnockedDown" then

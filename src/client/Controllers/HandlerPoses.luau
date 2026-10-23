@@ -686,4 +686,83 @@ local SIDE_DIVE = {
 POSES.DodgeLeft = { Duration = 0.8, Keys = keys(SIDE_DIVE), Markers = { { 0.07, "StepR" }, { 0.52, "Land" } } }
 POSES.DodgeRight = { Duration = 0.8, Keys = keys(SIDE_DIVE, true), Markers = { { 0.07, "StepL" }, { 0.52, "Land" } } }
 
+------------------------------------------------------------------------------------------
+-- Taking hits (HandlerAnimator:React): the body goes the way the blow drove it. Light: the
+-- head and shoulders take it; harder: the torso turns and a foot goes back; HEAVY: a real
+-- stagger, two steps back. (Bigger blows than that knock you down: ragdoll + get-up.)
+-- A blow on your LEFT side drives you to the RIGHT (RootPos +X, head turned right).
+------------------------------------------------------------------------------------------
+POSES.HitHighLight = {
+	Duration = 0.38,
+	Keys = {
+		stance(0),
+		stance(0.06, { Neck = { 14, 0, 0 }, Waist = { 4, 6, 0 }, Root = { -2, -12, 0 }, RootPos = { 0, -0.15, 0.15 } }),
+		stance(0.16, { Neck = { 6, 0, 0 }, RootPos = { 0, -0.15, 0.1 } }),
+		stance(0.38),
+	},
+}
+POSES.HitHigh = {
+	Duration = 0.55,
+	Markers = { { 0.2, "StepR" } },
+	Keys = {
+		stance(0),
+		stance(0.07, { Neck = { 26, 0, 0 }, Waist = { 10, 6, 0 }, Root = { 4, -12, 0 }, RootPos = { 0, -0.1, 0.45 }, LeftShoulder = { 50, -50, -10 }, LeftElbow = { 110, 0, 0 }, RightShoulder = { 46, 56, 10 }, RightElbow = { 116, 0, 0 } }),
+		stance(0.2, { Neck = { 12, 0, 0 }, Waist = { 4, 6, 0 }, RootPos = { 0, -0.2, 0.35 }, RightHip = { -26, 0, 0 }, RightKnee = { -22, 0, 0 } }),
+		stance(0.55),
+	},
+}
+-- sign +1: hit on the LEFT (driven right); -1: hit on the right
+local function sideHit(sign: number, hard: boolean)
+	local k = hard and 1 or 0.55
+	local list = {
+		stance(0),
+		stance(0.07, { Neck = { 6, -38 * sign * k, -12 * sign * k }, Waist = { 2, 6 - 12 * sign * k, -6 * sign * k }, Root = { -2, -12 - 10 * sign * k, -6 * sign * k }, RootPos = { 0.35 * sign * k, -0.1, 0.1 * k } }),
+		stance(hard and 0.22 or 0.16, { Neck = { 2, -16 * sign * k, -4 * sign * k }, Waist = { 0, 6 - 6 * sign * k, 0 }, RootPos = { 0.25 * sign * k, -0.12, 0.08 * k } }),
+		stance(hard and 0.55 or 0.38),
+	}
+	if hard then
+		-- the arms fly open with it
+		list[2].LeftShoulder = { 44, -40, -20 * sign }
+		list[2].RightShoulder = { 44, 40, -20 * sign }
+	end
+	return { Duration = hard and 0.55 or 0.38, Keys = list }
+end
+POSES.HitLeftLight = sideHit(1, false)
+POSES.HitLeft = sideHit(1, true)
+POSES.HitRightLight = sideHit(-1, false)
+POSES.HitRight = sideHit(-1, true)
+POSES.Stagger = {
+	Duration = 0.85,
+	Markers = { { 0.25, "StepR" }, { 0.5, "StepL" } },
+	Keys = {
+		stance(0),
+		stance(0.08, { Neck = { 24, 0, 0 }, Waist = { 16, 6, 0 }, Root = { 10, -12, 0 }, RootPos = { 0, -0.12, 0.7 }, LeftShoulder = { 30, 0, -50 }, LeftElbow = { 40, 0, 0 }, RightShoulder = { 30, 0, 50 }, RightElbow = { 40, 0, 0 } }),
+		stance(0.25, { Neck = { 14, 0, 0 }, Waist = { 10, 6, 0 }, Root = { 6, -12, 0 }, RootPos = { 0, -0.14, 0.9 }, RightHip = { -34, 0, 0 }, RightKnee = { -26, 0, 0 }, LeftShoulder = { 40, 0, -40 }, RightShoulder = { 40, 0, 40 } }),
+		stance(0.5, { Neck = { 4, 0, 0 }, Waist = { 4, 6, 0 }, RootPos = { 0, -0.14, 0.7 }, LeftHip = { 10, 0, 0 }, LeftKnee = { -40, 0, 0 } }),
+		stance(0.85),
+	},
+}
+
+-- PARRY: the guard SNAPS up and out at the last moment and knocks the blow off line.
+POSES.Parry = {
+	Duration = 0.4,
+	Keys = {
+		stance(0),
+		stance(0.06, { LeftShoulder = { 140, -30, 24 }, LeftElbow = { 60, 0, 0 }, RightShoulder = { 132, 34, -18 }, RightElbow = { 70, 0, 0 }, RootPos = { 0, -0.24, -0.12 }, Neck = { -18, 0, 0 } }),
+		stance(0.18, { LeftShoulder = { 120, -20, 10 }, LeftElbow = { 80, 0, 0 }, RightShoulder = { 100, 40, -6 }, RightElbow = { 100, 0, 0 } }),
+		stance(0.4),
+	},
+}
+-- PARRIED (a Handler whose strike was parried): the arm knocked off line, the body
+-- twisted open and rocked back on its heels, guard down.
+POSES.Parried = {
+	Duration = 0.7,
+	Keys = {
+		stance(0),
+		stance(0.08, { RootPos = { 0, -0.12, 0.35 }, Root = { 8, 22, -6 }, Waist = { 6, 22, 0 }, Neck = { 10, -20, 0 }, RightShoulder = { 40, 0, 62 }, RightElbow = { 20, 0, 0 }, LeftShoulder = { 34, -30, -24 }, LeftElbow = { 60, 0, 0 }, RightHip = { -28, 0, 0 }, RightKnee = { -22, 0, 0 } }),
+		stance(0.45, { RootPos = { 0, -0.14, 0.3 }, Root = { 6, 16, -4 }, Waist = { 4, 16, 0 }, Neck = { 6, -14, 0 }, RightShoulder = { 34, 0, 46 }, RightElbow = { 40, 0, 0 }, LeftShoulder = { 40, -40, -16 }, LeftElbow = { 80, 0, 0 }, RightHip = { -26, 0, 0 } }),
+		stance(0.7),
+	},
+}
+
 return POSES

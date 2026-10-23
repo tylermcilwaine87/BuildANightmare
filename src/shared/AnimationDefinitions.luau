@@ -31,6 +31,15 @@ AnimationDefinitions.Handler = {
 	-- Combat
 	Dive = { Id = "", Code = "Dive", Note = "Shift: dive forward, roll on the floor, come up on your feet" },
 	StepBack = { Id = "", Code = "StepBack", Note = "X: quick hop straight back, guard up" },
+	HitHighLight = { Id = "", Code = "HitHighLight", Note = "taking a light hit head-on: head snaps back" },
+	HitHigh = { Id = "", Code = "HitHigh", Note = "taking a hard hit head-on: rocked back a step" },
+	HitLeftLight = { Id = "", Code = "HitLeftLight", Note = "light hit on the left side: driven right" },
+	HitLeft = { Id = "", Code = "HitLeft", Note = "hard hit on the left side: driven right, arms open" },
+	HitRightLight = { Id = "", Code = "HitRightLight", Note = "light hit on the right side: driven left" },
+	HitRight = { Id = "", Code = "HitRight", Note = "hard hit on the right side: driven left, arms open" },
+	Stagger = { Id = "", Code = "Stagger", Note = "heavy hit: staggered two steps back" },
+	Parry = { Id = "", Code = "Parry", Note = "guard at the last moment: the guard snaps out" },
+	Parried = { Id = "", Code = "Parried", Note = "your strike was parried: knocked open" },
 	SupermanPunch = { Id = "", Code = "SupermanPunch", Note = "step back, then P: fly back in with a superman punch" },
 	CounterHeadKick = { Id = "", Code = "CounterHeadKick", Note = "step back, then K: Head Hunter, a step-in head kick" },
 

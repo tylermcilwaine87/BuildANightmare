@@ -8,13 +8,17 @@
 	    character (it owns its physics); the SERVER decides stamina, cooldown and i-frames.
 	  * Guard: 0.15s startup, -65% blockable damage (heavy attacks: -30%), drains stamina
 	    per damage absorbed, breaks at 0 stamina (1.2s stun, can't guard).
+	  * Parry: a blockable hit within 0.25s of pressing guard does nothing, and staggers the
+	    attacker (Config.Handler.Parry).
 	Attributes replicated on the character: Stamina, MaxStamina, Guarding, GuardBroken.
 
 	CombatService calls :ModifyIncomingDamage() for every hit on a Handler.
 ]]
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -232,12 +236,42 @@ function HandlerService:SetGuard(player: Player, wanted: boolean)
 		return
 	end
 	if wanted and not state.GuardRequested then
+		local now = os.clock()
 		state.GuardRequested = true
-		state.GuardActiveAt = os.clock() + H.Guard.Startup
+		state.GuardActiveAt = now + H.Guard.Startup
+		-- a fresh press opens the parry window (not when mashing: see Config.Handler.Parry)
+		state.ParryFrom = now - (state.LastGuardPress or -math.huge) >= H.Parry.Lockout and now or nil
+		state.LastGuardPress = now
 	elseif not wanted then
 		state.GuardRequested = false
 		state.GuardActiveAt = math.huge
 	end
+end
+
+-- A PARRY (Config.Handler.Parry): `attacker`'s blow met your guard the instant it came up.
+function HandlerService:Parry(player: Player, attacker: Model)
+	local cfg = H.Parry
+	local services = self.Services
+	local attackerPlayer = Players:GetPlayerFromCharacter(attacker)
+	if attackerPlayer then
+		-- another Handler: the strike is knocked away and they're open for a moment
+		services.MeleeService:Interrupt(attackerPlayer)
+		local theirs = states[attackerPlayer]
+		if theirs then
+			theirs.GuardBrokenUntil = math.max(theirs.GuardBrokenUntil, os.clock() + cfg.AttackerStun)
+		end
+	else
+		local status = services.StatusService
+		local boss = CollectionService:HasTag(attacker, "Boss")
+		status:AddStagger(attacker, status:GetStaggerMax(attacker) * (boss and cfg.BossStagger or cfg.Stagger), player.Character)
+		if boss then
+			attacker:SetAttribute("ExposedUntil", math.max(attacker:GetAttribute("ExposedUntil") or 0, Workspace:GetServerTimeNow() + Config.Bosses.Exposed.Time))
+		end
+	end
+	services.PossessionService:Gain(player, Config.Possession.Gains.PerfectDodge)
+	local character = player.Character
+	local position = character and character:GetPivot().Position or Vector3.zero
+	Net.FireNearby(self.Feedback, position, Config.Performance.EffectRadius, "Parried", { Target = character, Attacker = attacker, Position = position })
 end
 
 --[[
@@ -257,6 +291,12 @@ function HandlerService:ModifyIncomingDamage(player: Player, amount: number, par
 			state.PerfectCredited = true
 			possession:Gain(player, Config.Possession.Gains.PerfectDodge)
 		end
+		return 0
+	end
+	local attacker = params.Attacker
+	if state.ParryFrom and os.clock() - state.ParryFrom <= H.Parry.Window and not params.Unblockable
+		and attacker and attacker ~= player.Character and not possession:IsPossessing(player) then
+		self:Parry(player, attacker)
 		return 0
 	end
 	if possession:IsPossessing(player) then

@@ -325,6 +325,11 @@ function CombatService:ApplyDamage(params): number
 	local root = target:FindFirstChild("HumanoidRootPart")
 	local position = root and root.Position or target:GetPivot().Position
 
+	-- a heavy blow on a Handler knocks them out of the strike they were throwing
+	if targetPlayer and params.Heavy then
+		self.Services.MeleeService:Interrupt(targetPlayer)
+	end
+
 	-- Knockback only for server-owned bodies (Nightmares/enemies). Player characters are
 	-- client-owned, so impulses from the server would be ignored or fight the client.
 	-- (a small body gets sent much further than a big one)

@@ -183,6 +183,18 @@ Config.Handler = {
 		BreakStunTime = 1.2, -- guard break: can't guard, slowed
 		BreakWalkSpeed = 5,
 	},
+	-- The PARRY: guard pressed within Window seconds before a blockable hit lands. No
+	-- damage, and the attacker is knocked off line: Stagger x its stagger bar (BossStagger
+	-- for bosses, which are also left EXPOSED), another player can't guard or dive for
+	-- AttackerStun. Pressing guard again within Lockout of the last press opens no window
+	-- (mashing guard doesn't parry everything).
+	Parry = {
+		Window = 0.25,
+		Lockout = 0.6,
+		Stagger = 0.6,
+		BossStagger = 0.2,
+		AttackerStun = 0.6,
+	},
 }
 
 -- Ragdoll knockdowns: Handlers, Nightmares and normal enemies get knocked off their feet

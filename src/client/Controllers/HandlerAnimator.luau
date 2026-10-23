@@ -709,6 +709,53 @@ function HandlerAnimator:Stop()
 	end
 end
 
+-- TAKING A HIT, on any Handler you can see: the body goes the way the blow drove it
+-- (`direction`, world space). Light and medium hits don't break a strike you're in the
+-- middle of (you trade through them); a heavy one staggers you out of anything but a dive.
+local REACTIONS = { HitHighLight = true, HitHigh = true, HitLeftLight = true, HitLeft = true, HitRightLight = true, HitRight = true, Stagger = true, Parry = true, Parried = true }
+function HandlerAnimator:React(model: Model?, direction: Vector3?, heavy: boolean?, amount: number?)
+	local rig = model and rigs[model]
+	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+	local root = model and model:FindFirstChild("HumanoidRootPart")
+	if not rig or not humanoid or not root or humanoid.Health <= 0 or humanoid.PlatformStand then
+		return
+	end
+	if model:GetAttribute("Ragdolled") or model:GetAttribute("Diving") then
+		return
+	end
+	local pose = rig.pose
+	local busy = pose and os.clock() - pose.Start < pose.Def.Duration and not REACTIONS[pose.Slot]
+	if busy and (not heavy or pose.Slot == "Dive" or pose.Slot:sub(1, 5) == "GetUp") then
+		return
+	end
+	local slot = "Stagger"
+	if not heavy then
+		local hard = (amount or 0) >= 12
+		local side = 0
+		if typeof(direction) == "Vector3" and direction.Magnitude > 0.01 then
+			side = root.CFrame:VectorToObjectSpace(direction.Unit).X -- +: driven to the right
+		end
+		local where = side > 0.45 and "Left" or side < -0.45 and "Right" or "High"
+		slot = "Hit" .. where .. (hard and "" or "Light")
+	end
+	if model == localPlayer.Character then
+		for _, track in tracks do
+			if track.IsPlaying then
+				track:Stop(0.05)
+			end
+		end
+	end
+	playPose(model, slot)
+end
+
+-- Plays a reaction pose (Parry / Parried) on any Handler you can see.
+function HandlerAnimator:PlayOn(model: Model?, slot: string)
+	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 and not model:GetAttribute("Ragdolled") then
+		playPose(model, slot)
+	end
+end
+
 function HandlerAnimator:Init() end
 
 function HandlerAnimator:Start()
