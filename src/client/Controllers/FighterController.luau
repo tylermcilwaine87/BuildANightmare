@@ -161,6 +161,19 @@ local function buildWeapons()
 			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 6), Size = UDim2.fromOffset(170, 18),
 			TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = not unlocked and C.Warn or slot and C.Good or C.SubText, MaxTextSize = 13, Parent = r,
 		})
+		if not unlocked and Melee.IsExclusive(weapon.Id) then
+			UIKit.Button({
+				Text = "🛒 SHOP",
+				AnchorPoint = Vector2.new(1, 1),
+				Position = UDim2.new(1, -10, 1, -8),
+				Size = UDim2.fromOffset(110, 30),
+				BackgroundColor3 = Color3.fromRGB(220, 165, 40),
+				MaxTextSize = 14,
+				Parent = r,
+			}, function()
+				controllers.ShopController:Open("Exclusive")
+			end)
+		end
 		if unlocked then
 			for index = 1, Melee.LoadoutSlots do
 				UIKit.Button({

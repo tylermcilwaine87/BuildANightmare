@@ -133,6 +133,19 @@ local Moves = {
 	-- Magnet -----------------------------------------------------------------------------
 	-- (on a boss: it yanks YOU in, deals 4x and BossStagger: a big bite of its stagger bar)
 	MagnetPull = { Pose = "MagnetPull", Duration = 0.8, HitTime = 0.22, Cancel = 0.7, Damage = 3, Range = 30, Arc = 50, Stagger = 12, BossStagger = 90, Pull = true, PullTime = 0.5, Weapon = true },
+
+	-- SHOP exclusives (MonetizationDefinitions), tuned like the free weapons: the Thunder
+	-- Hammer hits like the scythe at shorter reach; the kunai are a ranged fan of small hits.
+	-- Slam: the head comes down on the floor: a ground crack this wide (WorldFX "Slam").
+	-- Kunai / Spread: thrown blades and the degrees between them (each flies on its own
+	-- line; the middle one at your target).
+	HammerSwing = { Pose = "HammerSwing", Duration = 0.62, HitTime = 0.26, Cancel = 0.42, Damage = 15, Range = 7.5, Arc = 150, Knockback = 18, Stagger = 12, Lunge = 1.6, Weapon = true, Trail = true },
+	HammerBackswing = { Pose = "HammerBackswing", Duration = 0.62, HitTime = 0.26, Cancel = 0.42, Damage = 15, Range = 7.5, Arc = 150, Knockback = 18, Stagger = 12, Lunge = 1.6, Weapon = true, Trail = true },
+	HammerSmash = { Pose = "HammerSmash", Duration = 0.9, HitTime = 0.42, Cancel = 0.7, Damage = 24, Range = 7, Arc = 70, Knockback = 30, Stagger = 24, Heavy = true, Status = "Shock", Lunge = 2, Weapon = true, Trail = true, Slam = 6, Display = "Hammer Smash" },
+	HammerEarthshaker = { Pose = "HammerEarthshaker", Duration = 1.2, HitTime = 0.55, Cancel = 1.0, Damage = 26, Range = 8, Arc = 220, Stagger = 26, Heavy = true, Lunge = 5, Root = 0.95, Weapon = true, Trail = true, Launch = { Lift = 45, Push = 6, Spin = 3 }, Slam = 9, Display = "Earthshaker" },
+	KunaiFan = { Pose = "KunaiFlick", Duration = 0.45, HitTime = 0.16, Cancel = 0.3, Damage = 10, Range = 35, Arc = 40, Stagger = 6, Status = "Weaken", Throw = true, Kunai = 3, Spread = 14, Speed = 150, Weapon = true },
+	KunaiFan2 = { Pose = "KunaiBackhand", Duration = 0.45, HitTime = 0.16, Cancel = 0.3, Damage = 10, Range = 35, Arc = 40, Stagger = 6, Status = "Weaken", Throw = true, Kunai = 3, Spread = 14, Speed = 150, Weapon = true },
+	KunaiStorm = { Pose = "KunaiStorm", Duration = 0.7, HitTime = 0.28, Cancel = 0.55, Damage = 9, Range = 35, Arc = 70, Stagger = 8, Status = "Weaken", Throw = true, Kunai = 5, Spread = 14, Speed = 150, Weapon = true, Display = "Kunai Storm" },
 }
 -- Contact: studs from the target's body where the step-in (Lunge) stops, so the fist /
 -- shin / blade lands right ON them (fists 2.3 by default; legs and weapons reach further).
@@ -160,6 +173,10 @@ local CONTACT = {
 	BladeGutStab = 3.0,
 	ScytheHarvest = 5.0, -- (the blade sweeps up through them ~7 out, past the snath)
 	ScytheReap = 5.5, ScytheReturn = 5.5, -- (the blade is out at arm's length + the snath)
+	-- Thunder Hammer, measured on each hit frame: the swings carry the head dead ahead 7.1
+	-- out at belly height; the smash / Earthshaker put its underside on the floor 7.7 out
+	-- (stop ~1 short so the head lands on them, not past)
+	HammerSwing = 6.0, HammerBackswing = 6.0, HammerSmash = 6.5, HammerEarthshaker = 6.5,
 }
 for id, contact in CONTACT do
 	Moves[id].Contact = contact
@@ -186,6 +203,8 @@ local Styles = {
 	ChainWhip = { P = "WhipCrack", PP = "WhipCrack2", PPP = "WhipSweep", KP = "WhipCrack", PPK = "WhipSnare" },
 	StormSpear = { P = "SpearThrow" },
 	Magnet = { P = "MagnetPull" },
+	ThunderHammer = { P = "HammerSwing", PP = "HammerBackswing", PPP = "HammerSmash", PPK = "HammerEarthshaker" },
+	ShadowKunai = { P = "KunaiFan", PP = "KunaiFan2", PPP = "KunaiStorm" },
 }
 
 -- SIGNATURE COMBOS: the moves worth finding. Pull one off for the first time and it's
@@ -205,6 +224,8 @@ MeleeDefinitions.Combos = {
 	{ Id = "GutStab", Name = "Gut Stab", Seq = "RustBlade:PPK", Inputs = "Blade P P K", Hint = "Rust Blade: two swings... then drive it in and leave it there.", Move = "BladeGutStab" },
 	{ Id = "Harvest", Name = "Harvest", Seq = "ReaperScythe:PPK", Inputs = "Scythe P P K", Hint = "Reaper Scythe: reap, return... then hook them up into the sky.", Move = "ScytheHarvest" },
 	{ Id = "ChainSnare", Name = "Chain Snare", Seq = "ChainWhip:PPK", Inputs = "Whip P P K", Hint = "Chain Whip: crack, crack... then catch them and drag them onto your knee.", Move = "WhipSnare" },
+	{ Id = "Earthshaker", Name = "Earthshaker", Seq = "ThunderHammer:PPK", Inputs = "Hammer P P K", Hint = "Thunder Hammer: swing, swing... then leap and crack the ground under them.", Move = "HammerEarthshaker" },
+	{ Id = "KunaiStorm", Name = "Kunai Storm", Seq = "ShadowKunai:PPP", Inputs = "Kunai P P P", Hint = "Shadow Kunai: flick, flick... then let a whole storm of them go.", Move = "KunaiStorm" },
 	{ Id = "SupermanPunch", Name = "Superman Punch", Seq = "Counter:P", Inputs = "X then P", Hint = "Step back out of range... then punch.", Move = "CounterPunch" },
 	{ Id = "HeadHunter", Name = "Head Hunter", Seq = "Counter:K", Inputs = "X then K", Hint = "Step back out of range... then kick.", Move = "CounterKick" },
 	{ Id = "DropKick", Name = "Drop Kick", Seq = "Drop:K", Inputs = "Run, then K", Hint = "Get up to full speed... and kick.", Move = "DropKick" },
@@ -244,6 +265,11 @@ MeleeDefinitions.Weapons = {
 		Blurb = "A real chain: it drags on the floor, lashes out and cracks from far away. The third lash sweeps a crowd." },
 	{ Id = "StormSpear", Display = "Storm Spear", Short = "SPEAR", Icon = "⚡", Color = Color3.fromRGB(120, 210, 255), Unlock = { Level = 12 }, Uses = 1, Recharge = 10, Hold = "HoldSpear",
 		Blurb = "Throw it: it flies straight at your target and strikes with lightning (knockdown + Shock). Back in your hand 10 s later." },
+	-- SHOP exclusives (Unlock.Pass: owned through MonetizationService, any level)
+	{ Id = "ThunderHammer", Display = "Thunder Hammer", Short = "HAMMER", Icon = "🔨", Color = Color3.fromRGB(120, 200, 255), Unlock = { Pass = "ThunderHammer" }, Uses = 6, Recharge = 24, Hold = "HoldHammer", WalkSpeed = 13,
+		Blurb = "Two-handed war hammer: wide swings, an overhead SMASH (knockdown + Shock) and P P K EARTHSHAKER, a leap that cracks the ground." },
+	{ Id = "ShadowKunai", Display = "Shadow Kunai", Short = "KUNAI", Icon = "🗡", Color = Color3.fromRGB(150, 110, 220), Unlock = { Pass = "ShadowKunai" }, Uses = 6, Recharge = 18, Hold = "HoldKunai",
+		Blurb = "Throwing knives: a fan of three at range (WEAKEN: they hit softer), and P P P KUNAI STORM, five at once." },
 }
 MeleeDefinitions.WeaponsById = {}
 for _, weapon in MeleeDefinitions.Weapons do

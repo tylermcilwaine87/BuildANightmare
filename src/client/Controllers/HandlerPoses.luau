@@ -662,6 +662,109 @@ local POSES = {
 	},
 
 	------------------------------------------------------------------------------------
+	-- SHOP exclusive weapons
+	------------------------------------------------------------------------------------
+	-- THUNDER HAMMER swings: two-handed like the scythe (the haft along the forearms), the
+	-- same full-body sweeps, the head out at arm's length + 4 studs.
+	HammerSwing = {
+		Duration = 0.62,
+		Markers = { { 0.16, "Whoosh" }, { 0.26, "Hit" } },
+		Keys = {
+			{ T = 0, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+			-- wound round to the right, the head out behind the right shoulder
+			{ T = 0.13, RootPos = { 0.2, -0.35, 0.3 }, Root = { 4, -70, 0 }, Waist = { 0, -40, 0 }, Neck = { -6, 42, 0 }, RightShoulder = { 92, 0, -10 }, RightElbow = { 14, 0, 0 }, LeftShoulder = { 92, 0, 10 }, LeftElbow = { 22, 0, 0 }, LeftKnee = { -30, 0, 0 }, RightKnee = { -36, 0, 0 } },
+			-- the Hit frame: arms straight out, the body turned square, the head dead ahead at
+			-- belly height (measured: 7.1 studs out on the centre line)
+			{ T = 0.26, RootPos = { 0, -0.4, -0.8 }, Root = { -10, 0, 0 }, Waist = { -4, 0, 0 }, Neck = { -8, 0, 0 }, RightShoulder = { 96, 0, -10 }, RightElbow = { 8, 0, 0 }, LeftShoulder = { 96, 0, 10 }, LeftElbow = { 16, 0, 0 }, LeftHip = { 40, 0, 0 }, LeftKnee = { -50, 0, 0 }, RightHip = { -20, 0, 0 }, RightKnee = { -20, 0, 0 } },
+			-- carried on round to the left
+			{ T = 0.4, RootPos = { -0.2, -0.4, -0.9 }, Root = { -12, 80, 0 }, Waist = { -6, 44, 0 }, Neck = { -8, -40, 0 }, RightShoulder = { 90, 0, -10 }, RightElbow = { 10, 0, 0 }, LeftShoulder = { 90, 0, 10 }, LeftElbow = { 18, 0, 0 }, LeftHip = { 40, 0, 0 }, LeftKnee = { -50, 0, 0 } },
+			{ T = 0.62, RootPos = { 0, -0.15, -0.6 }, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+		},
+	},
+	HammerBackswing = {
+		Duration = 0.62,
+		Markers = { { 0.16, "Whoosh" }, { 0.26, "Hit" } },
+		Keys = {
+			{ T = 0, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+			{ T = 0.13, RootPos = { -0.2, -0.35, 0.3 }, Root = { 4, 70, 0 }, Waist = { 0, 40, 0 }, Neck = { -6, -42, 0 }, RightShoulder = { 92, 0, -10 }, RightElbow = { 14, 0, 0 }, LeftShoulder = { 92, 0, 10 }, LeftElbow = { 22, 0, 0 }, LeftKnee = { -36, 0, 0 }, RightKnee = { -30, 0, 0 } },
+			{ T = 0.26, RootPos = { 0, -0.4, -0.8 }, Root = { -10, 0, 0 }, Waist = { -4, 0, 0 }, Neck = { -8, 0, 0 }, RightShoulder = { 96, 0, -10 }, RightElbow = { 8, 0, 0 }, LeftShoulder = { 96, 0, 10 }, LeftElbow = { 16, 0, 0 }, RightHip = { 40, 0, 0 }, RightKnee = { -50, 0, 0 }, LeftHip = { -20, 0, 0 }, LeftKnee = { -20, 0, 0 } },
+			{ T = 0.4, RootPos = { 0.2, -0.4, -0.9 }, Root = { -12, -80, 0 }, Waist = { -6, -44, 0 }, Neck = { -8, 40, 0 }, RightShoulder = { 90, 0, -10 }, RightElbow = { 10, 0, 0 }, LeftShoulder = { 90, 0, 10 }, LeftElbow = { 18, 0, 0 }, RightHip = { 40, 0, 0 }, RightKnee = { -50, 0, 0 } },
+			{ T = 0.62, RootPos = { 0, -0.15, -0.6 }, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+		},
+	},
+	-- HAMMER SMASH (P P P): heave it straight up overhead, leaning back on the heels, then
+	-- bring it down with everything, folding over it, the head cracking into the floor in
+	-- front of them (and through them) on the Hit frame; drag it back up.
+	HammerSmash = {
+		Duration = 0.9,
+		Markers = { { 0.3, "Whoosh" }, { 0.42, "Hit" }, { 0.42, "Land" } },
+		Keys = {
+			{ T = 0, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+			{ T = 0.22, RootPos = { 0, 0.1, 0.3 }, Root = { 14, 0, 0 }, Waist = { 8, 0, 0 }, Neck = { 10, 0, 0 }, RightShoulder = { 175, 0, 10 }, RightElbow = { 40, 0, 0 }, LeftShoulder = { 170, 0, -10 }, LeftElbow = { 50, 0, 0 }, LeftKnee = { -20, 0, 0 }, RightKnee = { -24, 0, 0 } },
+			-- (measured: the head's underside on the floor 7.7 studs out)
+			{ T = 0.42, RootPos = { 0, -0.7, -1.0 }, Root = { -30, 0, 0 }, Waist = { -14, 0, 0 }, Neck = { -6, 0, 0 }, RightShoulder = { 110, 0, 0 }, RightElbow = { 10, 0, 0 }, LeftShoulder = { 116, 0, -6 }, LeftElbow = { 14, 0, 0 }, LeftHip = { 50, 0, 0 }, LeftKnee = { -60, 0, 0 }, RightHip = { -20, 0, 0 }, RightKnee = { -30, 0, 0 } },
+			{ T = 0.62, RootPos = { 0, -0.7, -1.0 }, Root = { -29, 0, 0 }, Waist = { -14, 0, 0 }, Neck = { -6, 0, 0 }, RightShoulder = { 111, 0, 0 }, RightElbow = { 10, 0, 0 }, LeftShoulder = { 117, 0, -6 }, LeftElbow = { 14, 0, 0 }, LeftHip = { 50, 0, 0 }, LeftKnee = { -60, 0, 0 }, RightHip = { -20, 0, 0 }, RightKnee = { -30, 0, 0 } },
+			{ T = 0.9, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+		},
+	},
+	-- EARTHSHAKER (Thunder Hammer P P K): sink deep with the hammer dragged back low, then
+	-- spring up and forward (the Lunge carries you in) with it raised over your head, legs
+	-- tucked, and come down with it into the floor in front of you on the Hit frame: the
+	-- ground cracks and they're thrown up off it.
+	HammerEarthshaker = {
+		Duration = 1.2,
+		Markers = { { 0.15, "StepL" }, { 0.42, "Whoosh" }, { 0.55, "Hit" }, { 0.55, "Land" } },
+		Keys = {
+			{ T = 0, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+			{ T = 0.15, RootPos = { 0, -0.75, 0.2 }, Root = { -12, 0, 0 }, Waist = { -6, 0, 0 }, RightShoulder = { -20, 0, 14 }, RightElbow = { 30, 0, 0 }, LeftShoulder = { 10, 0, -20 }, LeftElbow = { 40, 0, 0 }, LeftHip = { 50, 0, 0 }, LeftKnee = { -80, 0, 0 }, RightHip = { 40, 0, 0 }, RightKnee = { -80, 0, 0 } },
+			{ T = 0.35, RootPos = { 0, 1.6, -0.5 }, Root = { 12, 0, 0 }, Waist = { 6, 0, 0 }, Neck = { 10, 0, 0 }, RightShoulder = { 175, 0, 10 }, RightElbow = { 40, 0, 0 }, LeftShoulder = { 170, 0, -10 }, LeftElbow = { 50, 0, 0 }, LeftHip = { 40, 0, 0 }, LeftKnee = { -70, 0, 0 }, RightHip = { 30, 0, 0 }, RightKnee = { -80, 0, 0 } },
+			-- (the smash's measured floor contact: the head's underside on the floor 7.7 out)
+			{ T = 0.55, RootPos = { 0, -0.7, -1.0 }, Root = { -30, 0, 0 }, Waist = { -14, 0, 0 }, Neck = { -8, 0, 0 }, RightShoulder = { 110, 0, 0 }, RightElbow = { 10, 0, 0 }, LeftShoulder = { 116, 0, -6 }, LeftElbow = { 14, 0, 0 }, LeftHip = { 50, 0, 0 }, LeftKnee = { -60, 0, 0 }, RightHip = { -20, 0, 0 }, RightKnee = { -30, 0, 0 } },
+			{ T = 0.85, RootPos = { 0, -0.7, -1.0 }, Root = { -29, 0, 0 }, Waist = { -14, 0, 0 }, RightShoulder = { 111, 0, 0 }, RightElbow = { 10, 0, 0 }, LeftShoulder = { 117, 0, -6 }, LeftElbow = { 14, 0, 0 }, LeftHip = { 55, 0, 0 }, LeftKnee = { -70, 0, 0 }, RightHip = { -20, 0, 0 }, RightKnee = { -40, 0, 0 } },
+			{ T = 1.2, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } },
+		},
+	},
+	-- SHADOW KUNAI: a flat side-arm flick, the blades cocked back across the body, then the
+	-- arm whips out and opens, letting the fan go on the Hit frame (the Wrist points them
+	-- straight out ahead).
+	KunaiFlick = {
+		Duration = 0.45,
+		Markers = { { 0.1, "Whoosh" }, { 0.16, "Hit" } },
+		Keys = {
+			{ T = 0, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
+			{ T = 0.08, Root = { 0, -30, 0 }, Waist = { 0, -30, 0 }, Neck = { 0, 24, 0 }, RightShoulder = { 90, 0, -60 }, RightElbow = { 110, 0, 0 }, LeftShoulder = { 40, 0, -20 }, LeftElbow = { 60, 0, 0 }, Wrist = { -60, 0, 0 } },
+			{ T = 0.16, Root = { -6, 24, 0 }, Waist = { -4, 20, 0 }, Neck = { 0, -16, 0 }, RightShoulder = { 92, 0, 26 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 50, 0, 0 }, LeftHip = { 24, 0, 0 }, LeftKnee = { -26, 0, 0 }, Wrist = { -85, 0, 0 } },
+			{ T = 0.3, Root = { -4, 30, 0 }, Waist = { -2, 24, 0 }, RightShoulder = { 72, 0, 40 }, RightElbow = { 20, 0, 0 }, Wrist = { -60, 0, 0 } },
+			{ T = 0.45, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
+		},
+	},
+	-- the return flick: out wide on the right, then whipped back across, letting go in front
+	KunaiBackhand = {
+		Duration = 0.45,
+		Markers = { { 0.1, "Whoosh" }, { 0.16, "Hit" } },
+		Keys = {
+			{ T = 0, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
+			{ T = 0.08, Root = { 0, 30, 0 }, Waist = { 0, 26, 0 }, Neck = { 0, -20, 0 }, RightShoulder = { 82, 0, 62 }, RightElbow = { 90, 0, 0 }, LeftShoulder = { 40, 0, -20 }, LeftElbow = { 60, 0, 0 }, Wrist = { -60, 0, 0 } },
+			{ T = 0.16, Root = { -6, -20, 0 }, Waist = { -4, -18, 0 }, Neck = { 0, 14, 0 }, RightShoulder = { 92, 0, -24 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { 30, 0, -30 }, LeftElbow = { 50, 0, 0 }, RightHip = { 24, 0, 0 }, RightKnee = { -26, 0, 0 }, Wrist = { -85, 0, 0 } },
+			{ T = 0.3, Root = { -4, -26, 0 }, Waist = { -2, -20, 0 }, RightShoulder = { 72, 0, -40 }, RightElbow = { 20, 0, 0 }, Wrist = { -60, 0, 0 } },
+			{ T = 0.45, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
+		},
+	},
+	-- KUNAI STORM (P P P): both arms cross tight at the chest, crouched, then fling out wide
+	-- together on the Hit frame, five blades fanning off them.
+	KunaiStorm = {
+		Duration = 0.7,
+		Markers = { { 0.2, "Whoosh" }, { 0.28, "Hit" } },
+		Keys = {
+			{ T = 0, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
+			{ T = 0.14, RootPos = { 0, -0.3, 0.2 }, Root = { -8, 0, 0 }, Neck = { -8, 0, 0 }, RightShoulder = { 90, 0, -50 }, RightElbow = { 120, 0, 0 }, LeftShoulder = { 90, 0, 50 }, LeftElbow = { 120, 0, 0 }, LeftKnee = { -30, 0, 0 }, RightKnee = { -30, 0, 0 }, Wrist = { -60, 0, 0 } },
+			{ T = 0.28, RootPos = { 0, 0.1, -0.4 }, Root = { 4, 0, 0 }, Neck = { 4, 0, 0 }, RightShoulder = { 95, 0, 55 }, RightElbow = { 6, 0, 0 }, LeftShoulder = { 95, 0, -55 }, LeftElbow = { 6, 0, 0 }, LeftHip = { 20, 0, 0 }, LeftKnee = { -20, 0, 0 }, Wrist = { -85, 0, 0 } },
+			{ T = 0.45, RootPos = { 0, 0, -0.3 }, RightShoulder = { 70, 0, 70 }, RightElbow = { 14, 0, 0 }, LeftShoulder = { 70, 0, -70 }, LeftElbow = { 14, 0, 0 }, Wrist = { -60, 0, 0 } },
+			{ T = 0.7, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } },
+		},
+	},
+
+	------------------------------------------------------------------------------------
 	-- Holds: overlays while a weapon is out (or your guard is up) and nothing else plays
 	------------------------------------------------------------------------------------
 	Guard = { Hold = true, Keys = { { T = 0, LeftShoulder = { 64, -62, 0 }, LeftElbow = { 132, 0, 0 }, RightShoulder = { 58, 66, 0 }, RightElbow = { 138, 0, 0 }, Neck = { -8, 0, 0 } } } },
@@ -670,6 +773,8 @@ local POSES = {
 	HoldBlade = { Hold = true, Keys = { { T = 0, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } } } },
 	HoldWhip = { Hold = true, Keys = { { T = 0, RightShoulder = { 15, 0, 10 }, RightElbow = { 25, 0, 0 } } } },
 	HoldSpear = { Hold = true, Keys = { { T = 0, RightShoulder = { 125, 0, 22 }, RightElbow = { 100, 0, 0 } } } },
+	HoldHammer = { Hold = true, Keys = { { T = 0, RightShoulder = { 10, 0, 14 }, RightElbow = { 150, 0, 0 }, LeftShoulder = { 55, 0, -30 }, LeftElbow = { 70, 0, 0 } } } },
+	HoldKunai = { Hold = true, Keys = { { T = 0, RightShoulder = { 25, 0, 15 }, RightElbow = { 40, 0, 0 } } } },
 }
 
 ------------------------------------------------------------------------------------------

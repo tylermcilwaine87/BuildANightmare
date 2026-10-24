@@ -233,6 +233,8 @@ function MeleeService:HandleMelee(player: Player, seq, flag)
 		end
 		if move.Pull then
 			self:MagnetPull(player, character, root, move)
+		elseif move.Throw and move.Kunai then
+			self:ThrowKunai(player, character, root, move)
 		elseif move.Throw then
 			self:ThrowSpear(player, character, root, move)
 		elseif move.Impale then
@@ -519,6 +521,17 @@ function MeleeService:LandHit(player: Player, character: Model, root: BasePart, 
 	if hitSomething then
 		self.Services.TutorialService:Notify(player, "HandlerHit")
 	end
+	-- a head that comes down on the floor (the Thunder Hammer): the ground cracks where it
+	-- landed, out in front at the move's measured Contact
+	if move.Slam then
+		local look = Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+		local params = RaycastParams.new()
+		params.FilterDescendantsInstances = ignoreFor(self, player, character)
+		local ahead = root.Position + look * ((move.Contact or 3) + 1.5)
+		local floor = Workspace:Raycast(ahead + Vector3.new(0, 2, 0), Vector3.new(0, -12, 0), params)
+		local at = floor and floor.Position or ahead - Vector3.new(0, 3, 0)
+		Net.FireNearby(self.Services.TelegraphService.WorldFX, at, Config.Performance.EffectRadius, "Slam", { Position = at, Radius = move.Slam, Power = 0.6 })
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -628,6 +641,75 @@ function MeleeService:ThrowSpear(player: Player, character: Model, root: BasePar
 			services.TutorialService:Notify(player, "HandlerHit")
 		end
 	end)
+end
+
+------------------------------------------------------------------------------------------
+-- The Shadow Kunai (thrown, a fan)
+------------------------------------------------------------------------------------------
+-- move.Kunai blades leave the hand together, move.Spread degrees apart around where
+-- you're facing (the middle one straight at the nearest target in front). Each flies its
+-- own line and hits the first body on it (within the blade's few degrees) after its
+-- flight time; one that hits nothing flies on to the ground. Clients draw every blade
+-- (WorldFX "KunaiThrow").
+function MeleeService:ThrowKunai(player: Player, character: Model, root: BasePart, move)
+	local services = self.Services
+	local from = root.Position + root.CFrame.LookVector * 1.2 + Vector3.new(0, 1.4, 0)
+	local candidates = self:TargetsInArc(player, character, root, move.Range, move.Arc + move.Spread * move.Kunai)
+	local look = Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+	local first = candidates[1]
+	if first then
+		look = Util.FlatUnit(first.HumanoidRootPart.Position - root.Position) or look
+	end
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = ignoreFor(self, player, character)
+	local blades, taken = {}, {}
+	local half = math.rad(move.Spread / 2)
+	for i = 1, move.Kunai do
+		local angle = math.rad((i - (move.Kunai + 1) / 2) * move.Spread)
+		local dir = CFrame.fromAxisAngle(Vector3.yAxis, angle):VectorToWorldSpace(look)
+		local hit
+		for _, model in candidates do
+			local r = model.HumanoidRootPart
+			local offset = Util.Flat(r.Position - root.Position)
+			local radius = math.max(r.Size.X, r.Size.Z) / 2
+			local off = math.acos(math.clamp(offset.Unit:Dot(dir), -1, 1))
+			if not taken[model] and off <= half + math.atan2(radius, math.max(offset.Magnitude, 1)) then
+				hit = model
+				break
+			end
+		end
+		local to
+		if hit then
+			taken[hit] = true
+			to = hit.HumanoidRootPart.Position
+		else
+			local ray = Workspace:Raycast(from, dir * move.Range + Vector3.new(0, -3, 0), params)
+			to = ray and ray.Position or from + dir * move.Range
+		end
+		local flight = math.max((to - from).Magnitude / move.Speed, 0.05)
+		table.insert(blades, { To = to, Time = flight })
+		if hit then
+			task.delay(flight, function()
+				if not hit.Parent or not character.Parent then
+					return
+				end
+				local dealt = services.CombatService:ApplyDamage({
+					Attacker = character,
+					Target = hit,
+					BaseDamage = move.Damage,
+					AttackPower = 100,
+					Stagger = move.Stagger,
+					Status = move.Status,
+					NoKnockdown = true,
+					Source = "Handler:" .. move.Id,
+				})
+				if dealt > 0 then
+					services.TutorialService:Notify(player, "HandlerHit")
+				end
+			end)
+		end
+	end
+	Net.FireNearby(services.TelegraphService.WorldFX, root.Position, Config.Performance.EffectRadius + move.Range, "KunaiThrow", { From = from, Blades = blades })
 end
 
 ------------------------------------------------------------------------------------------

@@ -168,12 +168,54 @@ function BUILDERS.StormSpear(model: Model)
 	light(head, storm, 1.5, 10)
 end
 
+-- Thunder Hammer (SHOP exclusive): a long iron-banded haft and a heavy double-faced head
+-- across the end of it, blue lightning running in its runes. Held two-handed like the
+-- scythe (its haft along the forearms).
+function BUILDERS.ThunderHammer(model: Model)
+	local haft, iron, steel, storm = RGB(70, 52, 40), RGB(80, 84, 96), RGB(150, 156, 170), RGB(120, 200, 255)
+	cylinderZ(model, "Haft", 4.6, 0.3, -1.7, haft, M.Wood)
+	cylinderZ(model, "Grip", 1.0, 0.36, 0.1, RGB(30, 26, 24), M.Fabric)
+	cylinderZ(model, "Pommel", 0.3, 0.44, 0.7, iron, M.Metal)
+	for _, z in { -1.4, -2.6 } do
+		cylinderZ(model, "Band", 0.16, 0.38, z, iron, M.Metal)
+	end
+	-- the head across the haft (its faces point left and right of the swing)
+	local head = part(model, "Head", V(2.0, 1.05, 1.05), CF(0, 0, -4.15), iron, M.Metal)
+	head.Reflectance = 0.1
+	for _, x in { -1.05, 1.05 } do
+		part(model, "Face", V(0.18, 1.2, 1.2), CF(x, 0, -4.15), steel, M.Metal)
+	end
+	part(model, "Rune", V(1.6, 0.12, 1.07), CF(0, 0.2, -4.15), storm, M.Neon).Transparency = 0.1
+	part(model, "Rune", V(1.6, 0.12, 1.07), CF(0, -0.2, -4.15), storm, M.Neon).Transparency = 0.1
+	part(model, "Spike", V(0.3, 0.3, 0.5), CF(0, 0, -4.9), steel, M.Metal, "Wedge")
+	light(head, storm, 1.4, 12)
+	addTrail(model:FindFirstChild("Band"), head, storm)
+end
+
+-- Shadow Kunai (SHOP exclusive): three black kunai fanned between the fingers, ring
+-- pommels and violet-edged blades. (Thrown ones are drawn by EffectsController.)
+function BUILDERS.ShadowKunai(model: Model)
+	local black, wrap, edge = RGB(30, 28, 36), RGB(110, 80, 160), RGB(170, 120, 255)
+	for i, yaw in { -16, 0, 16 } do
+		local turn = CFrame.Angles(0, math.rad(yaw), 0)
+		local function at(z)
+			return turn * CF(0, 0, z)
+		end
+		part(model, "Ring" .. i, V(0.08, 0.3, 0.3), at(0.45), black, M.Metal, Enum.PartType.Cylinder)
+		part(model, "Wrap" .. i, V(0.14, 0.14, 0.55), at(0.05), wrap, M.Fabric)
+		part(model, "Blade" .. i, V(0.06, 0.24, 0.9), at(-0.65), black, M.Metal)
+		part(model, "Edge" .. i, V(0.07, 0.06, 0.9), at(-0.65) * CF(0, -0.1, 0), edge, M.Neon).Transparency = 0.2
+		part(model, "Point" .. i, V(0.06, 0.24, 0.3), at(-1.25) * CFrame.Angles(0, math.rad(180), 0), black, M.Metal, "Wedge")
+	end
+end
+
 -- How a weapon sits in the fist, if not straight out of it. The scythe's snath carries on
 -- along the FOREARM (tipped 10 degrees past it), so when the arms swing the blade sweeps a
 -- huge arc at chest height out at arm's length + 5 studs, instead of the pole standing
--- straight up whenever the arm is raised.
+-- straight up whenever the arm is raised. The Thunder Hammer is held the same way.
 local GRIPS = {
 	ReaperScythe = CFrame.Angles(math.rad(-100), 0, 0),
+	ThunderHammer = CFrame.Angles(math.rad(-100), 0, 0),
 }
 
 -- Builds weapon `id` held by `hand`. Returns the model, or nil for Fists.

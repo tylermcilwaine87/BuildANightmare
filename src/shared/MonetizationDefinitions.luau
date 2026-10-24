@@ -127,7 +127,7 @@ Monetization.Passes = {
 	},
 	ShadowKunai = {
 		Id = 0, Price = 249, Name = "Shadow Kunai", Icon = "🗡", Color = Color3.fromRGB(150, 110, 220), Category = "Exclusive",
-		Text = "Throwing knives: flick a fan of three kunai at your target. Fast, ranged, and they pin enemies in place for a moment.",
+		Text = "Throwing knives: flick a fan of three kunai at range, each on its own line, and they WEAKEN what they hit. P P P: KUNAI STORM, five at once.",
 		Weapons = { "ShadowKunai" },
 	},
 }

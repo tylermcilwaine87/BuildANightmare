@@ -160,6 +160,45 @@ function EffectsController:SpearThrow(from: Vector3, to: Vector3, time: number)
 	end)
 end
 
+-- SHADOW KUNAI (WorldFX "KunaiThrow"): every blade the server threw, flying flat and fast
+-- on its own line (spinning a little), with a faint violet streak; a few sparks where it
+-- lands.
+function EffectsController:KunaiThrow(from: Vector3, blades)
+	for _, blade in blades do
+		local to, time = blade.To, math.clamp(tonumber(blade.Time) or 0.2, 0.03, 1.5)
+		if typeof(to) ~= "Vector3" then
+			continue
+		end
+		local knife = newEffectPart({ Size = Vector3.new(0.08, 0.24, 1.3), CFrame = CFrame.lookAt(from, to), Color = Color3.fromRGB(30, 28, 36), Material = Enum.Material.Metal })
+		local edge = newEffectPart({ Size = Vector3.new(0.1, 0.06, 1.0), CFrame = knife.CFrame, Color = Color3.fromRGB(170, 120, 255), Material = Enum.Material.Neon })
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		a0.Position, a1.Position = Vector3.new(0, 0, 0.5), Vector3.new(0, 0, -0.5)
+		a0.Parent, a1.Parent = knife, knife
+		local trail = Instance.new("Trail")
+		trail.Attachment0, trail.Attachment1 = a0, a1
+		trail.Color = ColorSequence.new(Color3.fromRGB(170, 120, 255))
+		trail.Transparency = NumberSequence.new(0.4, 1)
+		trail.Lifetime = 0.12
+		trail.LightEmission = 0.7
+		trail.Parent = knife
+		local start = os.clock()
+		local connection
+		connection = RunService.RenderStepped:Connect(function()
+			local t = math.clamp((os.clock() - start) / time, 0, 1)
+			local cf = CFrame.lookAt(from:Lerp(to, t), to) * CFrame.Angles(0, 0, t * 9)
+			knife.CFrame = cf
+			edge.CFrame = cf * CFrame.new(0, -0.1, 0)
+			if t >= 1 then
+				connection:Disconnect()
+				knife:Destroy()
+				edge:Destroy()
+				self:HitBurst(to, (to - from).Unit, "Slash", false)
+			end
+		end)
+	end
+	controllers.AudioController:Play("PunchWhoosh", from)
+end
+
 -- The Magnet's pull: a crackling blue line from the Handler to what it grabbed, held for
 -- as long as the drag lasts.
 function EffectsController:MagnetBeam(from: Model?, to: Model?, time: number?)
@@ -1038,6 +1077,8 @@ function EffectsController:Start()
 			self:Slam(data)
 		elseif kind == "Breath" then
 			self:Breath(data)
+		elseif kind == "KunaiThrow" and typeof(data.From) == "Vector3" and type(data.Blades) == "table" then
+			self:KunaiThrow(data.From, data.Blades)
 		elseif kind == "MagnetBeam" then
 			self:MagnetBeam(data.From, data.To, data.Time)
 		elseif kind == "SpearThrow" and typeof(data.From) == "Vector3" and typeof(data.To) == "Vector3" then
