@@ -147,6 +147,17 @@ function NightmareAIService:GetBrain(player: Player)
 	return brainByPlayer[player]
 end
 
+-- STUDIO ONLY (DevBridge): make the player's Nightmare throw string `action` next (keep =
+-- every time, until called again with nil). For demonstrations and measurements.
+function NightmareAIService:DevForceString(player: Player, action: string?, keep: boolean?)
+	local brain = brainByPlayer[player]
+	if not RunService:IsStudio() or not brain then
+		return false
+	end
+	brain.forceString, brain.forceKeep = action, keep == true
+	return true
+end
+
 function NightmareAIService:GetBrainByModel(model: Model)
 	return brains[model]
 end
@@ -235,6 +246,7 @@ local function bodyCan(brain)
 	local model = brain.model
 	return {
 		Arms = model:FindFirstChild("RightArm_Root", true) ~= nil or model:FindFirstChild("LeftArm_Root", true) ~= nil,
+		BothArms = model:FindFirstChild("RightArm_Root", true) ~= nil and model:FindFirstChild("LeftArm_Root", true) ~= nil,
 		Legs = model:GetAttribute("Archetype") == "Biped" and model:FindFirstChild("Sub_Legs_R", true) ~= nil,
 		Quad = model:GetAttribute("Archetype") == "Quadruped",
 		Head = model:FindFirstChild("Joint_Head", true) ~= nil,
@@ -243,7 +255,7 @@ local function bodyCan(brain)
 end
 
 local function canThrow(def, can): boolean
-	for _, need in { "Arms", "Legs", "Quad", "Head", "Tail" } do
+	for _, need in { "Arms", "BothArms", "Legs", "Quad", "Head", "Tail" } do
 		if def[need] and not can[need] then
 			return false
 		end
@@ -255,6 +267,17 @@ end
 -- (`filter`: only strings it accepts, e.g. ones that leap far enough)
 function NightmareAIService:PickString(brain, filter: ((any) -> boolean)?)
 	local can = bodyCan(brain)
+	-- STUDIO ONLY (DevForceString): the next string is this one, if the body can throw it
+	if brain.forceString and RunService:IsStudio() then
+		for _, def in NM.Moveset do
+			if def.Action == brain.forceString and canThrow(def, can) then
+				if not brain.forceKeep then
+					brain.forceString = nil
+				end
+				return def
+			end
+		end
+	end
 	local options, total = {}, 0
 	for _, def in NM.Moveset do
 		if canThrow(def, can) and def.Action ~= brain.lastString and (not filter or filter(def)) then
@@ -273,6 +296,27 @@ function NightmareAIService:PickString(brain, filter: ((any) -> boolean)?)
 		end
 	end
 	return options[#options]
+end
+
+-- STUDIO ONLY (DevBridge): throw string `action` at `target` right now (squared up to it),
+-- for a clean measurement of one combo. Returns false if this body can't throw it.
+function NightmareAIService:DevStartString(player: Player, action: string, target: Model)
+	local brain = brainByPlayer[player]
+	if not RunService:IsStudio() or not brain or typeof(target) ~= "Instance" then
+		return false
+	end
+	local can = bodyCan(brain)
+	for _, def in NM.Moveset do
+		if def.Action == action and canThrow(def, can) then
+			local root = target:FindFirstChild("HumanoidRootPart")
+			if root then
+				self:Face(brain, root.Position)
+			end
+			brain.target = target
+			return self:StartString(brain, def, target, os.clock())
+		end
+	end
+	return false
 end
 
 -- A short shove toward the target between the hits of a string (no animation of its own, so
@@ -361,10 +405,16 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			pressIn(brain, toTarget, math.clamp(gap, 0, leap.Max), leap.Time * speedScale)
 		end)
 	end
+	local logging = RunService:IsStudio() and Config.Dev.LogNightmareCombos == true
+	local startedAt = os.clock()
 	for index, hit in hits do
 		task.delay(hit[1] * speedScale, function()
 			if brains[brain.model] ~= brain or brain.humanoid.Health <= 0 or brain.castToken ~= castToken
 				or services.StatusService:IsStaggered(brain.model) or brain.model:GetAttribute("Ragdolled") then
+				if logging then
+					local why = brain.castToken ~= castToken and "interrupted" or services.StatusService:IsStaggered(brain.model) and "staggered" or "down / gone"
+					print(("[Combo] %s hit %d @%.2f SKIPPED (%s)"):format(def.Action, index, os.clock() - startedAt, why))
+				end
 				release()
 				return
 			end
@@ -390,7 +440,15 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			end
 			local hitbox = brain.hitboxSize
 			local boxCFrame = brain.root.CFrame * CFrame.new(0, 0, -(hitbox.Z / 2 + reach / 2))
-			for _, victim in services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 2, hitbox.Y + 2, reach), ignoreList(brain), brain.root.Position) do
+			local victims = services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 2, hitbox.Y + 2, reach), ignoreList(brain), brain.root.Position)
+			if logging then
+				local names = {}
+				for _, v in victims do
+					table.insert(names, v.Name)
+				end
+				print(("[Combo] %s hit %d @%.2f gap %.1f -> %s"):format(def.Action, index, os.clock() - startedAt, targetRoot and Util.FlatDistance(targetRoot.Position, brain.root.Position) or -1, #names > 0 and table.concat(names, ",") or "MISS"))
+			end
+			for _, victim in victims do
 				services.CombatService:ApplyDamage({
 					Attacker = brain.model,
 					Target = victim,

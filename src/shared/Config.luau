@@ -36,6 +36,9 @@ Config.Dev = {
 	-- DEV ONLY: in Studio, act as a player from a country where Roblox restricts paid
 	-- random items, so the SHOP hides its luck items (PolicyService). Ignored live.
 	ShopRestrictedInStudio = false,
+	-- DEV ONLY: in Studio, print every hit of every Nightmare string / combo as the server
+	-- resolves it (time into the move, target distance, who it hit). For measuring.
+	LogNightmareCombos = true,
 	-- In Studio, a move whose AnimationDefinitions slot has no uploaded Id but has an
 	-- editable KeyframeSequence in Shared/Animations (e.g. Overhand.rbxm) plays THAT through
 	-- the Animator (registered locally, nothing published). Live servers need the published
@@ -327,6 +330,10 @@ Config.Nightmare = {
 	Moveset = {
 		-- (Duration = the animation's length, GymDefinitions.Routines: the client plays it at
 		-- the speed the server's timing implies)
+		-- BRUTAL BOXER (NightmarePoses Biped Combo_BrutalBoxer, also a real KeyframeSequence in
+		-- Shared/Animations): jab, cross, lead hook, uppercut, OVERHAND (knockdown), each hit on
+		-- the clip's measured contact frame. Needs both arms and two legs (BothArms + Legs).
+		{ Action = "Combo_BrutalBoxer", Duration = 2.4, Weight = 3, Arms = true, BothArms = true, Legs = true, Hits = { { 0.3, 0.5 }, { 0.55, 0.7, 4 }, { 0.82, 0.8, 8 }, { 1.1, 0.9, 6 }, { 1.62, 1.9, 34, true } } },
 		{ Action = "Gym_ComboA", Duration = 1.6, Weight = 3, Arms = true, Hits = { { 0.3, 0.55 }, { 0.54, 0.55 }, { 0.8, 0.95, 10 } } }, -- jab, jab, cross
 		{ Action = "Gym_ComboB", Duration = 1.8, Weight = 3, Arms = true, Hits = { { 0.3, 0.55 }, { 0.56, 0.8, 6 }, { 0.86, 1.05, 16 } } }, -- jab, cross, hook
 		{ Action = "Gym_ComboC", Duration = 2.1, Weight = 2, Arms = true, Hits = { { 0.3, 0.55 }, { 0.58, 0.85, 8 }, { 1.04, 1.6, 32, true } } }, -- jab, hook, OVERHAND

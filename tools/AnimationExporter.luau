@@ -73,10 +73,18 @@ local NIGHTMARE_RIG = {
 	Sub_Head_Jaw = { "Head_Jaw", "Head_Root" }, -- hinged jaw (bite heads)
 	Joint_RightArm = { "RightArm_Root", "Core_Root" },
 	Joint_LeftArm = { "LeftArm_Root", "Core_Root" },
+	Sub_RightArm_Fore = { "RightArm_Fore", "RightArm_Root" }, -- elbows (PartDefinitions arm Groups)
+	Sub_LeftArm_Fore = { "LeftArm_Fore", "LeftArm_Root" },
 	Joint_Legs = { "Legs_Root", "Core_Root" },
 	Sub_Legs_L = { "Legs_L", "Legs_Root" },
 	Sub_Legs_R = { "Legs_R", "Legs_Root" },
+	Sub_Legs_FL = { "Legs_FL", "Legs_Root" }, -- four legs (Quadruped)
+	Sub_Legs_FR = { "Legs_FR", "Legs_Root" },
+	Sub_Legs_BL = { "Legs_BL", "Legs_Root" },
+	Sub_Legs_BR = { "Legs_BR", "Legs_Root" },
 	Joint_Back = { "Back_Root", "Core_Root" },
+	Sub_Back_L = { "Back_L", "Back_Root" }, -- wings
+	Sub_Back_R = { "Back_R", "Back_Root" },
 	Joint_Tail = { "Tail_Root", "Core_Root" },
 }
 

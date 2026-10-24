@@ -378,14 +378,18 @@ define({
 	PowerCost = 6,
 	AbilityId = "RustySlash",
 	Source = "Starter / The Scrap Titan",
+	-- an ELBOW (Sub_<Slot>_Fore): the forearm and claw bend on it (pieces relative to it)
+	Groups = { Fore = { Pivot = V(0.5, -1.0, 0) } },
 	AnimationSet = "Claw",
 	Visual = {
 		ball(0.9, V(0.2, 0, 0), RGB(150, 85, 50), Mat.CorrodedMetal),
-		block(V(0.6, 2.0, 0.6), V(0.45, -1.0, 0), RGB(150, 85, 50), Mat.CorrodedMetal, { Rot = V(0, 0, 10) }),
-		block(V(0.8, 0.6, 0.9), V(0.6, -2.1, 0), RGB(120, 70, 40), Mat.CorrodedMetal),
-		block(V(0.18, 0.8, 0.18), V(0.6, -2.75, -0.3), RGB(190, 180, 170), Mat.Metal),
-		block(V(0.18, 0.8, 0.18), V(0.6, -2.75, 0), RGB(190, 180, 170), Mat.Metal),
-		block(V(0.18, 0.8, 0.18), V(0.6, -2.75, 0.3), RGB(190, 180, 170), Mat.Metal),
+		block(V(0.6, 1.05, 0.6), V(0.38, -0.5, 0), RGB(150, 85, 50), Mat.CorrodedMetal, { Rot = V(0, 0, 10) }),
+		ball(0.62, V(0.5, -1.0, 0), RGB(120, 70, 40), Mat.CorrodedMetal),
+		block(V(0.55, 1.05, 0.55), V(0.05, -0.5, 0), RGB(150, 85, 50), Mat.CorrodedMetal, { Rot = V(0, 0, 10), Group = "Fore" }),
+		block(V(0.8, 0.6, 0.9), V(0.1, -1.1, 0), RGB(120, 70, 40), Mat.CorrodedMetal, { Group = "Fore" }),
+		block(V(0.18, 0.8, 0.18), V(0.1, -1.75, -0.3), RGB(190, 180, 170), Mat.Metal, { Group = "Fore" }),
+		block(V(0.18, 0.8, 0.18), V(0.1, -1.75, 0), RGB(190, 180, 170), Mat.Metal, { Group = "Fore" }),
+		block(V(0.18, 0.8, 0.18), V(0.1, -1.75, 0.3), RGB(190, 180, 170), Mat.Metal, { Group = "Fore" }),
 	},
 })
 
@@ -401,13 +405,15 @@ define({
 	OnHit = { Status = "Weaken", Chance = 0.3, ComboHit = 3 },
 	Source = "The Abyssal Maw",
 	AnimationSet = "Tentacle",
+	-- a second bend halfway down (Sub_<Slot>_Fore): the tentacle can curl, wrap and whip
+	Groups = { Fore = { Pivot = V(0.8, -1.55, -0.2) } },
 	Visual = {
 		ball(0.9, V(0.4, -0.5, 0), RGB(45, 25, 70)),
 		ball(0.8, V(0.7, -1.2, -0.1), RGB(50, 28, 78)),
-		ball(0.7, V(0.9, -1.9, -0.3), RGB(55, 30, 86)),
-		ball(0.6, V(1.0, -2.6, -0.5), RGB(60, 33, 94)),
-		ball(0.5, V(1.0, -3.2, -0.8), RGB(65, 36, 102)),
-		ball(0.35, V(1.0, -3.6, -1.0), RGB(180, 90, 255), Mat.Neon),
+		ball(0.7, V(0.1, -0.35, -0.1), RGB(55, 30, 86), Mat.SmoothPlastic, { Group = "Fore" }),
+		ball(0.6, V(0.2, -1.05, -0.3), RGB(60, 33, 94), Mat.SmoothPlastic, { Group = "Fore" }),
+		ball(0.5, V(0.2, -1.65, -0.6), RGB(65, 36, 102), Mat.SmoothPlastic, { Group = "Fore" }),
+		ball(0.35, V(0.2, -2.05, -0.8), RGB(180, 90, 255), Mat.Neon, { Group = "Fore" }),
 	},
 })
 
@@ -423,13 +429,16 @@ define({
 	OnHit = { Status = "Burn", Chance = 1, ComboHit = 3 },
 	Source = "Crafting Forge / The Storm Beast",
 	AnimationSet = "Claw",
+	Groups = { Fore = { Pivot = V(0.58, -1.1, 0) } }, -- elbow
 	Visual = {
 		block(V(0.3, 1.1, 0.3), V(0.3, 0.7, 0), RGB(25, 20, 25), Mat.Slate, { Rot = V(0, 0, -20) }),
-		block(V(0.9, 2.4, 0.9), V(0.55, -1.1, 0), RGB(130, 25, 35), Mat.Slate, { Rot = V(0, 0, 8) }),
-		block(V(1.1, 0.7, 1.1), V(0.7, -2.5, 0), RGB(90, 15, 25), Mat.Slate),
-		block(V(0.15, 1.6, 0.25), V(0.7, -3.6, -0.4), RGB(255, 60, 40), Mat.Neon),
-		block(V(0.15, 1.6, 0.25), V(0.7, -3.6, 0), RGB(255, 60, 40), Mat.Neon),
-		block(V(0.15, 1.6, 0.25), V(0.7, -3.6, 0.4), RGB(255, 60, 40), Mat.Neon),
+		block(V(0.9, 1.25, 0.9), V(0.5, -0.5, 0), RGB(130, 25, 35), Mat.Slate, { Rot = V(0, 0, 8) }),
+		ball(0.85, V(0.58, -1.1, 0), RGB(90, 15, 25), Mat.Slate),
+		block(V(0.85, 1.25, 0.85), V(0.04, -0.6, 0), RGB(130, 25, 35), Mat.Slate, { Rot = V(0, 0, 8), Group = "Fore" }),
+		block(V(1.1, 0.7, 1.1), V(0.12, -1.4, 0), RGB(90, 15, 25), Mat.Slate, { Group = "Fore" }),
+		block(V(0.15, 1.6, 0.25), V(0.12, -2.5, -0.4), RGB(255, 60, 40), Mat.Neon, { Group = "Fore" }),
+		block(V(0.15, 1.6, 0.25), V(0.12, -2.5, 0), RGB(255, 60, 40), Mat.Neon, { Group = "Fore" }),
+		block(V(0.15, 1.6, 0.25), V(0.12, -2.5, 0.4), RGB(255, 60, 40), Mat.Neon, { Group = "Fore" }),
 	},
 })
 
@@ -624,14 +633,17 @@ define({
 	AbilityId = "MagnetPull",
 	Source = "The Scrap Titan",
 	AnimationSet = "Claw",
+	Groups = { Fore = { Pivot = V(0.5, -1.0, 0) } }, -- elbow
 	Visual = {
 		ball(0.9, V(0.2, 0, 0), RGB(90, 95, 105), Mat.Metal),
-		block(V(0.6, 2.0, 0.6), V(0.45, -1.0, 0), RGB(200, 160, 40), Mat.Metal, { Rot = V(0, 0, 10) }),
-		block(V(1.4, 0.4, 0.5), V(0.6, -2.15, 0), RGB(200, 40, 40), Mat.SmoothPlastic),
-		block(V(0.4, 0.9, 0.5), V(0.05, -2.75, 0), RGB(200, 40, 40), Mat.SmoothPlastic),
-		block(V(0.4, 0.9, 0.5), V(1.15, -2.75, 0), RGB(200, 40, 40), Mat.SmoothPlastic),
-		block(V(0.42, 0.25, 0.52), V(0.05, -3.2, 0), RGB(220, 220, 230), Mat.Metal),
-		block(V(0.42, 0.25, 0.52), V(1.15, -3.2, 0), RGB(220, 220, 230), Mat.Metal),
+		block(V(0.6, 1.05, 0.6), V(0.38, -0.5, 0), RGB(200, 160, 40), Mat.Metal, { Rot = V(0, 0, 10) }),
+		ball(0.62, V(0.5, -1.0, 0), RGB(90, 95, 105), Mat.Metal),
+		block(V(0.55, 1.05, 0.55), V(0.05, -0.5, 0), RGB(200, 160, 40), Mat.Metal, { Rot = V(0, 0, 10), Group = "Fore" }),
+		block(V(1.4, 0.4, 0.5), V(0.1, -1.15, 0), RGB(200, 40, 40), Mat.SmoothPlastic, { Group = "Fore" }),
+		block(V(0.4, 0.9, 0.5), V(-0.45, -1.75, 0), RGB(200, 40, 40), Mat.SmoothPlastic, { Group = "Fore" }),
+		block(V(0.4, 0.9, 0.5), V(0.65, -1.75, 0), RGB(200, 40, 40), Mat.SmoothPlastic, { Group = "Fore" }),
+		block(V(0.42, 0.25, 0.52), V(-0.45, -2.2, 0), RGB(220, 220, 230), Mat.Metal, { Group = "Fore" }),
+		block(V(0.42, 0.25, 0.52), V(0.65, -2.2, 0), RGB(220, 220, 230), Mat.Metal, { Group = "Fore" }),
 	},
 })
 
@@ -646,13 +658,16 @@ define({
 	AbilityId = "HammerSlam",
 	Source = "The Scrap Titan",
 	AnimationSet = "Hammer",
+	Groups = { Fore = { Pivot = V(0.6, -1.1, 0) } }, -- elbow
 	Visual = {
 		ball(1.1, V(0.3, 0, 0), RGB(70, 70, 80), Mat.Metal),
-		block(V(0.9, 2.2, 0.9), V(0.6, -1.1, 0), RGB(110, 80, 60), Mat.CorrodedMetal, { Rot = V(0, 0, 8) }),
-		cyl(0.8, 0.5, V(0.75, -2.5, 0), RGB(60, 60, 70), Mat.Metal, { Rot = V(0, 0, 90) }),
-		block(V(2.4, 1.3, 1.4), V(0.75, -3.3, 0), RGB(80, 82, 92), Mat.DiamondPlate),
-		block(V(0.2, 1.0, 1.0), V(1.97, -3.3, 0), RGB(255, 140, 40), Mat.Neon),
-		block(V(0.2, 1.0, 1.0), V(-0.47, -3.3, 0), RGB(255, 140, 40), Mat.Neon),
+		block(V(0.9, 1.15, 0.9), V(0.52, -0.55, 0), RGB(110, 80, 60), Mat.CorrodedMetal, { Rot = V(0, 0, 8) }),
+		ball(0.9, V(0.6, -1.1, 0), RGB(70, 70, 80), Mat.Metal),
+		block(V(0.85, 1.15, 0.85), V(0.08, -0.55, 0), RGB(110, 80, 60), Mat.CorrodedMetal, { Rot = V(0, 0, 8), Group = "Fore" }),
+		cyl(0.8, 0.5, V(0.15, -1.4, 0), RGB(60, 60, 70), Mat.Metal, { Rot = V(0, 0, 90), Group = "Fore" }),
+		block(V(2.4, 1.3, 1.4), V(0.15, -2.2, 0), RGB(80, 82, 92), Mat.DiamondPlate, { Group = "Fore" }),
+		block(V(0.2, 1.0, 1.0), V(1.37, -2.2, 0), RGB(255, 140, 40), Mat.Neon, { Group = "Fore" }),
+		block(V(0.2, 1.0, 1.0), V(-1.07, -2.2, 0), RGB(255, 140, 40), Mat.Neon, { Group = "Fore" }),
 	},
 })
 
@@ -749,23 +764,25 @@ do
 		OnHit = { Status = "Burn", Chance = 0.5, ComboHit = 3 },
 		Source = "SHOP exclusive (Inferno Gauntlets)",
 		AnimationSet = "Hammer",
+		Groups = { Fore = { Pivot = V(0.6, -1.55, 0) } }, -- elbow: the forearm and fist bend on it
 		Visual = {
 			-- shoulder pauldron with a lava seam
 			ball(1.2, V(0.3, 0.05, 0), basalt, Mat.Basalt),
 			block(V(1.3, 0.25, 1.3), V(0.45, 0.45, 0), iron, Mat.Metal, { Rot = V(0, 0, -18) }),
 			block(V(1.0, 0.08, 0.08), V(0.45, 0.2, -0.62), lava, Mat.Neon, { Rot = V(0, 0, -18) }),
-			-- upper arm and forearm, cracked with glowing seams
+			-- upper arm, the elbow, and the forearm cracked with glowing seams
 			block(V(0.75, 1.5, 0.75), V(0.5, -0.85, 0), basalt, Mat.Basalt, { Rot = V(0, 0, 6) }),
 			block(V(0.08, 1.2, 0.08), V(0.52, -0.85, -0.39), lava, Mat.Neon, { Rot = V(0, 0, 14) }),
-			block(V(0.95, 1.2, 0.95), V(0.62, -2.0, 0), iron, Mat.Metal),
-			block(V(0.08, 0.9, 0.08), V(0.62, -2.0, -0.49), lava, Mat.Neon, { Rot = V(0, 0, -16) }),
-			block(V(1.05, 0.18, 1.05), V(0.62, -2.55, 0), lava, Mat.Neon),
+			ball(0.9, V(0.6, -1.55, 0), basalt, Mat.Basalt),
+			block(V(0.95, 1.2, 0.95), V(0.02, -0.45, 0), iron, Mat.Metal, { Group = "Fore" }),
+			block(V(0.08, 0.9, 0.08), V(0.02, -0.45, -0.49), lava, Mat.Neon, { Rot = V(0, 0, -16), Group = "Fore" }),
+			block(V(1.05, 0.18, 1.05), V(0.02, -1.0, 0), lava, Mat.Neon, { Group = "Fore" }),
 			-- the fist: a heavy block with knuckle spikes and a molten core showing through
-			block(V(1.45, 1.25, 1.45), V(0.62, -3.25, 0), basalt, Mat.Basalt),
-			block(V(1.1, 0.12, 1.5), V(0.62, -3.0, 0), lava, Mat.Neon, { Transparency = 0.1 }),
-			wedge(V(0.28, 0.4, 0.3), V(0.22, -3.65, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0) }),
-			wedge(V(0.28, 0.4, 0.3), V(0.62, -3.65, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0) }),
-			wedge(V(0.28, 0.4, 0.3), V(1.02, -3.65, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0) }),
+			block(V(1.45, 1.25, 1.45), V(0.02, -1.7, 0), basalt, Mat.Basalt, { Group = "Fore" }),
+			block(V(1.1, 0.12, 1.5), V(0.02, -1.45, 0), lava, Mat.Neon, { Transparency = 0.1, Group = "Fore" }),
+			wedge(V(0.28, 0.4, 0.3), V(-0.38, -2.1, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0), Group = "Fore" }),
+			wedge(V(0.28, 0.4, 0.3), V(0.02, -2.1, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0), Group = "Fore" }),
+			wedge(V(0.28, 0.4, 0.3), V(0.42, -2.1, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0), Group = "Fore" }),
 		},
 	})
 end

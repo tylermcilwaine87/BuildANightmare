@@ -852,6 +852,57 @@ local POSES = {
 	},
 
 	Biped = {
+		-- AUTONOMOUS COMBOS (Shared/NightmareComboDefinitions picks them; "Combo_<Id>").
+		-- BRUTAL BOXER: jab, cross, lead hook, rear uppercut, OVERHAND, one continuous clip:
+		-- every punch winds up the next (the cross turns the hips left, which loads the
+		-- hook; the hook's follow-through drops into the dip for the uppercut; the uppercut
+		-- rises straight into the overhand's wind-up), the elbows (Sub_*Arm_Fore) bend and
+		-- extend, the hips pivot with the feet planted (Joint_Legs counter-turns the core).
+		-- Contact frames measured in the pose lab on a Reinforced Core + Inferno Gauntlets
+		-- body (fist centre, studs: x right, y up, f ahead of the root): jab (0.1, 1.8, 4.4),
+		-- cross (-0.6, 1.6, 4.6), hook (0.2, 2.1, 3.5), uppercut (0.5, 2.2, 3.1),
+		-- overhand (-0.3, 1.7, 5.1): all on the centre line at head height.
+		-- (Joint_CorePos Y on each key lifts the body by the amount the legs sank on that frame,
+		-- measured: the feet stay at their standing height all the way through)
+		Combo_BrutalBoxer = {
+			Duration = 2.4,
+			Markers = {
+				-- (every marker sits on a keyframe, so the exported asset keeps all of them)
+				{ 0.22, "Whoosh" }, { 0.3, "Strike" }, { 0.42, "Whoosh" }, { 0.55, "Strike" }, { 0.55, "StepL" },
+				{ 0.7, "Whoosh" }, { 0.82, "Strike" }, { 1.0, "StepR" }, { 1.0, "Whoosh" }, { 1.1, "Strike" },
+				{ 1.4, "Whoosh" }, { 1.62, "Strike" }, { 1.62, "StepL" },
+			},
+			Keys = {
+				{ T = 0 },
+				-- up into the guard: bladed, chin down, fists by the face
+				{ T = 0.12, Joint_CorePos = { 0, 0.12, 0 }, Joint_Core = { -6, -10, 0 }, Joint_Legs = { 6, 10, 0 }, Joint_Head = { -10, 10, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				-- JAB: the lead hand snaps straight out, shoulder turned in behind it
+				{ T = 0.22, Joint_CorePos = { 0, 0.11, -0.15 }, Joint_Core = { -8, -18, 0 }, Joint_Legs = { 8, 18, 0 }, Joint_Head = { -10, 14, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 82, 0, 36 }, Sub_LeftArm_Fore = { 50, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				{ T = 0.3, Joint_CorePos = { 0, 0.08, -0.35 }, Joint_Core = { -10, -24, 0 }, Joint_Legs = { 10, 24, 0 }, Joint_Head = { -10, 16, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 100, 0, 22 }, Sub_LeftArm_Fore = { 8, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				-- the jab snaps back as the rear hip starts to drive
+				{ T = 0.42, Joint_CorePos = { 0, 0.13, -0.3 }, Joint_Core = { -10, 4, 0 }, Joint_Legs = { 10, -4, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 70, 0, -42 }, Sub_RightArm_Fore = { 70, 0, 0 }, Joint_LeftArm = { 58, 0, 48 }, Sub_LeftArm_Fore = { 95, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+				-- CROSS: the rear hand straight down the middle, hips and shoulders fully turned
+				{ T = 0.55, Joint_CorePos = { 0, 0.22, -0.5 }, Joint_Core = { -12, 30, 0 }, Joint_Legs = { 12, -30, 0 }, Joint_Head = { -12, -12, 0 }, Joint_RightArm = { 100, 0, -22 }, Sub_RightArm_Fore = { 6, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+				-- the cross comes home; the lead arm cocks out wide, loaded by the turned hips
+				{ T = 0.7, Joint_CorePos = { 0, 0.15, -0.4 }, Joint_Core = { -8, 22, 2 }, Joint_Legs = { 8, -22, 0 }, Joint_Head = { -10, -6, 0 }, Joint_RightArm = { 52, 0, -55 }, Sub_RightArm_Fore = { 100, 0, 0 }, Joint_LeftArm = { 84, 0, -8 }, Sub_LeftArm_Fore = { 72, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+				-- LEAD HOOK: elbow up, the whole body whips back round to the right through it
+				{ T = 0.82, Joint_CorePos = { 0, 0.08, -0.3 }, Joint_Core = { -8, -35, 4 }, Joint_Legs = { 8, 35, -4 }, Joint_Head = { -10, 14, 0 }, Joint_RightArm = { 52, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 80, 0, 40 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				-- follow-through, dropping into the dip that loads the uppercut
+				{ T = 1.0, Joint_CorePos = { 0, 0.05, -0.2 }, Joint_Core = { -14, -22, 0 }, Joint_Legs = { 14, 22, 0 }, Joint_Head = { -12, 8, 0 }, Joint_RightArm = { 38, 0, -42 }, Sub_RightArm_Fore = { 112, 0, 0 }, Joint_LeftArm = { 56, 0, 48 }, Sub_LeftArm_Fore = { 98, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+				-- REAR UPPERCUT: drive up out of the dip, the fist rising under the chin
+				{ T = 1.1, Joint_CorePos = { 0, 0.13, -0.35 }, Joint_Core = { 2, 28, 0 }, Joint_Legs = { -2, -28, 0 }, Joint_Head = { -6, -10, 0 }, Joint_RightArm = { 60, 0, -45 }, Sub_RightArm_Fore = { 85, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+				-- rising straight on into the overhand's wind-up: rear arm high and back
+				{ T = 1.4, Joint_CorePos = { 0, 0.21, 0.1 }, Joint_Core = { 12, -30, 0 }, Joint_Legs = { -12, 30, 0 }, Joint_Head = { -6, 18, 0 }, Joint_RightArm = { 160, 0, 10 }, Sub_RightArm_Fore = { 70, 0, 0 }, Joint_LeftArm = { 60, 0, 46 }, Sub_LeftArm_Fore = { 95, 0, 0 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+				-- OVERHAND: over the top and down through them with everything, stepping in
+				{ T = 1.62, Joint_CorePos = { 0, -0.01, -0.9 }, Joint_Core = { -24, 40, -6 }, Joint_Legs = { 24, -40, 6 }, Joint_Head = { -10, -15, 0 }, Joint_RightArm = { 118, 0, -24 }, Sub_RightArm_Fore = { 14, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 35, 0, 0 }, Sub_Legs_R = { -25, 0, 0 } },
+				-- the weight carries on through
+				{ T = 1.85, Joint_CorePos = { 0, -0.29, -1.0 }, Joint_Core = { -32, 50, -6 }, Joint_Legs = { 32, -50, 6 }, Joint_Head = { -12, -22, 0 }, Joint_RightArm = { 62, 0, -40 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 50, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } },
+				-- and back up into the guard
+				{ T = 2.15, Joint_CorePos = { 0, 0.12, -0.3 }, Joint_Core = { -6, -10, 0 }, Joint_Legs = { 6, 10, 0 }, Joint_Head = { -10, 10, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				{ T = 2.4 },
+			},
+		},
+
 		-- HEAVY HAYMAKER: the Nightmare coils back, sinking and twisting away with the right
 		-- arm drawn high behind it, then lunges in off the back leg, the core whipping round
 		-- as the arm comes over and down through the target, carries on past, and resets.
