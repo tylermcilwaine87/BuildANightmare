@@ -260,11 +260,23 @@ function MeleeDefinitions.MoveUnlocked(moveId: string, level: number?): boolean
 	return unlocked(Moves[moveId], level)
 end
 
-function MeleeDefinitions.WeaponUnlocked(weaponId: string?, level: number?): boolean
+-- `owned` = the profile's Owned set: SHOP-exclusive weapons (Unlock = { Pass = key }) need
+-- "Weapon:<id>" in it (MonetizationService), even in Studio (test them with the shop's
+-- Studio test purchases, or MeleeService:DevEquip).
+function MeleeDefinitions.WeaponUnlocked(weaponId: string?, level: number?, owned): boolean
 	if weaponId == nil or weaponId == "Fists" then
 		return true
 	end
-	return unlocked(MeleeDefinitions.WeaponsById[weaponId], level)
+	local def = MeleeDefinitions.WeaponsById[weaponId]
+	if def and def.Unlock and def.Unlock.Pass then
+		return type(owned) == "table" and owned["Weapon:" .. weaponId] == true
+	end
+	return unlocked(def, level)
+end
+
+function MeleeDefinitions.IsExclusive(weaponId: string?): boolean
+	local def = weaponId and MeleeDefinitions.WeaponsById[weaponId]
+	return def ~= nil and def.Unlock ~= nil and def.Unlock.Pass ~= nil
 end
 
 -- The move for combo string `seq` with `weapon` out, or nil (not a known / unlocked move).

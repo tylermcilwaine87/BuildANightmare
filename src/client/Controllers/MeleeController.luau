@@ -72,6 +72,12 @@ local function level(): number
 	return profile and profile.Level or 1
 end
 
+-- What the SHOP unlocked (exclusive weapons need it: MeleeDefinitions.WeaponUnlocked).
+local function owned()
+	local profile = controllers.ClientState.Profile
+	return profile and profile.Owned or nil
+end
+
 local function loadout(): { string }
 	local profile = controllers.ClientState.Profile
 	return profile and profile.Loadout or { "Magnet" }
@@ -481,8 +487,9 @@ function MeleeController:EquipSlot(slot: number)
 	end
 	if weaponId ~= "Fists" then
 		local weapon = WEAPONS[weaponId]
-		if not Melee.WeaponUnlocked(weaponId, level()) then
-			controllers.HUDController:Toast(("%s unlocks at level %d."):format(weapon.Display, weapon.Unlock.Level), nil, 2)
+		if not Melee.WeaponUnlocked(weaponId, level(), owned()) then
+			local why = Melee.IsExclusive(weaponId) and ("%s is in the SHOP."):format(weapon.Display) or ("%s unlocks at level %d."):format(weapon.Display, weapon.Unlock.Level)
+			controllers.HUDController:Toast(why, nil, 2)
 			return
 		end
 		local wait = charges(weaponId)
@@ -500,7 +507,7 @@ function MeleeController:CycleWeapon()
 	local held = weaponOf(localPlayer.Character)
 	local order = { "Fists" }
 	for _, id in loadout() do
-		if Melee.WeaponUnlocked(id, level()) and charges(id) <= 0 then
+		if Melee.WeaponUnlocked(id, level(), owned()) and charges(id) <= 0 then
 			table.insert(order, id)
 		end
 	end

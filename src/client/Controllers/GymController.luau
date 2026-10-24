@@ -454,7 +454,7 @@ local function buildUI()
 		Name = "Panel",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -16, 0.5, 0),
-		Size = UDim2.fromOffset(330, 644),
+		Size = UDim2.fromOffset(330, 684),
 		BackgroundColor3 = C.Panel,
 		BackgroundTransparency = 0.12,
 		Parent = gui,
@@ -514,6 +514,11 @@ local function buildUI()
 		local info = UIKit.Label({ Text = def.Text .. (" (%d min)"):format(def.Duration // 60), Position = UDim2.new(0.5, 4, 0, 0), Size = UDim2.new(0.5, -4, 1, 0), Font = UIKit.FontBody, TextColor3 = C.SubText, MaxTextSize = 11, Parent = r })
 		ui.BoostButtons[id] = { Button = button, Info = info }
 	end
+	-- the SHOP's gym boosts and passes (Mega Luck, Lucky Trainer, Night Shift...)
+	local shopRow = row(32)
+	UIKit.Button({ Text = "🍀 MORE LUCK & SPEED · SHOP", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(190, 140, 30), MaxTextSize = 15, Parent = shopRow }, function()
+		controllers.ShopController:Open("Gym")
+	end)
 
 	local leave = UIKit.Button({ Text = "LEAVE THE GYM", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Color3.fromRGB(150, 30, 52), MaxTextSize = 18, Parent = panel }, function()
 		GymController:Leave()

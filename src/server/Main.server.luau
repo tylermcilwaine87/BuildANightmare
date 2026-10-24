@@ -53,6 +53,7 @@ local LOAD_ORDER = {
 	"ShowcaseService",
 	"ExplorationService",
 	"GymService",
+	"MonetizationService",
 	"GameAnalyticsService",
 }
 

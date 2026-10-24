@@ -36,6 +36,7 @@ local GymDefinitions = require(Shared:WaitForChild("GymDefinitions"))
 local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
 local MutationDefinitions = require(Shared:WaitForChild("MutationDefinitions"))
 local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
+local MonetizationDefinitions = require(Shared:WaitForChild("MonetizationDefinitions"))
 
 local GymWorld = require(script.Parent:WaitForChild("World"):WaitForChild("Gym"))
 
@@ -49,7 +50,7 @@ local stats = { Training = 0, Rewards = 0, LastDrop = "—" }
 -- Equippable parts by rarity, for part rewards.
 local partsByRarity = {}
 for id, def in PartDefinitions.ById do
-	if def.Equippable then
+	if def.Equippable and not def.Exclusive then -- (SHOP exclusives never drop)
 		partsByRarity[def.Rarity] = partsByRarity[def.Rarity] or {}
 		table.insert(partsByRarity[def.Rarity], id)
 	end
@@ -216,7 +217,7 @@ function GymService:Summary(player: Player)
 		return nil
 	end
 	local now = os.time()
-	local luck, speed = GymDefinitions.Multipliers(profile.Gym.Boosts, now)
+	local luck, speed = self:Multipliers(player, profile)
 	local boosts = {}
 	for id, expires in profile.Gym.Boosts do
 		if expires > now then
@@ -369,16 +370,18 @@ end
 ------------------------------------------------------------------------------------------
 -- Rewards
 ------------------------------------------------------------------------------------------
-function GymService:GrantReward(player: Player, session)
-	local profile = self.Services.PlayerDataService:Get(player)
-	if not profile then
-		return
-	end
-	local luck = GymDefinitions.Multipliers(profile.Gym.Boosts, os.time())
-	local tierId = rollTier(luck)
-	if session.devTier and RunService:IsStudio() then
-		tierId, session.devTier = session.devTier, nil
-	end
+-- Your luck and training speed right now: the strongest boost of each, times the SHOP's
+-- passes (Lucky Trainer, Fast Trainer) and a running Server Luck.
+function GymService:Multipliers(player: Player, profile)
+	local shop = self.Services.MonetizationService
+	local extra = shop and shop:GymExtras(player) or nil
+	return GymDefinitions.Multipliers(profile and profile.Gym.Boosts, os.time(), extra)
+end
+
+-- Rolls ONE reward at `luck` and grants it (coins / essence / part / title) and records it
+-- in profile.Gym. No session: the live reward below and Night Shift both use it.
+function GymService:RollReward(player: Player, profile, luck: number, forcedTier: string?)
+	local tierId = forcedTier or rollTier(luck)
 	local tier = GymDefinitions.Tiers[tierId]
 	local spec = GymDefinitions.Rewards[tierId]
 	local result = { Tier = tierId, Rank = tier.Rank }
@@ -408,7 +411,9 @@ function GymService:GrantReward(player: Player, session)
 		end
 	end
 	if currency.Coins > 0 or currency.Essence > 0 then
-		self.Services.ProgressionService:Award(player, currency)
+		-- (the coins shown are what you actually got, after 2x Coins / VIP / Premium)
+		local awarded = self.Services.ProgressionService:Award(player, currency)
+		currency.Coins = awarded and awarded.Coins or currency.Coins
 		self.Services.GameAnalyticsService:Rewards(player, currency, "Gym")
 	end
 	result.Coins, result.Essence = currency.Coins, currency.Essence
@@ -416,9 +421,23 @@ function GymService:GrantReward(player: Player, session)
 		profile.Gym.Titles[spec.Title] = true
 		result.Title = spec.Title
 	end
-
 	profile.Gym.Rewards += 1
 	profile.Gym.Best = math.max(profile.Gym.Best, tier.Rank)
+	return result, tier
+end
+
+function GymService:GrantReward(player: Player, session)
+	local profile = self.Services.PlayerDataService:Get(player)
+	if not profile then
+		return
+	end
+	local luck = self:Multipliers(player, profile)
+	local forced
+	if session.devTier and RunService:IsStudio() then
+		forced, session.devTier = session.devTier, nil
+	end
+	local result, tier = self:RollReward(player, profile, luck, forced)
+	local tierId = result.Tier
 	session.count += 1
 	if not session.best or tier.Rank > session.best then
 		session.best = tier.Rank
@@ -609,7 +628,7 @@ function GymService:Arrive(player: Player)
 	session.lastTick = os.clock()
 	session.carry = 0
 	local profile = self.Services.PlayerDataService:Get(player)
-	local _, speed = GymDefinitions.Multipliers(profile and profile.Gym.Boosts, os.time())
+	local _, speed = self:Multipliers(player, profile)
 	session.nextRewardAt = os.clock() + GymDefinitions.RewardInterval / speed
 	session.thread = task.spawn(self.RunTraining, self, player, session)
 	labelBay(session.bay, player.DisplayName)
@@ -665,7 +684,7 @@ end
 function GymService:Buy(player: Player, boostId: string)
 	local def = type(boostId) == "string" and GymDefinitions.Boosts[boostId]
 	local profile = self.Services.PlayerDataService:Get(player)
-	if not def or not profile then
+	if not def or not def.Cost or not profile then -- (Cost-less boosts are SHOP only)
 		return { Ok = false, Error = "Unknown boost." }
 	end
 	if profile.Coins < def.Cost then
@@ -684,6 +703,59 @@ function GymService:Buy(player: Player, boostId: string)
 	self.Services.PlayerDataService:SaveNow(player)
 	self.Services.NightmareBuildService:PushState(player)
 	return { Ok = true, Summary = self:Summary(player) }
+end
+
+-- NIGHT SHIFT: back after logging off mid-training with the pass. The Nightmare trained
+-- the whole time you were away (up to MaxHours) at Rate of the normal speed, with your
+-- permanent luck (passes; timed boosts ran out in real time). Called once your passes
+-- are loaded (MonetizationService). Sends a "NightShift" summary to the client.
+function GymService:CollectNightShift(player: Player)
+	local profile = self.Services.PlayerDataService:Get(player)
+	local shop = self.Services.MonetizationService
+	if not profile or profile.Gym.ShiftFrom == 0 then
+		return
+	end
+	local from = profile.Gym.ShiftFrom
+	profile.Gym.ShiftFrom = 0
+	if not shop or not shop:HasPerk(player, "NightShift") then
+		return
+	end
+	local cfg = MonetizationDefinitions.PerkValues.NightShift
+	local away = math.clamp(os.time() - from, 0, cfg.MaxHours * 3600)
+	local extra = shop:GymExtras(player, true)
+	local luck, speed = GymDefinitions.Multipliers(nil, 0, extra)
+	local interval = GymDefinitions.RewardInterval / (speed * cfg.Rate)
+	local count = math.floor(away / interval)
+	if count < 1 then
+		return
+	end
+	local tally = { Count = count, Seconds = away, Coins = 0, Essence = 0, Parts = {}, Best = 0, Tiers = {} }
+	for _ = 1, count do
+		local result, tier = self:RollReward(player, profile, luck)
+		tally.Coins += result.Coins or 0
+		tally.Essence += result.Essence or 0
+		tally.Tiers[result.Tier] = (tally.Tiers[result.Tier] or 0) + 1
+		tally.Best = math.max(tally.Best, tier.Rank)
+		if result.PartId then
+			table.insert(tally.Parts, { Id = result.PartId, Mutation = result.Mutation })
+		end
+	end
+	profile.Gym.TotalTime += math.floor(away * cfg.Rate)
+	self.Services.PlayerDataService:SaveNow(player)
+	self.Services.NightmareBuildService:PushState(player)
+	self.Event:FireClient(player, "NightShift", tally)
+	return tally
+end
+
+-- STUDIO ONLY (DevBridge): pretend you logged off mid-training `hours` ago and collect the
+-- Night Shift now. Returns the tally (nil without the pass).
+function GymService:DevNightShift(player: Player, hours: number)
+	local profile = RunService:IsStudio() and self.Services.PlayerDataService:Get(player)
+	if not profile then
+		return nil
+	end
+	profile.Gym.ShiftFrom = os.time() - math.floor(hours * 3600)
+	return self:CollectNightShift(player)
 end
 
 -- STUDIO ONLY (DevBridge): roll the next reward now, optionally forcing its tier, so the
@@ -734,7 +806,7 @@ function GymService:Tick()
 					session.carry -= whole
 				end
 				if now >= session.nextRewardAt then
-					local _, speed = GymDefinitions.Multipliers(profile and profile.Gym.Boosts, os.time())
+					local _, speed = self:Multipliers(player, profile)
 					session.nextRewardAt += GymDefinitions.RewardInterval / speed
 					local ok, err = pcall(self.GrantReward, self, player, session)
 					if not ok then
@@ -766,7 +838,14 @@ function GymService:Start()
 		return { Ok = false }
 	end
 	Players.PlayerRemoving:Connect(function(player)
-		if sessions[player] then
+		local session = sessions[player]
+		if session then
+			-- NIGHT SHIFT (SHOP pass): logging off mid-training keeps the Nightmare going
+			local profile = self.Services.PlayerDataService:Get(player)
+			local shop = self.Services.MonetizationService
+			if session.state == "Training" and profile and shop and shop:HasPerk(player, "NightShift") then
+				profile.Gym.ShiftFrom = os.time()
+			end
 			self:Leave(player, false)
 		end
 	end)

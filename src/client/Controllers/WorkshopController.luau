@@ -291,7 +291,9 @@ function WorkshopController:BuildGui()
 	header:GetPropertyChangedSignal("AbsolutePosition"):Connect(fitTitle)
 
 	ui.BuildTabs = {}
-	for index = 1, Config.Builds.SlotCount do
+	-- (MaxSlotCount tabs; RefreshHeader shows as many as you have saved builds, laid out
+	-- across the header, plus a "+3 SLOTS" tab that opens the SHOP while you have 3)
+	for index = 1, Config.Builds.MaxSlotCount do
 		local tab = UIKit.Button({
 			Position = UDim2.fromScale(0.27 + (index - 1) * 0.16, 0.1),
 			Size = UDim2.fromScale(0.15, 0.8),
@@ -308,6 +310,9 @@ function WorkshopController:BuildGui()
 		end)
 		ui.BuildTabs[index] = tab
 	end
+	ui.MoreSlotsTab = UIKit.Button({ Text = "+3 SLOTS 🛒", Size = UDim2.fromScale(0.15, 0.8), BackgroundColor3 = Color3.fromRGB(150, 110, 30), MaxTextSize = 14, Visible = false, Parent = header }, function()
+		controllers.ShopController:Open("Perks")
+	end)
 	ui.FirstButton = ui.BuildTabs[1]
 
 	UIKit.Button({
@@ -821,12 +826,22 @@ end
 
 function WorkshopController:RefreshHeader()
 	local p = profile()
+	local slots = #p.Builds
+	local more = slots < Config.Builds.MaxSlotCount
+	local shown = slots + (more and 1 or 0)
+	local width = 0.61 / shown
 	for index, tab in ui.BuildTabs do
 		local build = p.Builds[index]
+		tab.Visible = build ~= nil
+		tab.Position = UDim2.fromScale(0.27 + (index - 1) * width, 0.1)
+		tab.Size = UDim2.fromScale(width - 0.01, 0.8)
 		local marker = index == p.ActiveBuild and "★ " or ""
 		tab.Text = ("%s%d · %s"):format(marker, index, build and build.Name or "?")
 		tab.BackgroundColor3 = index == state.buildIndex and C.Accent or C.PanelLight
 	end
+	ui.MoreSlotsTab.Visible = more
+	ui.MoreSlotsTab.Position = UDim2.fromScale(0.27 + slots * width, 0.1)
+	ui.MoreSlotsTab.Size = UDim2.fromScale(width - 0.01, 0.8)
 	if not ui.NameBox:IsFocused() then
 		ui.NameBox.Text = state.draft.Name
 	end

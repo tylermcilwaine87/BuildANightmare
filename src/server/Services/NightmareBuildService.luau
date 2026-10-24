@@ -27,8 +27,9 @@ local Util = require(Shared:WaitForChild("Util"))
 
 local NightmareBuildService = {}
 
-local function isValidSlotIndex(index): boolean
-	return type(index) == "number" and index % 1 == 0 and index >= 1 and index <= Config.Builds.SlotCount
+-- (profile.Builds holds SlotCount builds, or MaxSlotCount with the +3 Build Slots pass)
+local function isValidSlotIndex(index, profile): boolean
+	return type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #profile.Builds
 end
 
 function NightmareBuildService:Init(services)
@@ -96,10 +97,10 @@ function NightmareBuildService:FilterName(player: Player, requested: string, fal
 end
 
 function NightmareBuildService:SaveBuild(player: Player, slotIndex, draft)
-	if not isValidSlotIndex(slotIndex) then
+	local profile = self.Services.PlayerDataService:Get(player)
+	if not isValidSlotIndex(slotIndex, profile) then
 		return { Ok = false, Error = "Invalid build slot." }
 	end
-	local profile = self.Services.PlayerDataService:Get(player)
 
 	local build, sanitizeError = BuildValidator.Sanitize(draft)
 	if not build then
@@ -125,10 +126,10 @@ function NightmareBuildService:SaveBuild(player: Player, slotIndex, draft)
 end
 
 function NightmareBuildService:SetActive(player: Player, slotIndex)
-	if not isValidSlotIndex(slotIndex) then
+	local profile = self.Services.PlayerDataService:Get(player)
+	if not isValidSlotIndex(slotIndex, profile) then
 		return { Ok = false, Error = "Invalid build slot." }
 	end
-	local profile = self.Services.PlayerDataService:Get(player)
 
 	-- Re-validate: the saved build must still be legal (e.g. after a balance patch).
 	local valid, validationError = BuildValidator.Validate(profile.Builds[slotIndex], profile.Inventory, LevelUnlocks.PvEBudget(profile.Level), profile.Mutations)

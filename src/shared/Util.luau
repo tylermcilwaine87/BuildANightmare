@@ -80,4 +80,14 @@ function Util.TruncateUtf8(text: string, maxChars: number): string
 	return string.sub(text, 1, cut - 1)
 end
 
+-- 12500 -> "12,500"
+function Util.FormatNumber(n: number): string
+	local text = tostring(math.floor(n))
+	local sign, digits = text:match("^(-?)(%d+)$")
+	if not digits then
+		return text
+	end
+	return sign .. digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+end
+
 return Util

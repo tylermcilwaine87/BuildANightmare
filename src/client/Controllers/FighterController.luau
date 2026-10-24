@@ -147,7 +147,7 @@ local function buildWeapons()
 		Size = UDim2.new(1, -8, 0, 34), TextColor3 = C.SubText, MaxTextSize = 13, Font = UIKit.FontBody, TextWrapped = true, LayoutOrder = 0, Parent = ui.List,
 	})
 	for order, weapon in Melee.Weapons do
-		local unlocked = Melee.WeaponUnlocked(weapon.Id, data.Level)
+		local unlocked = Melee.WeaponUnlocked(weapon.Id, data.Level, data.Owned)
 		local slot = table.find(carried, weapon.Id)
 		local r = row(order, 74)
 		UIKit.Label({ Text = weapon.Icon, Position = UDim2.fromOffset(10, 12), Size = UDim2.fromOffset(46, 46), TextXAlignment = Enum.TextXAlignment.Center, MaxTextSize = 34, Parent = r })
@@ -157,7 +157,7 @@ local function buildWeapons()
 			Position = UDim2.fromOffset(64, 26), Size = UDim2.new(1, -260, 0, 42), TextColor3 = C.SubText, MaxTextSize = 11, Font = UIKit.FontBody, TextWrapped = true, Parent = r,
 		})
 		UIKit.Label({
-			Text = not unlocked and ("LOCKED · LV %d"):format(weapon.Unlock.Level) or slot and ("In slot %d"):format(slot) or "Not carried",
+			Text = not unlocked and (Melee.IsExclusive(weapon.Id) and "IN THE SHOP" or ("LOCKED · LV %d"):format(weapon.Unlock.Level)) or slot and ("In slot %d"):format(slot) or "Not carried",
 			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 6), Size = UDim2.fromOffset(170, 18),
 			TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = not unlocked and C.Warn or slot and C.Good or C.SubText, MaxTextSize = 13, Parent = r,
 		})

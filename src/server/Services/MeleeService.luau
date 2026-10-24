@@ -64,6 +64,12 @@ function MeleeService:LevelOf(player: Player): number
 	return profile and profile.Level or 1
 end
 
+-- The profile's Owned set (SHOP-exclusive weapons, MeleeDefinitions.WeaponUnlocked).
+function MeleeService:OwnedOf(player: Player)
+	local profile = self.Services.PlayerDataService:Get(player)
+	return profile and profile.Owned or nil
+end
+
 function MeleeService:LoadoutOf(player: Player): { string }
 	local profile = self.Services.PlayerDataService:Get(player)
 	return profile and profile.Loadout or { "Magnet" }
@@ -635,7 +641,7 @@ function MeleeService:Equip(player: Player, weaponId)
 		if not WEAPONS[weaponId] or not table.find(self:LoadoutOf(player), weaponId) then
 			return -- only what you brought
 		end
-		if not Melee.WeaponUnlocked(weaponId, self:LevelOf(player)) or self:UsesLeft(player, weaponId) <= 0 then
+		if not Melee.WeaponUnlocked(weaponId, self:LevelOf(player), self:OwnedOf(player)) or self:UsesLeft(player, weaponId) <= 0 then
 			return
 		end
 	end
@@ -696,7 +702,7 @@ function MeleeService:SetLoadout(player: Player, list)
 	local level = self:LevelOf(player)
 	local clean = {}
 	for _, id in Melee.CleanLoadout(list) do
-		if Melee.WeaponUnlocked(id, level) then
+		if Melee.WeaponUnlocked(id, level, profile.Owned) then
 			table.insert(clean, id)
 		end
 	end

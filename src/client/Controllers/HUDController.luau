@@ -215,7 +215,7 @@ local function buildTopButtons(gui: ScreenGui)
 		Name = "TopButtons",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 12),
-		Size = UDim2.fromOffset(840, 44),
+		Size = UDim2.fromOffset(960, 44),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, { UIKit.List(8, Enum.FillDirection.Horizontal) })
@@ -246,6 +246,9 @@ local function buildTopButtons(gui: ScreenGui)
 	ui.PartyButton = UIKit.Button({ Text = "PARTY", Size = UDim2.fromOffset(100, 44), BackgroundColor3 = Color3.fromRGB(60, 140, 220), LayoutOrder = 6, Parent = frame }, function()
 		controllers.PartyController:Toggle()
 	end)
+	ui.ShopButton = UIKit.Button({ Text = "🛒 SHOP", Size = UDim2.fromOffset(110, 44), BackgroundColor3 = Color3.fromRGB(220, 165, 40), LayoutOrder = 8, Parent = frame }, function()
+		controllers.ShopController:Toggle()
+	end)
 
 	-- Phones / tablets: a compact bar (MENU · BUILD · RECALL); the MENU hub has the rest.
 	-- Seven buttons would run into the status panel on a small screen.
@@ -257,7 +260,7 @@ local function buildTopButtons(gui: ScreenGui)
 		for _, button in { ui.SettingsButton, ui.FighterButton, ui.PvPButton, ui.CodexButton, ui.GoalsButton, ui.PartyButton } do
 			button.Visible = false
 		end
-		frame.Size = UDim2.fromOffset(370, 44)
+		frame.Size = UDim2.fromOffset(490, 44)
 	end
 end
 

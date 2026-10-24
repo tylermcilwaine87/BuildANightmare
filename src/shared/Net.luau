@@ -24,6 +24,8 @@
 	  ShowcaseRequest    RemoteFunction  C->S  "Inspect", userId | "Like", userId
 	  GymRequest         RemoteFunction  C->S  "Enter" | "Arrive" | "Leave" | "Buy", boostId
 	  GymEvent           RemoteEvent     S->one "Reward" | "Session" | "Ended"
+	  ShopRequest        RemoteFunction  C->S  "DevBuy", key (Studio test purchases) | "State"
+	  ShopEvent          RemoteEvent     S->one "Granted" | "ServerLuck"
 ]]
 
 local Players = game:GetService("Players")
@@ -52,6 +54,8 @@ Net.Definitions = {
 	ShowcaseRequest = "RemoteFunction",
 	GymRequest = "RemoteFunction",
 	GymEvent = "RemoteEvent",
+	ShopRequest = "RemoteFunction",
+	ShopEvent = "RemoteEvent",
 }
 
 function Net.Setup()

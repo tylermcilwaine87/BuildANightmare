@@ -42,8 +42,16 @@ local GymDefinitions = require(Shared:WaitForChild("GymDefinitions"))
 local MeleeDefinitions = require(Shared:WaitForChild("MeleeDefinitions"))
 local SettingsDefinitions = require(Shared:WaitForChild("SettingsDefinitions"))
 
+local MonetizationDefinitions = require(Shared:WaitForChild("MonetizationDefinitions"))
+
 local PlayerDataService = {}
-PlayerDataService.SCHEMA_VERSION = 10
+PlayerDataService.SCHEMA_VERSION = 11
+
+-- Extra fields for Snapshot() from services that load later (MonetizationService sets it:
+-- owned passes / perks for the SHOP and the Workshop's build slots).
+PlayerDataService.SnapshotExtras = nil :: ((Player) -> { [string]: any })?
+
+local PURCHASE_LOG_SIZE = 60 -- receipts remembered (a re-sent receipt is never granted twice)
 
 type Session = {
 	Data: any,
@@ -52,6 +60,7 @@ type Session = {
 	Saving: boolean,
 	LastSave: number,
 	Released: boolean?, -- final save started (player leaving / server closing)
+	ReleaseOk: boolean?, -- that final save was written
 }
 
 local sessions: { [Player]: Session } = {}
@@ -64,13 +73,18 @@ local DATA = Config.Data
 ------------------------------------------------------------------------------------------
 -- Defaults, migration & validation
 ------------------------------------------------------------------------------------------
+-- The starter build for slot `index` (slots past the starter list copy the first one).
+function PlayerDataService.DefaultBuild(index: number)
+	local template = Config.StarterBuilds[index] or Config.StarterBuilds[1]
+	local build = BuildValidator.Sanitize(template)
+	build.Name = Config.StarterBuilds[index] and template.Name or ("Nightmare %d"):format(index)
+	return build
+end
+
 local function defaultBuilds()
 	local builds = {}
 	for index = 1, Config.Builds.SlotCount do
-		local template = Config.StarterBuilds[index] or Config.StarterBuilds[1]
-		local build = BuildValidator.Sanitize(template)
-		build.Name = template.Name
-		builds[index] = build
+		builds[index] = PlayerDataService.DefaultBuild(index)
 	end
 	return builds
 end
@@ -126,7 +140,14 @@ local function makeDefaultProfile()
 		RunStyle = "Charge",
 		-- The Nightmare Gym (GymService): lifetime training seconds, rewards collected, best
 		-- tier ever (GymDefinitions.TierOrder rank), titles earned, boosts { [id] = expires os.time }
-		Gym = { TotalTime = 0, Rewards = 0, Best = 0, Titles = {}, Boosts = {} },
+		Gym = { TotalTime = 0, Rewards = 0, Best = 0, Titles = {}, Boosts = {}, ShiftFrom = 0 },
+		-- The SHOP (MonetizationService). Purchases.Log = { [receipt PurchaseId] = os.time }
+		-- (the newest PURCHASE_LOG_SIZE), Robux = lifetime Robux spent. Owned = what passes
+		-- have been granted ({ ["Pass:<key>"] = true }, for one-time grants). Titles = shop
+		-- titles ({ [MonetizationDefinitions.Titles id] = true }).
+		Purchases = { Log = {}, Robux = 0, Count = 0 },
+		Owned = {},
+		Titles = {},
 		CreatedAt = os.time(),
 	}
 end
@@ -212,6 +233,11 @@ local MIGRATIONS = {
 		-- v10 (map rebuild): relics found along the boss routes.
 		data.Relics = data.Relics or {}
 		data.Version = 10
+		return data
+	end,
+	[10] = function(data)
+		-- v11 (the SHOP): purchase log, granted passes, shop titles (validate fills them in).
+		data.Version = 11
 		return data
 	end,
 }
@@ -308,6 +334,33 @@ local function validate(data)
 			gym.Boosts[id] = nil
 		end
 	end
+	if not isNonNegativeInteger(gym.ShiftFrom) then
+		gym.ShiftFrom = 0
+	end
+
+	-- Shop: the receipt log (ids are strings, times whole numbers), granted passes, titles.
+	local purchases = data.Purchases
+	purchases.Log = type(purchases.Log) == "table" and purchases.Log or {}
+	for _, key in { "Robux", "Count" } do
+		if not isNonNegativeInteger(purchases[key]) then
+			purchases[key] = 0
+		end
+	end
+	for id, at in purchases.Log do
+		if type(id) ~= "string" or not isNonNegativeInteger(at) then
+			purchases.Log[id] = nil
+		end
+	end
+	for key, value in data.Owned do
+		if type(key) ~= "string" or value ~= true then
+			data.Owned[key] = nil
+		end
+	end
+	for id, value in data.Titles do
+		if not MonetizationDefinitions.Titles[id] or value ~= true then
+			data.Titles[id] = nil
+		end
+	end
 
 	-- Ranked record: whole, non-negative numbers only.
 	for _, key in { "Rating", "Peak", "Wins", "Losses", "Draws", "Games" } do
@@ -337,17 +390,24 @@ local function validate(data)
 		data.Pity.Legendary = 0
 	end
 
-	for index = 1, Config.Builds.SlotCount do
+	-- SlotCount builds, or up to MaxSlotCount (the +3 Build Slots pass grows the list;
+	-- extra slots are kept even if the pass goes away, so nothing is ever lost)
+	local slots = math.clamp(#data.Builds, Config.Builds.SlotCount, Config.Builds.MaxSlotCount)
+	for index = 1, slots do
+		local fallback = default.Builds[index] or PlayerDataService.DefaultBuild(index)
 		local build = BuildValidator.Sanitize(data.Builds[index])
 		if not build or not build.Parts.Core or not build.Parts.Head or not build.Parts.Legs then
-			build = default.Builds[index]
+			build = fallback
 		end
 		if build.Name == "" then
-			build.Name = default.Builds[index].Name
+			build.Name = fallback.Name
 		end
 		data.Builds[index] = build
 	end
-	if not isNonNegativeInteger(data.ActiveBuild) or data.ActiveBuild < 1 or data.ActiveBuild > Config.Builds.SlotCount then
+	for index = #data.Builds, slots + 1, -1 do
+		data.Builds[index] = nil
+	end
+	if not isNonNegativeInteger(data.ActiveBuild) or data.ActiveBuild < 1 or data.ActiveBuild > #data.Builds then
 		data.ActiveBuild = 1
 	end
 	return data
@@ -518,7 +578,7 @@ local function onPlayerRemoving(player: Player)
 	while session.Saving and os.clock() < deadline do
 		task.wait(0.1)
 	end
-	writeToStore(player, session, true)
+	session.ReleaseOk = writeToStore(player, session, true)
 	if sessions[player] == session then
 		sessions[player] = nil
 	end
@@ -577,7 +637,7 @@ function PlayerDataService:Start()
 				while session.Saving and os.clock() < deadline do
 					task.wait(0.1) -- let an in-flight autosave finish first
 				end
-				writeToStore(player, session, true)
+				session.ReleaseOk = writeToStore(player, session, true)
 				pending -= 1
 			end)
 		end
@@ -654,7 +714,36 @@ function PlayerDataService:Snapshot(player: Player)
 		Runs = Util.DeepCopy(data.Runs),
 		RunStyle = data.RunStyle,
 		Gym = Util.DeepCopy(data.Gym),
+		Owned = Util.DeepCopy(data.Owned),
+		Titles = Util.DeepCopy(data.Titles),
+		Shop = PlayerDataService.SnapshotExtras and PlayerDataService.SnapshotExtras(player) or nil,
 	}
 end
+
+-- Saves now and WAITS for the result (true = written, or nothing to write in a Studio
+-- test session). Used before telling Roblox a purchase was granted.
+function PlayerDataService:SaveAndWait(player: Player): boolean
+	local session = sessions[player]
+	if not session then
+		return false
+	end
+	if not session.Persistent then
+		return true
+	end
+	local deadline = os.clock() + 15
+	while session.Saving and os.clock() < deadline do
+		task.wait(0.1) -- an autosave is in flight: let it land, then write again
+	end
+	if session.Released then
+		-- the final (release) save is already under way and includes this change
+		while sessions[player] == session and os.clock() < deadline do
+			task.wait(0.1)
+		end
+		return sessions[player] ~= session and session.ReleaseOk == true
+	end
+	return writeToStore(player, session, false)
+end
+
+PlayerDataService.PurchaseLogSize = PURCHASE_LOG_SIZE
 
 return PlayerDataService

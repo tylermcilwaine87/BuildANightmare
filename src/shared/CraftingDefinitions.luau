@@ -56,6 +56,10 @@ end
 -- PLAIN copies of `partId` you could give up. Never takes your last copy, never breaks a
 -- saved build, and never touches MUTATED copies (those are kept safe).
 function CraftingDefinitions.SpareCount(profile, partId: string): number
+	local def = PartDefinitions.Get(partId)
+	if def and def.Exclusive then
+		return 0 -- SHOP exclusives are never dismantled (the pass tops them up on every join)
+	end
 	local owned = profile.Inventory[partId] or 0
 	local plainOwned = owned - MutationDefinitions.MutatedCount(profile, partId)
 	local needed, plainNeeded = 1, 0

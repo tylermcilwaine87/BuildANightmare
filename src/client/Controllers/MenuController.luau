@@ -72,6 +72,9 @@ local function tiles()
 		{ "CODEX", Color3.fromRGB(150, 80, 160), "Bosses, parts & mutations", function()
 			controllers.CodexController:Toggle()
 		end },
+		{ "SHOP", Color3.fromRGB(220, 165, 40), "Passes, exclusives & boosts", function()
+			controllers.ShopController:Open()
+		end },
 		{ "SETTINGS", C.PanelLighter, "Sound, camera & performance", function()
 			controllers.SettingsController:Toggle()
 		end },
@@ -101,7 +104,7 @@ function MenuController:BuildGui()
 	end)
 
 	local grid = UIKit.New("Frame", { Position = UDim2.fromScale(0, 0.13), Size = UDim2.fromScale(1, 0.87), BackgroundTransparency = 1, Parent = panel })
-	UIKit.New("UIGridLayout", { CellSize = UDim2.new(0.5, -6, 0.25, -6), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
+	UIKit.New("UIGridLayout", { CellSize = UDim2.new(0.5, -6, 0.2, -6), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
 	for order, tile in tiles() do
 		local label, color, hint, action = tile[1], tile[2], tile[3], tile[4]
 		local button = UIKit.Button({ Text = "", BackgroundColor3 = color, LayoutOrder = order, Parent = grid }, function()

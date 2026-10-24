@@ -19,12 +19,19 @@ function ProgressionService:Init(services)
 	self.UIState = Net.Get("UIStateUpdate")
 end
 
--- rewards = { XP = n, Coins = n, Essence = n }. Returns a summary for the reward screen.
+-- rewards = { XP = n, Coins = n, Essence = n } EARNED in play (the SHOP's perks multiply
+-- coins and XP here: 2x Coins, VIP, Premium; bought coins never come through here).
+-- Returns a summary for the reward screen (with the multiplied amounts).
 function ProgressionService:Award(player: Player, rewards)
 	local profile = self.Services.PlayerDataService:Get(player)
 	if not profile then
 		return nil
 	end
+	local shop = self.Services.MonetizationService
+	local coins = math.floor((rewards.Coins or 0) * (shop and shop:CoinMultiplier(player) or 1) + 0.5)
+	local xp = math.floor((rewards.XP or 0) * (shop and shop:XPMultiplier(player) or 1) + 0.5)
+	rewards = table.clone(rewards)
+	rewards.Coins, rewards.XP = coins, xp
 	local levelBefore = profile.Level
 	profile.Coins += rewards.Coins or 0
 	profile.Essence += rewards.Essence or 0

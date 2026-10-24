@@ -106,8 +106,11 @@ Gym.Boosts = {
 	Luck2 = { Name = "2x Luck", Cost = 250, Duration = 15 * 60, Luck = 2, Text = "Rare and better rewards are twice as likely." },
 	Luck3 = { Name = "3x Luck", Cost = 600, Duration = 15 * 60, Luck = 3, Text = "Rare and better rewards are three times as likely." },
 	Haste = { Name = "Fast Training", Cost = 200, Duration = 15 * 60, Speed = 1.5, Text = "Rewards arrive 1.5x as often." },
+	-- SHOP only (Robux; MonetizationDefinitions grants the time). No coin Cost.
+	Luck5 = { Name = "Mega Luck", Duration = 30 * 60, Luck = 5, Text = "Rare and better rewards are five times as likely." },
+	Turbo = { Name = "Turbo Training", Duration = 30 * 60, Speed = 2, Text = "Rewards arrive twice as often." },
 }
-Gym.BoostOrder = { "Luck2", "Luck3", "Haste" }
+Gym.BoostOrder = { "Luck2", "Luck3", "Haste" } -- (bought with coins in the gym)
 
 -- The real chance of each tier at a luck multiplier: { [tier] = 0..1 }.
 function Gym.Odds(luck: number)
@@ -124,8 +127,10 @@ function Gym.Odds(luck: number)
 	return weights
 end
 
--- Active multipliers from a profile.Gym.Boosts table ({ [id] = expiresAt os.time }).
-function Gym.Multipliers(boosts, now: number)
+-- Active multipliers from a profile.Gym.Boosts table ({ [id] = expiresAt os.time }): the
+-- strongest luck boost and the strongest speed boost. `extra` (optional, from the SHOP's
+-- passes and Server Luck: { Luck = x, Speed = x, MaxLuck, MaxSpeed }) multiplies on top.
+function Gym.Multipliers(boosts, now: number, extra)
 	local luck, speed = 1, 1
 	for id, expires in boosts or {} do
 		local def = Gym.Boosts[id]
@@ -133,6 +138,10 @@ function Gym.Multipliers(boosts, now: number)
 			luck = math.max(luck, def.Luck or 1)
 			speed = math.max(speed, def.Speed or 1)
 		end
+	end
+	if extra then
+		luck = math.min(luck * (extra.Luck or 1), extra.MaxLuck or math.huge)
+		speed = math.min(speed * (extra.Speed or 1), extra.MaxSpeed or math.huge)
 	end
 	return luck, speed
 end

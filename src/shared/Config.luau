@@ -33,6 +33,9 @@ Config.Dev = {
 	UnlockWaystonesInStudio = true,
 	-- Studio only: every fighting move and weapon unlocked (to try them without levelling)
 	UnlockAllMovesInStudio = true,
+	-- DEV ONLY: in Studio, act as a player from a country where Roblox restricts paid
+	-- random items, so the SHOP hides its luck items (PolicyService). Ignored live.
+	ShopRestrictedInStudio = false,
 	-- In Studio, a move whose AnimationDefinitions slot has no uploaded Id but has an
 	-- editable KeyframeSequence in Shared/Animations (e.g. Overhand.rbxm) plays THAT through
 	-- the Animator (registered locally, nothing published). Live servers need the published
@@ -66,6 +69,7 @@ Config.Data = {
 ------------------------------------------------------------------------------------------
 Config.Builds = {
 	SlotCount = 3, -- three saved Nightmares per player (e.g. Tank / Assassin / Abomination)
+	MaxSlotCount = 6, -- with the SHOP's +3 Build Slots pass (profile.Builds grows to this)
 	MaxNameLength = 20,
 	ScaleMin = 0.8,
 	ScaleMax = 1.25,
@@ -676,6 +680,7 @@ Config.RateLimits = {
 	PartyRequest = { Capacity = 6, RefillPerSecond = 1.5 },
 	ShowcaseRequest = { Capacity = 6, RefillPerSecond = 2 },
 	GymRequest = { Capacity = 6, RefillPerSecond = 1.5 },
+	ShopRequest = { Capacity = 6, RefillPerSecond = 1.5 },
 }
 
 return Config

@@ -25,6 +25,7 @@
 	  Summon           H                D-Pad Up
 	  Build            B                (MENU hub → Workshop)
   MENU hub         (HUD on phones)  D-Pad Right     every menu in one place
+	  SHOP             N                (MENU hub)      passes, exclusives, boosts
   Close a menu     X button         B
 	  PvP Colosseum    P                (HUD button)
   Codex            M                (HUD button)
@@ -103,6 +104,7 @@ local BINDINGS = {
 	[Enum.KeyCode.K] = "Settings",
 	[Enum.KeyCode.U] = "Fighter", -- moves, weapons (loadout) & run styles
 	[Enum.KeyCode.DPadRight] = "Menu", -- controller: the MENU hub (Workshop is its first tile)
+	[Enum.KeyCode.N] = "Shop",
 	[Enum.KeyCode.Z] = "LockOn",
 	[Enum.KeyCode.ButtonSelect] = "LockOn",
 }
@@ -112,6 +114,7 @@ local BINDINGS = {
 local function openMenus()
 	return {
 		{ controllers.MenuController, "Close" },
+		{ controllers.ShopController, "Close" },
 		{ controllers.FighterController, "Close" },
 		{ controllers.SettingsController, "Close" },
 		{ controllers.ShowcaseController, "Close" },
@@ -179,6 +182,10 @@ function InputController:Perform(action: string)
 	end
 	if action == "Menu" then
 		controllers.MenuController:Toggle()
+		return
+	end
+	if action == "Shop" then
+		controllers.ShopController:Toggle()
 		return
 	end
 	if action == "Fighter" then

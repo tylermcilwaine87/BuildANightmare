@@ -157,6 +157,9 @@ local function define(def)
 	def.SoundId = def.SoundId or "" -- PLACEHOLDER: add rbxassetid:// when audio exists
 	def.EffectId = def.EffectId or ""
 	def.Equippable = def.Equippable ~= false
+	-- Exclusive = true: a SHOP part (MonetizationDefinitions). Never drops, never
+	-- dismantled; owning its pass tops it back up. Same PowerCost rules as everything else.
+	def.Exclusive = def.Exclusive == true
 
 	PartDefinitions.ById[def.Id] = def
 end
