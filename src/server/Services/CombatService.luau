@@ -306,6 +306,10 @@ function CombatService:ApplyDamage(params): number
 		local absorbed = math.min(shield, amount)
 		target:SetAttribute("Shield", shield - absorbed)
 		amount -= absorbed
+		-- a shield that burns back (Magma Shell: AbilityDefinitions Retaliate)
+		if (target:GetAttribute("RetaliateUntil") or 0) > Workspace:GetServerTimeNow() then
+			self.Services.PassiveService:Retaliate(target, params.Attacker, params)
+		end
 	end
 
 	if amount <= 0 then

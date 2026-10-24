@@ -619,6 +619,84 @@ local ABILITY = {
 			{ T = 1.8 },
 		},
 	},
+
+	-- SHOP EXCLUSIVES ----------------------------------------------------------------
+	-- METEOR FIST (arm, Inferno Gauntlet): sink deep with the fist drawn back, spring up
+	-- (the server flies the body from 0.26: an arc onto the target) with the fist raised
+	-- straight up, tuck at the top, then come down FIST FIRST into the floor on the Hit frame
+	-- (0.85, the landing), folded over it, and wrench it out of the crater.
+	Ability_MeteorFist = {
+		Duration = 1.55,
+		Markers = { { 0.1, "StepL" }, { 0.28, "Whoosh" }, { 0.72, "Whoosh" }, { 0.85, "Hit" }, { 0.85, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.22, Joint_CorePos = { 0, -0.55, 0.25 }, Joint_Core = { -14, -12, 0 }, Joint_Head = { -8, 8, 0 }, Joint_RightArm = { 140, 0, 30 }, Joint_LeftArm = { 40, 0, -30 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { 30, 0, 0 } },
+			{ T = 0.32, Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 175, 0, 8 }, Joint_LeftArm = { 60, 0, -40 }, Sub_Legs_L = { -22, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } },
+			{ T = 0.6, Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_RightArm = { 172, 0, 6 }, Joint_LeftArm = { 70, 0, -40 }, Sub_Legs_L = { 45, 0, 0 }, Sub_Legs_R = { 38, 0, 0 } },
+			-- (measured on the hit frame: the fist's knuckles on the floor 2.0 studs ahead of the
+			-- body, the feet at their normal stance: AbilityDefinitions MeteorFist FistAhead)
+			{ T = 0.85, Joint_CorePos = { 0, -1.07, -1.0 }, Joint_Core = { -60, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 75, 0, 2 }, Joint_LeftArm = { 18, 0, -34 }, Sub_Legs_L = { 55, 0, 0 }, Sub_Legs_R = { -15, 0, 0 } },
+			{ T = 1.1, Joint_CorePos = { 0, -1.07, -1.0 }, Joint_Core = { -58, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 75, 0, 2 }, Joint_LeftArm = { 20, 0, -34 }, Sub_Legs_L = { 55, 0, 0 }, Sub_Legs_R = { -15, 0, 0 } },
+			{ T = 1.32, Joint_CorePos = { 0, -0.2, -0.25 }, Joint_Core = { -8, 6, 0 }, Joint_RightArm = { 30, 0, 12 }, Joint_LeftArm = { 14, 0, -14 } },
+			{ T = 1.55 },
+		},
+	},
+	-- DRAGON BREATH (head, Dragon Skull): rear back, head thrown up, the jaw cracking open
+	-- as it draws breath, then thrust the head forward with the jaw WIDE on the Hit frame
+	-- and pour fire for the five ticks (0.5 - 1.5), braced, swaying a little, then close.
+	Ability_DragonBreath = {
+		Duration = 1.9,
+		Markers = { { 0.38, "Whoosh" }, { 0.5, "Hit" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.38, Joint_CorePos = { 0, -0.1, 0.35 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 28, 0, 0 }, Sub_Head_Jaw = { -10, 0, 0 }, Joint_RightArm = { 30, 0, 25 }, Joint_LeftArm = { 30, 0, -25 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+			{ T = 0.5, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -12, 0, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 0.8, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, 5, 0 }, Joint_Head = { -12, -5, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.15, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, -5, 0 }, Joint_Head = { -12, 5, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.5, Joint_CorePos = { 0, -0.15, -0.35 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -10, 0, 0 }, Sub_Head_Jaw = { -32, 0, 0 }, Joint_RightArm = { -10, 0, 20 }, Joint_LeftArm = { -10, 0, -20 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+			{ T = 1.7, Joint_Head = { -2, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 } },
+			{ T = 1.9 },
+		},
+	},
+	-- PHOENIX DIVE (wings): the wings flare up high, then fold back as the body tips into
+	-- the dive (the server dashes it 16 studs on the Hit frame), and spread to pull out.
+	Ability_PhoenixDive = {
+		Duration = 0.7,
+		Markers = { { 0.2, "Whoosh" }, { 0.3, "Hit" }, { 0.55, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.18, Joint_CorePos = { 0, 0.35, 0.2 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Back_R = { 0, 0, 45 }, Sub_Back_L = { 0, 0, -45 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 20, 0, -30 } },
+			{ T = 0.3, Joint_CorePos = { 0, 0.15, -0.7 }, Joint_Core = { -42, 0, 0 }, Joint_Head = { 22, 0, 0 }, Sub_Back_R = { 0, 0, -25 }, Sub_Back_L = { 0, 0, 25 }, Joint_RightArm = { -50, 0, 10 }, Joint_LeftArm = { -50, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 0.5, Joint_CorePos = { 0, 0.05, -0.4 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Back_R = { 0, 0, 15 }, Sub_Back_L = { 0, 0, -15 } },
+			{ T = 0.7 },
+		},
+	},
+	-- MAGMA SHELL (core, Obsidian Heart): curl in tight around the heart, then throw the
+	-- arms wide and the head back as the lava crust bursts out over the body.
+	Ability_MagmaShell = {
+		Duration = 0.5,
+		Markers = { { 0.3, "Hit" }, { 0.3, "Land" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.15, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 50, 0, -40 }, Joint_LeftArm = { 50, 0, 40 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+			{ T = 0.3, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 95, 0, 70 }, Joint_LeftArm = { 95, 0, -70 } },
+			{ T = 0.5 },
+		},
+	},
+	-- VENOM STING (tail, Scorpion Tail): lean back and cock the stinger back over the body,
+	-- then lunge in and whip it forward over the head, driving the point down into what's in
+	-- front on the Hit frame, and hold it there a beat.
+	Ability_VenomSting = {
+		Duration = 0.95,
+		Markers = { { 0.12, "StepR" }, { 0.36, "Whoosh" }, { 0.45, "Hit" }, { 0.45, "StepL" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.28, Joint_CorePos = { 0, 0, 0.3 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_Tail = { 28, 0, 0 }, Sub_Legs_L = { -10, 0, 0 }, Sub_Legs_R = { 14, 0, 0 } },
+			{ T = 0.45, Joint_CorePos = { 0, -0.2, -0.5 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -60, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.62, Joint_CorePos = { 0, -0.2, -0.5 }, Joint_Core = { -15, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -57, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.95 },
+		},
+	},
 }
 
 -- ULTIMATES ("Ultimate_<Id>"): "Hit" = the Startup (when it goes off), then the body keeps
@@ -709,6 +787,42 @@ local ULTIMATE = {
 			{ T = 2.2 },
 		},
 	},
+	-- SUPERNOVA (Phoenix Wings): fold in, wings wrapped round, then FLARE: wings and arms
+	-- thrown wide, three times (1.2, 1.7, 2.2), each bigger
+	Ultimate_Supernova = (function()
+		local function fold(t)
+			local k = curl(t)
+			k.Sub_Back_R, k.Sub_Back_L = { 0, 0, -30 }, { 0, 0, 30 }
+			return k
+		end
+		local function flare(t, size)
+			local k = burst(t, size)
+			k.Sub_Back_R, k.Sub_Back_L = { 0, 0, 50 * size }, { 0, 0, -50 * size }
+			return k
+		end
+		return {
+			Duration = 2.8,
+			Markers = { { 1.2, "Hit" }, { 1.2, "Land" }, { 1.7, "Land" }, { 2.2, "Land" } },
+			Keys = { { T = 0 }, fold(0.9), fold(1.12), flare(1.2, 0.9), fold(1.55), flare(1.7, 1.05), fold(2.05), flare(2.2, 1.2), flare(2.5, 0.8), { T = 2.8 } },
+		}
+	end)(),
+	-- ERUPTION (Obsidian Heart): the heart shudders and swells, then it SPLITS: thrown back
+	-- arched, arms up, head back (1.3) and held, shaking, while the lava rains down
+	Ultimate_Eruption = {
+		Duration = 2.4,
+		Markers = { { 1.15, "Whoosh" }, { 1.3, "Hit" }, { 1.3, "Land" } },
+		Keys = {
+			{ T = 0 },
+			curl(0.5),
+			{ T = 0.7, Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -18, 0, 5 }, Joint_Head = { -20, 4, 0 }, Joint_RightArm = { 50, 0, -40 }, Joint_LeftArm = { 50, 0, 40 } },
+			{ T = 0.9, Joint_CorePos = { 0, -0.38, 0 }, Joint_Core = { -20, 0, -5 }, Joint_Head = { -22, -4, 0 }, Joint_RightArm = { 52, 0, -42 }, Joint_LeftArm = { 52, 0, 42 } },
+			curl(1.1),
+			{ T = 1.3, Joint_CorePos = { 0, 0.35, 0.15 }, Joint_Core = { 22, 0, 0 }, Joint_Head = { 32, 0, 0 }, Joint_RightArm = { 165, 0, 30 }, Joint_LeftArm = { 165, 0, -30 } },
+			{ T = 1.6, Joint_CorePos = { 0, 0.3, 0.15 }, Joint_Core = { 20, 0, 3 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 160, 0, 34 }, Joint_LeftArm = { 160, 0, -26 } },
+			{ T = 1.9, Joint_CorePos = { 0, 0.3, 0.15 }, Joint_Core = { 20, 0, -3 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 160, 0, 26 }, Joint_LeftArm = { 160, 0, -34 } },
+			{ T = 2.4 },
+		},
+	},
 }
 
 local POSES = {
@@ -772,7 +886,7 @@ for name, def in ABILITY do
 	POSES.Common[name] = def
 end
 -- (arm abilities: the left-arm version)
-for _, id in { "TentacleLash", "DemonRend", "MagnetPull", "HammerSlam" } do
+for _, id in { "TentacleLash", "DemonRend", "MagnetPull", "HammerSlam", "MeteorFist" } do
 	POSES.Common["Ability_" .. id .. "_Left"] = mirrored(ABILITY["Ability_" .. id])
 end
 for name, def in ULTIMATE do

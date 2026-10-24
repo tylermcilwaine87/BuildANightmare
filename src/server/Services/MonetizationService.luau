@@ -378,7 +378,10 @@ function MonetizationService:OnPassBought(player: Player, def)
 	end
 	for partId, count in def.Parts or {} do
 		local part = PartDefinitions.Get(partId)
-		table.insert(lines, ("%s%s"):format(count > 1 and ("%d x "):format(count) or "", part and part.DisplayName or partId))
+		local name = part and part.DisplayName or partId
+		if count > 1 or name ~= def.Name then -- (not "Scorpion Tail" twice)
+			table.insert(lines, ("%s%s"):format(count > 1 and ("%d x "):format(count) or "", name))
+		end
 	end
 	for _, perk in def.Perks or {} do
 		if perk == "ExtraBuildSlots" then

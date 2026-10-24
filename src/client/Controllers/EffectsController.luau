@@ -528,15 +528,28 @@ function EffectsController:Slam(data)
 	local position, radius, power = data.Position, data.Radius or 10, data.Power or 1
 	local level = controllers.SettingsController:Get("ImpactEffects")
 
-	-- shockwave: a flat ring hugging the floor
+	-- shockwave: a flat ring hugging the floor (a burning one for a fire slam: Meteor Fist)
 	local ring = newEffectPart({
 		Shape = Enum.PartType.Cylinder,
 		Size = Vector3.new(0.4, radius * 0.6, radius * 0.6),
 		CFrame = CFrame.new(position + Vector3.new(0, 0.25, 0)) * CFrame.Angles(0, 0, math.rad(90)),
-		Color = Color3.fromRGB(235, 215, 180),
-		Material = Enum.Material.SmoothPlastic,
+		Color = data.Fire and Color3.fromRGB(255, 120, 30) or Color3.fromRGB(235, 215, 180),
+		Material = data.Fire and Enum.Material.Neon or Enum.Material.SmoothPlastic,
 		Transparency = 0.35,
 	})
+	if data.Fire then
+		-- the crater glows and smoulders where the fist came down
+		local crater = newEffectPart({
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.2, radius * 0.9, radius * 0.9),
+			CFrame = CFrame.new(position + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			Color = Color3.fromRGB(255, 90, 20),
+			Material = Enum.Material.Neon,
+			Transparency = 0.25,
+		})
+		TweenService:Create(crater, TweenInfo.new(1.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Color = Color3.fromRGB(60, 20, 10) }):Play()
+		Debris:AddItem(crater, 1.7)
+	end
 	TweenService:Create(ring, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
 		Size = Vector3.new(0.15, radius * 3.2, radius * 3.2),
 		Transparency = 1,
@@ -597,6 +610,69 @@ function EffectsController:Slam(data)
 		end
 	end
 	controllers.AudioController:Play("BossSlam", position)
+end
+
+-- DRAGON BREATH (WorldFX "Breath"): fire pouring out of the head's front for Duration, in
+-- the same cone the server burns (Cone degrees wide, Range long: particle speed x life).
+-- It rides the head, so it follows the animation's thrust.
+local FIRE_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+function EffectsController:Breath(data)
+	local model = data.Target
+	local root = typeof(model) == "Instance" and model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	local head, best = nil, 0
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part.Name:sub(1, 5) == "Head_" and part.Size.Magnitude > best then
+			head, best = part, part.Size.Magnitude
+		end
+	end
+	head = head or root
+	local look = root.CFrame.LookVector
+	-- the head's front face, straight ahead of it
+	local extent = math.abs(head.CFrame.XVector:Dot(look)) * head.Size.X + math.abs(head.CFrame.YVector:Dot(look)) * head.Size.Y + math.abs(head.CFrame.ZVector:Dot(look)) * head.Size.Z
+	local mouth = head.Position + look * (extent / 2)
+	local localPos = head.CFrame:PointToObjectSpace(mouth)
+	local localLook = head.CFrame:VectorToObjectSpace(look)
+	local attachment = Instance.new("Attachment")
+	-- (+Y of the attachment points out of the mouth: particles emit along Top)
+	attachment.CFrame = CFrame.lookAt(localPos, localPos + localLook) * CFrame.Angles(-math.pi / 2, 0, 0)
+	attachment.Parent = head
+
+	local range = data.Range or 14
+	local life = 0.4
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = FIRE_TEXTURE
+	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.Lifetime = NumberRange.new(life * 0.9, life * 1.05)
+	emitter.Speed = NumberRange.new(range / life * 0.92, range / life)
+	emitter.SpreadAngle = Vector2.new((data.Cone or 50) / 2 * 0.85, (data.Cone or 50) / 2 * 0.85)
+	emitter.Rate = 160
+	emitter.Drag = 0.5
+	emitter.LightEmission = 0.85
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(0.6, 2.6), NumberSequenceKeypoint.new(1, 3.6) })
+	emitter.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.7, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	emitter.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 240, 150)),
+		ColorSequenceKeypoint.new(0.35, Color3.fromRGB(255, 140, 30)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 30, 10)),
+	})
+	emitter.RotSpeed = NumberRange.new(-120, 120)
+	emitter.Parent = attachment
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 140, 40)
+	light.Brightness = 3
+	light.Range = range
+	light.Parent = attachment
+	controllers.AudioController:Play("Projectile", mouth)
+
+	local duration = math.clamp(tonumber(data.Duration) or 1, 0.1, 4)
+	task.delay(duration, function()
+		emitter.Enabled = false
+		light.Enabled = false
+	end)
+	Debris:AddItem(attachment, duration + life + 0.2)
 end
 
 -- What a landed blow does AT the point of contact (on top of the victim's body reaction):
@@ -960,6 +1036,8 @@ function EffectsController:Start()
 			self:UltimateBanner(data)
 		elseif kind == "Slam" and typeof(data.Position) == "Vector3" then
 			self:Slam(data)
+		elseif kind == "Breath" then
+			self:Breath(data)
 		elseif kind == "MagnetBeam" then
 			self:MagnetBeam(data.From, data.To, data.Time)
 		elseif kind == "SpearThrow" and typeof(data.From) == "Vector3" and typeof(data.To) == "Vector3" then

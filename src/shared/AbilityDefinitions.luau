@@ -131,6 +131,54 @@ AbilityDefinitions.ById = {
 		Description = "The reactor vents in a devastating blast. Long cooldown.",
 		Damage = 60, Radius = 12, Offset = 0, Windup = 1.0, Recovery = 0.8, Cooldown = 25, Stagger = 60, Element = "Fire",
 	},
+
+	-- SHOP exclusives (PartDefinitions "Exclusive"): tuned like the free abilities of the
+	-- same rarity (Meteor Fist ~ Hammer Slam, Dragon Breath ~ Demon Rend over time).
+	-- Leap: the body jumps (an arc, Height high) to the target, at most Leap studs, and
+	-- lands on the Hit frame (Windup): Damage in Radius around the landing, knockdown.
+	-- FistAhead: where the fist comes down, ahead of the body (measured on the Hit frame).
+	MeteorFist = {
+		DisplayName = "Meteor Fist",
+		Type = "Leap",
+		Element = "Fire",
+		Description = "Leap high and smash down fist-first: a burning crater.",
+		Damage = 40, Radius = 8, Leap = 16, Height = 8, FistAhead = 2.0, Windup = 0.85, Recovery = 0.7, Cooldown = 12, Stagger = 50, Heavy = true,
+	},
+	-- Breath: a cone (Cone degrees wide, Range studs) in front of the head, Ticks hits
+	-- Interval apart from the Hit frame on; Damage is per tick.
+	DragonBreath = {
+		DisplayName = "Dragon Breath",
+		Type = "Breath",
+		Element = "Fire",
+		Description = "Rear back and pour a cone of fire over everything ahead.",
+		Damage = 9, Ticks = 5, Interval = 0.2, Range = 14, Cone = 50, Windup = 0.5, Recovery = 0.4, Cooldown = 11, Stagger = 6,
+	},
+	PhoenixDive = {
+		DisplayName = "Phoenix Dive",
+		Type = "Dash",
+		Element = "Fire",
+		Description = "Fold the wings and dive through them in a streak of flame.",
+		Damage = 20, Distance = 16, Width = 5, Windup = 0.3, Recovery = 0.4, Cooldown = 9,
+	},
+	-- Retaliate: while the shield is up, anything that hits it from within Range gets the
+	-- Status (PassiveService).
+	MagmaShell = {
+		DisplayName = "Magma Shell",
+		Type = "Shield",
+		Element = "Fire",
+		Description = "A crust of cooling lava: absorbs damage and burns whatever hits it.",
+		Amount = 70, Duration = 5, Windup = 0.3, Recovery = 0.2, Cooldown = 16,
+		Retaliate = { Status = "Burn", Range = 10 },
+	},
+	VenomSting = {
+		DisplayName = "Venom Sting",
+		Type = "Melee",
+		Element = "Poison",
+		Description = "Lunge in as the tail arcs over the head and stabs down, poisoning.",
+		-- Reach: the stinger is 3.05 studs ahead of the body on the Hit frame (measured,
+		-- NightmarePoses VENOM STING), so the lunge stops there and the hit lands on the point
+		Damage = 26, Range = 4, Width = 3, Lunge = 4, Reach = 3.05, Windup = 0.45, Recovery = 0.5, Cooldown = 8, Knockback = 8,
+	},
 }
 
 --[[
@@ -185,6 +233,21 @@ AbilityDefinitions.Ultimates = {
 		Element = "Shadow",
 		Description = "A gravity well drags enemies together, then detonates.",
 		Startup = 1.2, Damage = 70, PullRadius = 22, Radius = 10, Offset = 8, Stagger = 70,
+	},
+	-- SHOP exclusives
+	Supernova = {
+		DisplayName = "SUPERNOVA",
+		Type = "Nova",
+		Element = "Fire",
+		Description = "The phoenix flares three times, each wave of fire wider than the last.",
+		Startup = 1.2, Damage = 24, Radius = 13, Pulses = 3, Interval = 0.5, Stagger = 35,
+	},
+	Eruption = {
+		DisplayName = "ERUPTION",
+		Type = "Barrage",
+		Element = "Fire",
+		Description = "The heart splits open and lava rains down across the battlefield.",
+		Startup = 1.3, Damage = 32, Count = 8, Radius = 6, Area = 32, Stagger = 30,
 	},
 }
 

@@ -110,12 +110,12 @@ Monetization.Passes = {
 	},
 	ScorpionTail = {
 		Id = 0, Price = 199, Name = "Scorpion Tail", Icon = "🦂", Color = Color3.fromRGB(120, 210, 80), Category = "Exclusive",
-		Text = "A segmented stinger tail. Special: VENOM STING: arcs over the head and stabs far ahead, poisoning.",
+		Text = "A segmented stinger tail. Special: VENOM STING: lunges in as the tail arcs over its head and stabs down, poisoning.",
 		Parts = { ScorpionTail = 1 },
 	},
 	InfernoBundle = {
 		Id = 0, Price = 899, Name = "Inferno Bundle", Icon = "☄", Color = Color3.fromRGB(255, 90, 30), Category = "Featured", Badge = "SAVE 30%",
-		Text = "Inferno Gauntlets, Dragon Skull, Phoenix Wings and Obsidian Heart: a whole fire Nightmare.",
+		Text = "Inferno Gauntlets, Dragon Skull, Phoenix Wings and Obsidian Heart: a whole fire Nightmare. All of it together fits your power budget from level 10.",
 		Includes = { "InfernoGauntlets", "DragonSkull", "PhoenixWings", "ObsidianHeart" },
 	},
 

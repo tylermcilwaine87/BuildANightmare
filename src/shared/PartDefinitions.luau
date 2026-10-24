@@ -728,6 +728,191 @@ do
 		Visual = visual,
 	})
 end
+
+------------------------------------------------------------------------------------------
+-- SHOP EXCLUSIVES (MonetizationDefinitions). Priced in PowerCost like any part of their
+-- rarity and power, so they fit the same budget: different, not stronger. Each has its
+-- own special attack (AbilityDefinitions) and animation (NightmarePoses).
+------------------------------------------------------------------------------------------
+do
+	local basalt, iron, lava = RGB(92, 70, 64), RGB(130, 100, 84), RGB(255, 110, 30)
+	define({
+		Id = "InfernoGauntlet",
+		DisplayName = "Inferno Gauntlet",
+		Rarity = "Epic",
+		Slot = "Arm",
+		Exclusive = true,
+		Description = "A molten-iron arm ending in a fist the size of an anvil. The cracks glow hotter the harder it hits.",
+		Stats = { AttackPower = 15, MaxHealth = 10, AttackSpeed = -6 },
+		PowerCost = 21,
+		AbilityId = "MeteorFist",
+		OnHit = { Status = "Burn", Chance = 0.5, ComboHit = 3 },
+		Source = "SHOP exclusive (Inferno Gauntlets)",
+		AnimationSet = "Hammer",
+		Visual = {
+			-- shoulder pauldron with a lava seam
+			ball(1.2, V(0.3, 0.05, 0), basalt, Mat.Basalt),
+			block(V(1.3, 0.25, 1.3), V(0.45, 0.45, 0), iron, Mat.Metal, { Rot = V(0, 0, -18) }),
+			block(V(1.0, 0.08, 0.08), V(0.45, 0.2, -0.62), lava, Mat.Neon, { Rot = V(0, 0, -18) }),
+			-- upper arm and forearm, cracked with glowing seams
+			block(V(0.75, 1.5, 0.75), V(0.5, -0.85, 0), basalt, Mat.Basalt, { Rot = V(0, 0, 6) }),
+			block(V(0.08, 1.2, 0.08), V(0.52, -0.85, -0.39), lava, Mat.Neon, { Rot = V(0, 0, 14) }),
+			block(V(0.95, 1.2, 0.95), V(0.62, -2.0, 0), iron, Mat.Metal),
+			block(V(0.08, 0.9, 0.08), V(0.62, -2.0, -0.49), lava, Mat.Neon, { Rot = V(0, 0, -16) }),
+			block(V(1.05, 0.18, 1.05), V(0.62, -2.55, 0), lava, Mat.Neon),
+			-- the fist: a heavy block with knuckle spikes and a molten core showing through
+			block(V(1.45, 1.25, 1.45), V(0.62, -3.25, 0), basalt, Mat.Basalt),
+			block(V(1.1, 0.12, 1.5), V(0.62, -3.0, 0), lava, Mat.Neon, { Transparency = 0.1 }),
+			wedge(V(0.28, 0.4, 0.3), V(0.22, -3.65, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0) }),
+			wedge(V(0.28, 0.4, 0.3), V(0.62, -3.65, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0) }),
+			wedge(V(0.28, 0.4, 0.3), V(1.02, -3.65, -0.78), iron, Mat.Metal, { Rot = V(-90, 0, 0) }),
+		},
+	})
+end
+
+define({
+	Id = "DragonSkull",
+	DisplayName = "Dragon Skull",
+	Rarity = "Epic",
+	Slot = "Head",
+	Exclusive = true,
+	Description = "The horned skull of something that ruled the sky. There is still fire in its throat.",
+	Stats = { AttackPower = 9, MaxHealth = 15, Defence = 2 },
+	PowerCost = 15,
+	AbilityId = "DragonBreath",
+	OnHit = { Status = "Burn", Chance = 0.35, ComboHit = 3 },
+	Source = "SHOP exclusive",
+	-- hinged jaw (Sub_Head_Jaw) like the other skulls: it drops open for the breath
+	Groups = { Jaw = { Pivot = V(0, 0.55, 0.45) } },
+	Visual = {
+		-- cranium and long snout
+		block(V(1.9, 1.3, 1.8), V(0, 1.25, 0.1), RGB(205, 190, 165), Mat.SmoothPlastic),
+		block(V(1.3, 0.7, 1.6), V(0, 1.05, -1.4), RGB(215, 200, 175), Mat.SmoothPlastic),
+		wedge(V(1.3, 0.45, 0.8), V(0, 1.6, -0.95), RGB(195, 180, 155), Mat.SmoothPlastic),
+		-- ember eyes and nostrils
+		ball(0.42, V(0.62, 1.45, -0.62), RGB(255, 140, 30), Mat.Neon),
+		ball(0.42, V(-0.62, 1.45, -0.62), RGB(255, 140, 30), Mat.Neon),
+		ball(0.2, V(0.3, 1.3, -2.2), RGB(255, 90, 20), Mat.Neon),
+		ball(0.2, V(-0.3, 1.3, -2.2), RGB(255, 90, 20), Mat.Neon),
+		-- horns swept back, and a ridge of spines
+		block(V(0.3, 0.3, 2.0), V(0.75, 1.95, 1.0), RGB(60, 45, 40), Mat.Slate, { Rot = V(25, -12, 0) }),
+		block(V(0.3, 0.3, 2.0), V(-0.75, 1.95, 1.0), RGB(60, 45, 40), Mat.Slate, { Rot = V(25, 12, 0) }),
+		wedge(V(0.15, 0.5, 0.5), V(0, 2.05, 0.2), RGB(60, 45, 40), Mat.Slate),
+		wedge(V(0.15, 0.45, 0.45), V(0, 1.95, 0.75), RGB(60, 45, 40), Mat.Slate),
+		-- the throat glow (seen when the jaw drops) and upper fangs
+		block(V(1.0, 0.25, 1.6), V(0, 0.62, -0.9), RGB(255, 120, 30), Mat.Neon, { Transparency = 0.15 }),
+		wedge(V(0.15, 0.3, 0.15), V(0.42, 0.55, -2.05), RGB(245, 240, 225), Mat.SmoothPlastic, { Rot = V(180, 0, 0) }),
+		wedge(V(0.15, 0.3, 0.15), V(-0.42, 0.55, -2.05), RGB(245, 240, 225), Mat.SmoothPlastic, { Rot = V(180, 0, 0) }),
+		-- the jaw and its fangs
+		block(V(1.25, 0.45, 2.1), V(0, 0.25, -1.15), RGB(190, 175, 150), Mat.SmoothPlastic, { Group = "Jaw" }),
+		wedge(V(0.15, 0.3, 0.15), V(0.4, 0.6, -2.0), RGB(245, 240, 225), Mat.SmoothPlastic, { Group = "Jaw" }),
+		wedge(V(0.15, 0.3, 0.15), V(-0.4, 0.6, -2.0), RGB(245, 240, 225), Mat.SmoothPlastic, { Group = "Jaw" }),
+	},
+})
+
+do
+	-- feathers fanning out from each wing's root: deep red at the root to gold at the tips
+	-- (solid feathers; only a thin strip along each tip glows, so they read as feathers
+	-- rather than one blob of light at night)
+	local function feather(length, z, angle, color)
+		return block(V(length, 0.5, 0.1), V(length / 2 + 0.3, 0, z), color, Mat.SmoothPlastic, { Rot = V(0, 0, angle) })
+	end
+	local function tip(length, z, angle)
+		local a = math.rad(angle)
+		local along = V(math.cos(a), math.sin(a), 0)
+		return block(V(length * 0.35, 0.12, 0.12), V(0.3, 0, z) + along * length * 0.82 + V(-math.sin(a), math.cos(a), 0) * 0.22, RGB(255, 220, 90), Mat.Neon, { Rot = V(0, 0, angle) })
+	end
+	local groups, visual = symmetric(V(0.4, 0.3, 0.2), V(0, -22, 16), {
+		block(V(2.6, 0.5, 0.25), V(1.4, 0.35, 0), RGB(150, 30, 20), Mat.SmoothPlastic),
+		feather(3.6, 0, 18, RGB(255, 190, 50)),
+		feather(3.4, 0.02, 4, RGB(250, 150, 40)),
+		feather(3.1, 0.04, -10, RGB(240, 115, 30)),
+		feather(2.7, 0.06, -24, RGB(225, 80, 25)),
+		feather(2.2, 0.08, -38, RGB(200, 50, 20)),
+		tip(3.6, -0.02, 18),
+		tip(3.4, 0, 4),
+		tip(3.1, 0.02, -10),
+	}, {
+		ball(0.9, V(0, 0.2, 0.15), RGB(170, 40, 20), Mat.SmoothPlastic),
+	})
+	define({
+		Id = "PhoenixWings",
+		DisplayName = "Phoenix Wings",
+		Rarity = "Epic",
+		Slot = "Back",
+		Exclusive = true,
+		Description = "Wings of living flame. Every time they fold, they flare back brighter.",
+		Stats = { MoveSpeed = 2, AttackPower = 5, MaxHealth = 10 },
+		PowerCost = 17,
+		AbilityId = "PhoenixDive",
+		UltimateId = "Supernova", -- signature: overrides the Core's ultimate
+		Source = "SHOP exclusive",
+		Groups = groups,
+		Visual = visual,
+	})
+end
+
+define({
+	Id = "ObsidianHeart",
+	DisplayName = "Obsidian Heart",
+	Rarity = "Epic",
+	Slot = "Core",
+	Exclusive = true,
+	Description = "Volcanic glass around a heart of magma. It cracks when struck, and what leaks out burns.",
+	Stats = { MaxHealth = 80, Defence = 10, AttackPower = 4 },
+	PowerCost = 22,
+	AbilityId = "MagmaShell",
+	UltimateId = "Eruption",
+	Source = "SHOP exclusive",
+	Sockets = {
+		Head = V(0, 1.65, 0),
+		RightArm = V(1.75, 0.8, 0),
+		LeftArm = V(-1.75, 0.8, 0),
+		Legs = V(0, -1.6, 0),
+		Back = V(0, 0.6, 1.25),
+		Tail = V(0, -1.05, 1.25),
+	},
+	Visual = {
+		ball(3.3, V(0, 0, 0), RGB(62, 48, 70), Mat.Glass),
+		ball(1.7, V(0, 0, -0.55), RGB(255, 90, 20), Mat.Neon),
+		-- faceted shards of obsidian standing out of the shell
+		block(V(0.9, 1.7, 0.9), V(0.95, 0.75, -0.6), RGB(78, 62, 92), Mat.Glass, { Rot = V(-20, 0, -25) }),
+		block(V(0.8, 1.5, 0.8), V(-1.0, 0.6, -0.55), RGB(78, 62, 92), Mat.Glass, { Rot = V(-18, 0, 28) }),
+		block(V(1.0, 1.4, 1.0), V(0, 1.25, 0.6), RGB(72, 56, 84), Mat.Glass, { Rot = V(25, 0, 0) }),
+		-- lava veins
+		block(V(2.6, 0.1, 0.1), V(0, -0.6, -1.45), RGB(255, 120, 30), Mat.Neon, { Rot = V(0, 0, 12) }),
+		block(V(0.1, 2.2, 0.1), V(0.7, 0.1, -1.4), RGB(255, 120, 30), Mat.Neon, { Rot = V(0, 0, -10) }),
+		block(V(0.1, 1.6, 0.1), V(-0.8, -0.2, -1.35), RGB(255, 120, 30), Mat.Neon, { Rot = V(0, 0, 15) }),
+	},
+})
+
+define({
+	Id = "ScorpionTail",
+	DisplayName = "Scorpion Tail",
+	Rarity = "Rare",
+	Slot = "Tail",
+	Exclusive = true,
+	Description = "Seven armoured segments curling up over its back, and one very bad idea at the end.",
+	Stats = { AttackPower = 6, AttackSpeed = 4, Defence = 2 },
+	PowerCost = 12,
+	AbilityId = "VenomSting",
+	OnHit = { Status = "Poison", Chance = 0.4, ComboHit = 3 },
+	Source = "SHOP exclusive",
+	Visual = {
+		-- back, then curling up and forward over the body
+		ball(0.85, V(0, -0.1, 0.55), RGB(70, 50, 30), Mat.Slate),
+		ball(0.8, V(0, 0.25, 1.3), RGB(80, 58, 34), Mat.Slate),
+		ball(0.75, V(0, 0.95, 1.9), RGB(90, 64, 38), Mat.Slate),
+		ball(0.7, V(0, 1.8, 2.15), RGB(100, 72, 42), Mat.Slate),
+		ball(0.65, V(0, 2.65, 2.0), RGB(110, 80, 46), Mat.Slate),
+		ball(0.6, V(0, 3.35, 1.5), RGB(120, 88, 50), Mat.Slate),
+		ball(0.55, V(0, 3.75, 0.85), RGB(130, 96, 54), Mat.Slate),
+		-- the venom sac and the stinger, pointing forward and down
+		ball(0.6, V(0, 3.85, 0.25), RGB(120, 220, 70), Mat.Neon),
+		wedge(V(0.22, 0.75, 0.3), V(0, 3.6, -0.3), RGB(30, 30, 30), Mat.Slate, { Rot = V(-140, 0, 0) }),
+	},
+})
+
 ------------------------------------------------------------------------------------------
 -- API
 ------------------------------------------------------------------------------------------

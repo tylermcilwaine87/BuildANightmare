@@ -56,8 +56,9 @@ end
 function AbilityService:GetCastRange(brain, def): number
 	local half = brain.hitboxSize.Z / 2
 	if def.Type == "Melee" and def.Lunge then
-		-- a bite only goes off once the lunge can carry the jaws onto the target
-		return math.min(half + def.Range - 0.5, mouthReach(brain) + def.Lunge - 0.4)
+		-- a bite only goes off once the lunge can carry the jaws onto the target (Reach: a
+		-- striking limb that isn't the mouth, e.g. the scorpion's stinger, measured)
+		return math.min(half + def.Range - 0.5, (def.Reach or mouthReach(brain)) + def.Lunge - 0.4)
 	elseif def.Type == "Melee" then
 		return half + def.Range - 0.5
 	elseif def.Type == "AoE" then
@@ -66,6 +67,10 @@ function AbilityService:GetCastRange(brain, def): number
 		return half + def.Distance * 0.9
 	elseif def.Type == "Pull" then
 		return def.Range
+	elseif def.Type == "Leap" then
+		return def.Leap + half
+	elseif def.Type == "Breath" then
+		return half + def.Range * 0.8
 	end
 	return math.huge -- Shield
 end
@@ -106,6 +111,7 @@ local function damageTargets(self, brain, targets, def, knockback, motion)
 			AttackPower = brain.stats.AttackPower,
 			Knockback = knockback or 0,
 			Stagger = def.Stagger or 15,
+			Heavy = def.Heavy == true,
 			Status = def.Element and StatusDefinitions.ByElement[def.Element] or nil,
 			HitDirection = hitDirection,
 			Source = "Ability:" .. def.DisplayName,
@@ -113,10 +119,19 @@ local function damageTargets(self, brain, targets, def, knockback, motion)
 	end
 end
 
+-- The floor's height under `position` (nil over a void), ignoring every character.
+local FLOOR_PARAMS = RaycastParams.new()
+FLOOR_PARAMS.FilterType = Enum.RaycastFilterType.Exclude
+local function floorAt(position: Vector3, ignore): number?
+	FLOOR_PARAMS.FilterDescendantsInstances = ignore
+	local hit = Workspace:Raycast(position + Vector3.new(0, 8, 0), Vector3.new(0, -40, 0), FLOOR_PARAMS)
+	return hit and hit.Position.Y or nil
+end
+
 -- A short physical lunge at the target during the windup (a bite closing in): the body
 -- travels at most `maxDistance` studs, stopping with its front just short of the target,
 -- arriving as the windup ends (the contact frame).
-local function lungeAt(brain, target: Model?, windup: number, maxDistance: number)
+local function lungeAt(brain, target: Model?, windup: number, maxDistance: number, reach: number?)
 	local root = brain.root
 	local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
 	local attachment = root:FindFirstChild("FacingAttachment")
@@ -127,7 +142,7 @@ local function lungeAt(brain, target: Model?, windup: number, maxDistance: numbe
 	-- the bounding boxes touch: the box is far deeper than the head reaches
 	local offset = (targetRoot.Position - root.Position) * Vector3.new(1, 0, 1)
 	local extents = target:GetExtentsSize()
-	local contact = mouthReach(brain) + math.max(extents.X, extents.Z) / 2 - 0.4
+	local contact = (reach or mouthReach(brain)) + math.max(extents.X, extents.Z) / 2 - 0.4
 	local travel = math.clamp(offset.Magnitude - contact, 0, maxDistance)
 	if travel < 0.3 then
 		return
@@ -335,7 +350,7 @@ function AbilityService:Execute(brain, slot: number, target: Model?)
 
 	if def.Type == "Melee" then
 		if def.Lunge and target then
-			lungeAt(brain, target, windup, def.Lunge)
+			lungeAt(brain, target, windup, def.Lunge, def.Reach)
 		end
 		task.delay(windup, function()
 			if not stillValid(brain, castToken) then
@@ -425,6 +440,13 @@ function AbilityService:Execute(brain, slot: number, target: Model?)
 			end
 			damageTargets(self, brain, { target }, def, 0)
 		end)
+	elseif def.Type == "Leap" then
+		self:Leap(brain, castToken, def, target, windup)
+	elseif def.Type == "Breath" then
+		self:Breath(brain, castToken, def, windup)
+		local breathing = def.Ticks * def.Interval
+		brain.busyUntil = now + windup + breathing + def.Recovery
+		brain.cancelableAt = now + windup + breathing
 	elseif def.Type == "Shield" then
 		task.delay(windup, function()
 			if not stillValid(brain, castToken) then
@@ -432,12 +454,141 @@ function AbilityService:Execute(brain, slot: number, target: Model?)
 			end
 			brain.model:SetAttribute("Shield", def.Amount)
 			brain.model:SetAttribute("ShieldMax", def.Amount)
+			if def.Retaliate then
+				brain.model:SetAttribute("RetaliateUntil", Workspace:GetServerTimeNow() + def.Duration)
+				brain.model:SetAttribute("RetaliateStatus", def.Retaliate.Status)
+				brain.model:SetAttribute("RetaliateRange", def.Retaliate.Range)
+			end
 			Net.FireNearby(self.Services.TelegraphService.WorldFX, brain.root.Position, Config.Performance.EffectRadius, "Shield", { Target = brain.model, Duration = def.Duration })
 			task.delay(def.Duration, function()
 				if brain.model.Parent then
 					brain.model:SetAttribute("Shield", 0)
 				end
 			end)
+		end)
+	end
+end
+
+-- LEAP (Meteor Fist): crouch through the first part of the windup, then the body flies
+-- an arc onto the target (at most def.Leap studs, def.Height high at the top) and lands
+-- on the Hit frame; Damage in Radius around the fist (just in front of the body), with a
+-- knockdown. Driven frame by frame on the anchored body, like the bite's lunge, so every
+-- client sees it land with the animation.
+function AbilityService:Leap(brain, castToken: number, def, target: Model?, windup: number)
+	local root = brain.root
+	local hitbox = brain.hitboxSize
+	local ignore = ignoreList(brain)
+	local start = root.Position
+	local look = Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+	local reachAhead = def.FistAhead or hitbox.Z / 2 -- where the fist comes down, ahead of the body
+	local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+	local landing
+	if targetRoot then
+		table.insert(ignore, target)
+		local offset = Util.Flat(targetRoot.Position - start)
+		local travel = math.clamp(offset.Magnitude - reachAhead, 0, def.Leap)
+		look = Util.FlatUnit(offset) or look
+		landing = start + look * travel
+	else
+		landing = start + look * def.Leap * 0.6
+	end
+	-- keep the same standing height over a different floor
+	local floorHere, floorThere = floorAt(start, ignore), floorAt(landing, ignore)
+	if floorHere and floorThere then
+		landing = Vector3.new(landing.X, start.Y + (floorThere - floorHere), landing.Z)
+	else
+		landing = Vector3.new(landing.X, start.Y, landing.Z)
+	end
+	local ground = landing - Vector3.new(0, hitbox.Y / 2 + brain.humanoid.HipHeight, 0)
+	local center = ground + look * reachAhead
+	self.Services.TelegraphService:Circle(center, def.Radius, windup, "Friendly")
+
+	local takeoff = windup * 0.3
+	task.delay(takeoff, function()
+		if not stillValid(brain, castToken) or root.Anchored then
+			return
+		end
+		local flight = windup - takeoff
+		local facing = CFrame.lookAt(Vector3.zero, look)
+		root.Anchored = true
+		local began = os.clock()
+		local connection
+		connection = RunService.Heartbeat:Connect(function()
+			local t = math.min((os.clock() - began) / flight, 1)
+			if not stillValid(brain, castToken) or brain.model:GetAttribute("Ragdolled") then
+				connection:Disconnect()
+				if root.Parent then
+					root.Anchored = false
+				end
+				return
+			end
+			local arc = 4 * t * (1 - t) * def.Height
+			root.CFrame = facing + start:Lerp(landing, t) + Vector3.new(0, arc, 0)
+			if t >= 1 then
+				connection:Disconnect()
+				root.Anchored = false
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
+		end)
+	end)
+
+	task.delay(windup, function()
+		if not stillValid(brain, castToken) then
+			return
+		end
+		local telegraphs = self.Services.TelegraphService
+		telegraphs:Impact(center, def.Radius, "Friendly")
+		Net.FireNearby(telegraphs.WorldFX, center, Config.Performance.EffectRadius, "Slam", { Position = center, Radius = def.Radius, Power = 0.8, Fire = true })
+		local hits = {}
+		for _, model in self.Services.HitDetectionService:QueryRadius(center + Vector3.new(0, 3, 0), def.Radius + 3, ignoreList(brain), root.Position) do
+			local r = model:FindFirstChild("HumanoidRootPart")
+			if r and Util.FlatDistance(r.Position, center) <= def.Radius + math.max(r.Size.X, r.Size.Z) / 2 then
+				table.insert(hits, model)
+			end
+		end
+		damageTargets(self, brain, hits, def, 30)
+	end)
+end
+
+-- BREATH (Dragon Breath): from the Hit frame on, Ticks blasts Interval apart: everything
+-- within Range of the head's front and inside the Cone in front takes Damage (and the
+-- element's status). The fire on screen (WorldFX "Breath") is the same cone.
+function AbilityService:Breath(brain, castToken: number, def, windup: number)
+	local root = brain.root
+	local halfCone = math.rad(def.Cone / 2)
+	local duration = def.Ticks * def.Interval
+	task.delay(windup, function()
+		if not stillValid(brain, castToken) then
+			return
+		end
+		Net.FireNearby(self.Services.TelegraphService.WorldFX, root.Position, Config.Performance.EffectRadius, "Breath", {
+			Target = brain.model, Duration = duration, Range = def.Range, Cone = def.Cone,
+		})
+	end)
+	for tick = 0, def.Ticks - 1 do
+		task.delay(windup + tick * def.Interval, function()
+			if not stillValid(brain, castToken) then
+				return
+			end
+			local look = Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+			-- (the head's front + its thrust: 3.5 studs out on the Dragon Skull, measured)
+			local mouth = root.Position + look * mouthReach(brain)
+			local hits = {}
+			for _, model in self.Services.HitDetectionService:QueryRadius(mouth, def.Range + 3, ignoreList(brain), root.Position) do
+				local r = model:FindFirstChild("HumanoidRootPart")
+				if r then
+					local offset = Util.Flat(r.Position - mouth)
+					local size = math.max(r.Size.X, r.Size.Z) / 2
+					local distance = offset.Magnitude
+					-- inside the cone (a body's own width counts: its edge can be in the fire)
+					local angle = distance > 0.01 and math.acos(math.clamp(offset.Unit:Dot(look), -1, 1)) or 0
+					local slack = distance > 0.01 and math.atan2(size, distance) or math.pi
+					if distance <= def.Range + size and angle <= halfCone + slack then
+						table.insert(hits, model)
+					end
+				end
+			end
+			damageTargets(self, brain, hits, def, 2)
 		end)
 	end
 end

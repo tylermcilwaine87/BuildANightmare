@@ -62,6 +62,27 @@ function PassiveService:OnHit(target: Model, attacker: Model?, params)
 	end
 end
 
+-- A RETALIATING shield was hit (Magma Shell): the attacker, if close, gets its status
+-- (once a second each). Called by CombatService as the shield absorbs the blow.
+local retaliateReady = setmetatable({}, { __mode = "k" }) -- [shielded model] = { [attacker] = os.clock() }
+function PassiveService:Retaliate(target: Model, attacker: Model?, params)
+	if not attacker or not triggers(params) or attacker == target then
+		return
+	end
+	local status = target:GetAttribute("RetaliateStatus")
+	local range = target:GetAttribute("RetaliateRange") or 10
+	if type(status) ~= "string" or Util.FlatDistance(target:GetPivot().Position, attacker:GetPivot().Position) > range then
+		return
+	end
+	local ready = retaliateReady[target] or {}
+	retaliateReady[target] = ready
+	local now = os.clock()
+	if now >= (ready[attacker] or 0) then
+		ready[attacker] = now + 1
+		self.Services.StatusService:Apply(attacker, status, target)
+	end
+end
+
 function PassiveService:Init(services)
 	self.Services = services
 end
