@@ -1,4 +1,70 @@
-# BUILD A NIGHTMARE — v0.11.0 (the Nightmare Gym + a real Bite)
+# BUILD A NIGHTMARE — v0.12.0 (the SHOP)
+
+## The SHOP: game passes, developer products and exclusives (v0.12.0)
+
+Open it with the gold **SHOP** button on the top bar, the MENU hub's SHOP tile, **N** on a keyboard, the gym panel's "MORE LUCK & SPEED" button, the Workshop's "+3 SLOTS" tab, or the ARSENAL's SHOP button on a locked exclusive weapon.
+
+- **The catalog** is one file: [MonetizationDefinitions.luau](src/shared/MonetizationDefinitions.luau).
+- **MonetizationService** grants everything. A developer product is granted, logged and **saved before** Roblox is told it went through, so a purchase can never be lost or granted twice. Studio test: replaying the same receipt added 0 coins.
+- **Fair play:** exclusive parts cost normal PowerCost for what they do, so they fit the same power budget as earned parts (ranked PvP is capped at 100). They're different, not stronger. Exclusive weapons follow the same charge rules as the free ones. Paid boosts only affect the AFK gym.
+- **Paid random items:** luck items are hidden for players where Roblox restricts paid random items (PolicyService). The gym always shows its full odds.
+
+### Going live: create these on the Creator Dashboard
+
+On the Creator Dashboard, open your experience and go to **Monetization**. Create each entry below at its price, give it the text as its description and an icon (512×512), then paste its id into `Id = ...` in MonetizationDefinitions. Until an entry has an id, it's hidden on live servers and a free **TEST BUY** in Studio.
+
+**Game passes** (Monetization → Passes):
+
+| Key | Name | Price (R$) | What it does |
+|---|---|---|---|
+| VIP | VIP | 299 | [VIP] gold chat tag, +10% coins and XP, VIP title |
+| DoubleCoins | 2x Coins | 399 | double coins earned from fights, the gym and challenges |
+| LuckyTrainer | Lucky Trainer | 449 | permanent 2x gym luck (stacks with boosts) |
+| FastTrainer | Fast Trainer | 299 | the gym trains 1.5x faster, always |
+| NightShift | Night Shift | 349 | log off mid-training: up to 8 h at half speed, collected on return |
+| ExtraBuildSlots | +3 Build Slots | 199 | 6 saved Nightmares instead of 3 |
+| StarterPack | Starter Pack | 99 | 3,000 coins, 200 Essence, 1 h Fast Training, Founder title (once) |
+| InfernoGauntlets | Inferno Gauntlets | 349 | a pair of arms, special: METEOR FIST |
+| DragonSkull | Dragon Skull | 249 | head, special: DRAGON BREATH |
+| PhoenixWings | Phoenix Wings | 299 | back, special: PHOENIX DIVE, ultimate SUPERNOVA |
+| ObsidianHeart | Obsidian Heart | 299 | core, special: MAGMA SHELL, ultimate ERUPTION |
+| ScorpionTail | Scorpion Tail | 199 | tail, special: VENOM STING |
+| InfernoBundle | Inferno Bundle | 899 | Gauntlets + Skull + Wings + Heart (the whole set fits from level 10) |
+| ThunderHammer | Thunder Hammer | 349 | two-handed weapon: SMASH and EARTHSHAKER |
+| ShadowKunai | Shadow Kunai | 249 | thrown fans of kunai, KUNAI STORM |
+
+**Developer products** (Monetization → Developer Products):
+
+| Key | Name | Price (R$) | What it gives |
+|---|---|---|---|
+| Coins500 / Coins2500 / Coins7500 / Coins20000 | coin packs | 25 / 99 / 249 / 599 | that many coins |
+| Essence150 / Essence800 | Essence packs | 49 / 199 | that much Essence |
+| MegaLuck | Mega Luck (30 min) | 79 | 5x gym luck |
+| TurboTraining | Turbo Training (30 min) | 49 | gym rewards twice as often |
+| PowerHour | Power Hour | 199 | 1 h of Mega Luck + Turbo Training |
+| ServerLuck | Server Luck (15 min) | 99 | 2x gym luck for everyone in the server, announced |
+
+Also worth setting on the dashboard: a **private server** price, if you want to allow them. **Roblox Premium** members automatically get +10% coins in game, and Premium Payouts are paid to you automatically.
+
+How the gym's luck adds up: your strongest luck boost × Lucky Trainer (2) × Server Luck (2), capped at 20x. Speed works the same way (boost × Fast Trainer 1.5, capped at 4x). Night Shift uses only your own passes, never Server Luck.
+
+### The exclusives (each tested in Studio)
+
+| Item | Special | Measured in Studio |
+|---|---|---|
+| Inferno Gauntlet ×2 (arm) | METEOR FIST: crouch, leap an 8-stud arc onto them, land fist-first in a burning crater | rose 7.8, travelled 9.5, 61 damage 0.03 s after landing, Burn; the fist sits on the floor 2.0 ahead on the hit frame |
+| Dragon Skull (head, hinged jaw) | DRAGON BREATH: a 50°, 14-stud cone of fire, 5 ticks | 5 × 14 damage, the first on the hit frame; the fire you see is the same cone |
+| Phoenix Wings (back) | PHOENIX DIVE + ultimate SUPERNOVA | 24 damage on the hit frame, Burn |
+| Obsidian Heart (core) | MAGMA SHELL (a shield that burns attackers within 10) + ultimate ERUPTION | 70 shield soaks the hit; the attacker 5 studs away burns |
+| Scorpion Tail | VENOM STING: lunge in, stab over the head | 31 damage on the hit frame, Poison; it lunges to the stinger's measured reach (3.05 ahead) |
+| Thunder Hammer | swing, backswing, SMASH (Shock), P P K EARTHSHAKER | 15 / 15 / 24 / 26 on a dummy; the head crosses dead ahead on the sweeps and lands exactly on the floor for the smashes |
+| Shadow Kunai | fans of 3, P P P KUNAI STORM (5), WEAKEN | every blade flies its own line; hits apply Weaken |
+
+**Studio tips:**
+- `game.ServerStorage.DevBridge:Invoke("MonetizationService", "DevReset", player)` forgets your test passes.
+- `"DevReceipt", player, "Coins500", "any-id"` runs a product through the real receipt path.
+- `GymService:DevNightShift(player, hours)` simulates a Night Shift.
+- `Config.Dev.ShopRestrictedInStudio = true` previews the shop as a player in a paid-random-items-restricted country.
 
 ## The Nightmare Gym: AFK training (v0.11.0)
 

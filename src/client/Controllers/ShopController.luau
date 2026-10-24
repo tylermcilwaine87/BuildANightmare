@@ -136,11 +136,29 @@ function ShopController:Close()
 	end
 end
 
+-- Asks the server what you own right now. (Your passes are looked up as you join, and
+-- that first push can arrive before this client is listening, so the SHOP never trusts
+-- it alone: it asks again when it opens.)
+local function refreshState(): boolean
+	local ok, result = pcall(request.InvokeServer, request, "State")
+	local profile = controllers.ClientState.Profile
+	if ok and type(result) == "table" and type(result.Summary) == "table" and profile then
+		profile.Shop = result.Summary
+		return true
+	end
+	return false
+end
+
 function ShopController:Open(which: string?)
 	tab = which and table.find(Monetization.Categories, which) and which or tab
 	fetchPrices()
 	ui.Panel.Visible = true
 	self:Render()
+	task.spawn(function()
+		if refreshState() and self:IsOpen() then
+			self:Render()
+		end
+	end)
 	if UserInputService.GamepadEnabled then
 		GuiService.SelectedObject = ui.TabButtons[tab]
 	end
@@ -204,13 +222,13 @@ local function card(def, order: number)
 	UIKit.Label({ Text = kind, Position = UDim2.fromOffset(50, 24), Size = UDim2.new(1, -50, 0, 14), TextColor3 = C.SubText, MaxTextSize = 11, Parent = frame })
 	if def.Badge then
 		local badge = UIKit.Label({
-			Text = def.Badge, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 4, 0, -4), Size = UDim2.fromOffset(86, 20),
+			Text = def.Badge, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, -40), Size = UDim2.fromOffset(86, 18), -- (above the price, clear of the name)
 			BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(230, 60, 80), TextXAlignment = Enum.TextXAlignment.Center, MaxTextSize = 12, Parent = frame,
 		})
 		UIKit.Corner(6).Parent = badge
 	end
 	UIKit.Label({
-		Text = describe(def), Position = UDim2.fromOffset(0, 50), Size = UDim2.new(1, 0, 1, -94),
+		Text = describe(def), Position = UDim2.fromOffset(0, 50), Size = UDim2.new(1, 0, 1, -112),
 		Font = UIKit.FontBody, TextColor3 = C.Text, TextYAlignment = Enum.TextYAlignment.Top, MaxTextSize = 13, Parent = frame,
 	})
 
@@ -278,7 +296,17 @@ function ShopController:BuildGui()
 	UIKit.Responsive(panel)
 	ui.Panel = panel
 
-	UIKit.Label({ Text = "🛒 SHOP", Size = UDim2.new(0.5, 0, 0, 34), Font = UIKit.FontHeavy, TextColor3 = GOLD, MaxTextSize = 30, Parent = panel })
+	local title = UIKit.Label({ Text = "🛒 SHOP", Size = UDim2.new(0.5, 0, 0, 34), Font = UIKit.FontHeavy, TextColor3 = GOLD, MaxTextSize = 30, Parent = panel })
+	-- keep the title clear of Roblox's top-bar buttons (phones: the panel runs under them)
+	local function fitTitle()
+		local inset = GuiService.TopbarInset
+		local covered = title.AbsolutePosition.Y < inset.Max.Y
+		local pad = covered and math.max(0, inset.Min.X - panel.AbsolutePosition.X) or 0
+		title.Position = UDim2.fromOffset(pad, 0)
+	end
+	fitTitle()
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(fitTitle)
+	panel:GetPropertyChangedSignal("AbsolutePosition"):Connect(fitTitle)
 	UIKit.Button({ Text = "X", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(40, 34), BackgroundColor3 = C.PanelLighter, Parent = panel }, function()
 		self:Close()
 	end)
@@ -425,6 +453,8 @@ function ShopController:Start()
 			task.wait(0.5)
 		end
 	end)
+	-- (once your passes have been looked up: the VIP tag, the Workshop's slots... read it)
+	task.delay(6, refreshState)
 
 	-- VIP: a gold [VIP] tag and gold name in chat (the server sets the player's "VIP"
 	-- attribute while they own the pass)
