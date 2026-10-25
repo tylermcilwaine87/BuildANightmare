@@ -970,25 +970,38 @@ end
 -- A COUNTER combination (tag Counter, with an Evade) this body can throw right now, by
 -- Weight; nil when there's none or it's too tired.
 function NightmareAIService:PickCounter(brain, now: number)
-	if brain.possessedBy or brain.stamina < COMBAT.Stamina.Low then
+	-- (a counter is a moment, not a habit: a cooldown, and the same variety memory as strings)
+	if brain.possessedBy or brain.stamina < COMBAT.Stamina.Low or now < (brain.counterReadyAt or 0) then
 		return nil
 	end
 	local can = bodyCan(brain)
-	local options, total = {}, 0
+	local options, total, base = {}, 0, 0
 	for _, def in NM.Moveset do
 		if hasTag(def, "Counter") and def.Evade and canThrow(def, can) and COMBAT.CostOf(def) <= brain.stamina then
-			table.insert(options, def)
-			total += def.Weight
+			local w = def.Weight
+			for index, multiplier in COMBAT.Repeat do
+				if brain.history[index] == def.Action then
+					w *= multiplier
+				end
+			end
+			table.insert(options, { Def = def, Weight = w })
+			total += w
+			base += def.Weight
 		end
 	end
+	-- (just thrown it: much less likely to go for it again)
+	if total <= 0 or math.random() > total / base then
+		return nil
+	end
+	brain.counterReadyAt = now + COMBAT.CounterCooldown
 	local roll = math.random() * total
-	for _, def in options do
-		roll -= def.Weight
+	for _, option in options do
+		roll -= option.Weight
 		if roll <= 0 then
-			return def
+			return option.Def
 		end
 	end
-	return options[#options]
+	return options[#options].Def
 end
 
 -- Scores everything it could do and picks one in proportion. Returns { Kind, Def? }.

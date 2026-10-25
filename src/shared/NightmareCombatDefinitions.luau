@@ -115,6 +115,9 @@ Combat.Guard = { Time = { 0.7, 1.3 }, Absorb = 0.65, Action = "Guard_Hold", Stam
 -- the situation calls for one (a finisher on a staggered or nearly beaten target).
 Combat.SignatureCooldown = 18
 
+-- COUNTERS (React): at most one counter combination per this many seconds.
+Combat.CounterCooldown = 5
+
 -- "Auto" personality from the body: the build's parts suggest how it fights.
 function Combat.AutoPersonality(model: Model): string
 	local archetype = model:GetAttribute("Archetype")

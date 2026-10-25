@@ -1096,10 +1096,10 @@ local POSES = {
 				-- jaws wide, reaching in
 				{ T = 0.6, Joint_CorePos = { 0, 0.27, -0.6 }, Joint_Core = { -14, 6, 0 }, Joint_Head = { 10, -6, 0 }, Sub_Head_Jaw = { -50, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 26, 0, 0 }, Sub_Legs_BL = { -12, 0, 0 }, Sub_Legs_BR = { -12, 0, 0 }, Joint_Tail = { 0, -10, 0 } },
 				-- BITE
-				{ T = 0.7, Joint_CorePos = { 0, 0.23, -1.0 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { 75, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 48, 0, 0 }, Sub_Legs_FR = { 48, 0, 0 }, Sub_Legs_BL = { -26, 0, 0 }, Sub_Legs_BR = { -26, 0, 0 }, Joint_Tail = { 0, 0, 0 } },
+				{ T = 0.7, Joint_CorePos = { 0, 0.23, -1.0 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { 75, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 48, 0, 0 }, Sub_Legs_FR = { 48, 0, 0 }, Sub_Legs_BL = { 12, 0, 0 }, Sub_Legs_BR = { 12, 0, 0 }, Joint_Tail = { 0, 0, 0 } },
 				{ T = 0.9, Joint_CorePos = { 0, 0.25, -0.55 }, Joint_Core = { -12, -10, -4 }, Joint_Head = { 6, 14, 0 }, Sub_Head_Jaw = { -50, 0, 0 }, Sub_Legs_FL = { 28, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { -12, 0, 0 }, Sub_Legs_BR = { -12, 0, 0 }, Joint_Tail = { 0, 10, 0 } },
 				-- BITE and WRENCH: clamp and twist the head
-				{ T = 1.0, Joint_CorePos = { 0, 0.23, -1.0 }, Joint_Core = { -38, 10, 6 }, Joint_Head = { 75, -20, -14 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 48, 0, 0 }, Sub_Legs_FR = { 48, 0, 0 }, Sub_Legs_BL = { -26, 0, 0 }, Sub_Legs_BR = { -26, 0, 0 }, Joint_Tail = { 0, -14, 0 } },
+				{ T = 1.0, Joint_CorePos = { 0, 0.23, -1.0 }, Joint_Core = { -38, 10, 6 }, Joint_Head = { 75, -20, -14 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 48, 0, 0 }, Sub_Legs_FR = { 48, 0, 0 }, Sub_Legs_BL = { 12, 0, 0 }, Sub_Legs_BR = { 12, 0, 0 }, Joint_Tail = { 0, -14, 0 } },
 				-- rear up on the hind legs, forepaws high
 				{ T = 1.25, Joint_CorePos = { 0, 0.28, 0.3 }, Joint_Core = { 35, 0, 0 }, Joint_Head = { 24, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Sub_Legs_FL = { 80, 0, 0 }, Sub_Legs_FR = { 80, 0, 0 }, Sub_Legs_BL = { -35, 0, 0 }, Sub_Legs_BR = { -35, 0, 0 }, Joint_Tail = { -20, 0, 0 } },
 				-- SLAM: both forepaws down through them
