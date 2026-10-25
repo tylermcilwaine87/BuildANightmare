@@ -339,7 +339,7 @@ Config.Nightmare = {
 		{ Action = "Combo_PerfectCounter", Duration = 1.9, Weight = 3, Tags = { "Counter", "Kick", "Space" }, Cost = 24, Arms = true, BothArms = true, Legs = true, Evade = { Time = 0.26, Distance = 2.4 }, Hits = { { 0.46, 0.8, 4 }, { 0.7, 1.0, 8 }, { 1.0, 1.3, 30, true } } },
 		-- SAVAGE EXECUTION (a grab: Hold keeps them in front of the chest): collar grab, two
 		-- headbutts, hip toss (Throw: they fly off to its right, flipping)
-		{ Action = "Combo_SavageExecution", Duration = 2.2, Weight = 2, Tags = { "Grab", "GuardBreak", "Finisher" }, Cost = 28, Arms = true, BothArms = true, Head = true, Clinch = true, Grab = true, Hold = { Reach = 3.5, Height = 1.7, Lift = 3.5, Throw = Vector3.new(3.0, 0, -2.2) }, Throw = "Right", Hits = { { 0.3, 0.3 }, { 0.62, 0.9 }, { 0.94, 1.0 }, { 1.38, 1.8, 30, true, { Lift = 40, Push = 30, Spin = 7 } } } },
+		{ Action = "Combo_SavageExecution", Duration = 2.2, Weight = 2, Tags = { "Grab", "GuardBreak", "Finisher" }, Cost = 28, Arms = true, BothArms = true, Head = true, Legs = true, Clinch = true, Grab = true, Hold = { Reach = 3.5, Height = 1.7, Lift = 3.5, Throw = Vector3.new(3.0, 0, -2.2) }, Throw = "Right", Hits = { { 0.3, 0.3 }, { 0.62, 0.9 }, { 0.94, 1.0 }, { 1.38, 1.8, 30, true, { Lift = 40, Push = 30, Spin = 7 } } } },
 		-- CYCLONE DESTROYER (a SIGNATURE: rare; unlocked by beating the Storm Beast): jab,
 		-- spinning backfist, leaping double hammerfist
 		{ Action = "Combo_CycloneDestroyer", Duration = 2.3, Weight = 3, Tags = { "Signature", "Finisher", "Long" }, Cost = 40, Arms = true, BothArms = true, Legs = true, Unlock = { Boss = "StormBeast" }, Leap = { At = 1.2, Time = 0.3, Max = 5 }, Hits = { { 0.3, 0.5 }, { 0.72, 1.2, 14 }, { 1.58, 2.4, 0, true, { Lift = 50, Push = 18, Spin = 6 } } } },
