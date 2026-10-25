@@ -836,6 +836,21 @@ local POSES = {
 		Ability_RustySlash = RUSTY_SLASH,
 		Ability_RustySlash_Left = mirrored(RUSTY_SLASH),
 
+		-- GUARD (the combat brain covering up, NightmareCombatDefinitions.Guard): any body
+		-- sinks, tucks the head and brings up whatever arms it has; held, a small breathing
+		-- bob, then lets it go. (Played over the guard's time, 0.7 - 1.3 s.)
+		Guard_Hold = {
+			Duration = 1.0,
+			Markers = { { 0.12, "StepL" } },
+			Keys = {
+				{ T = 0 },
+				{ T = 0.12, Joint_CorePos = { 0, -0.35, 0.1 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 70, 0, -30 }, Joint_LeftArm = { 70, 0, 30 } },
+				{ T = 0.5, Joint_CorePos = { 0, -0.42, 0.1 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { 72, 0, -30 }, Joint_LeftArm = { 72, 0, 30 } },
+				{ T = 0.85, Joint_CorePos = { 0, -0.35, 0.1 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 70, 0, -30 }, Joint_LeftArm = { 70, 0, 30 } },
+				{ T = 1.0 },
+			},
+		},
+
 		-- GET UP after a knockdown: the server stands the body upright when the ragdoll
 		-- ends; this starts it low and folded over, pushing up off its arms, then rising
 		-- onto its legs into its stance, instead of popping straight up.
@@ -900,6 +915,20 @@ local POSES = {
 				-- and back up into the guard
 				{ T = 2.15, Joint_CorePos = { 0, 0.12, -0.3 }, Joint_Core = { -6, -10, 0 }, Joint_Legs = { 6, 10, 0 }, Joint_Head = { -10, 10, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
 				{ T = 2.4 },
+			},
+		},
+
+		-- HIGH GUARD (the combat brain covering up): elbows in, forearms stood up in front of
+		-- the face, chin down behind them, knees soft; it breathes behind it, then opens up.
+		Guard_Hold = {
+			Duration = 1.0,
+			Markers = { { 0.12, "StepL" } },
+			Keys = {
+				{ T = 0 },
+				{ T = 0.12, Joint_CorePos = { 0, -0.2, 0.1 }, Joint_Core = { -10, -6, 0 }, Joint_Legs = { 10, 6, 0 }, Joint_Head = { -16, 6, 0 }, Joint_RightArm = { 62, 0, -48 }, Sub_RightArm_Fore = { 125, 0, 0 }, Joint_LeftArm = { 66, 0, 46 }, Sub_LeftArm_Fore = { 122, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+				{ T = 0.5, Joint_CorePos = { 0, -0.28, 0.1 }, Joint_Core = { -13, -6, 0 }, Joint_Legs = { 13, 6, 0 }, Joint_Head = { -18, 6, 0 }, Joint_RightArm = { 64, 0, -50 }, Sub_RightArm_Fore = { 128, 0, 0 }, Joint_LeftArm = { 68, 0, 48 }, Sub_LeftArm_Fore = { 125, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				{ T = 0.85, Joint_CorePos = { 0, -0.2, 0.1 }, Joint_Core = { -10, -6, 0 }, Joint_Legs = { 10, 6, 0 }, Joint_Head = { -16, 6, 0 }, Joint_RightArm = { 62, 0, -48 }, Sub_RightArm_Fore = { 125, 0, 0 }, Joint_LeftArm = { 66, 0, 46 }, Sub_LeftArm_Fore = { 122, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+				{ T = 1.0 },
 			},
 		},
 

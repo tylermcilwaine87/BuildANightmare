@@ -980,6 +980,11 @@ function EffectsController:Start()
 				end
 			end
 			self:Flash(target)
+			if data.Guarded then
+				self:PopText(data.Position + Vector3.new(0, 2, 0), "GUARDED", Color3.fromRGB(150, 200, 255), 20)
+			elseif data.GuardBroken then
+				self:PopText(data.Position + Vector3.new(0, 2, 0), "GUARD BREAK!", C.Bad, 28)
+			end
 			local dir = typeof(data.Dir) == "Vector3" and data.Dir or nil
 			controllers.NightmareAnimator:Flinch(target, dir, data.Heavy)
 			-- a Handler takes it: head snaps, body driven the way of the blow, a heavy one
@@ -1037,6 +1042,20 @@ function EffectsController:Start()
 			end
 		elseif kind == "GuardBreak" then
 			self:PopText(data.Position, "GUARD BREAK!", C.Bad, 30)
+		elseif kind == "Finisher" then
+			-- a Nightmare's combination landed its finishing blow: its name over the target
+			-- and, if it's YOUR Nightmare, a short camera punch (a beat, never a cutscene)
+			local attacker = typeof(data.Attacker) == "Instance" and data.Attacker or nil
+			local target = typeof(data.Target) == "Instance" and data.Target or nil
+			local root = target and target:FindFirstChild("HumanoidRootPart")
+			if root and type(data.Name) == "string" then
+				local title = data.Name:gsub("^Combo_", ""):gsub("(%l)(%u)", "%1 %2"):upper()
+				local mine = attacker and attacker:GetAttribute("OwnerUserId") == localPlayer.UserId
+				self:PopText(root.Position + Vector3.new(0, 4, 0), title .. "!", data.Signature and Color3.fromRGB(255, 90, 60) or Color3.fromRGB(255, 200, 80), mine and 40 or 26)
+				if mine then
+					self:ImpactPunch(data.Signature and 1 or 0.7)
+				end
+			end
 		elseif kind == "KnockedDown" then
 			-- a boss floored by a signature strike: rare, so make it a moment
 			self:PopText(data.Position + Vector3.new(0, 5, 0), "KNOCKED DOWN!", Color3.fromRGB(255, 120, 70), 40)

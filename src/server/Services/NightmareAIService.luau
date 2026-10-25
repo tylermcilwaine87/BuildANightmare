@@ -50,6 +50,8 @@ local Util = require(Shared:WaitForChild("Util"))
 local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local Passives = require(Shared:WaitForChild("PassiveDefinitions"))
 
+local COMBAT = require(Shared:WaitForChild("NightmareCombatDefinitions"))
+
 local NightmareAIService = {}
 
 local brains = {} -- [Model] = brain
@@ -240,6 +242,16 @@ end
 ------------------------------------------------------------------------------------------
 local WILD = NM.Wild
 
+-- (the combat brain's stamina and move tags: NightmareCombatDefinitions)
+local function spendStamina(brain, amount: number, now: number)
+	brain.stamina = math.max(0, brain.stamina - amount)
+	brain.staminaSpentAt = now
+end
+
+local function hasTag(def, tag: string): boolean
+	return def.Tags ~= nil and table.find(def.Tags, tag) ~= nil
+end
+
 -- What this body can throw: punches need an arm, kicks need two legs (a Biped); the beast
 -- moves need four legs (Quad), a head (Head) or a tail (Tail).
 local function bodyCan(brain)
@@ -360,10 +372,24 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 	local speedScale = 100 / brain.stats.AttackSpeed
 	local hits = def.Hits
 	local lastHit = hits[#hits][1]
-	brain.busyUntil = now + (lastHit + WILD.AfterStringRest) * speedScale
+	-- the breather after it: the personality's and the mode's
+	local pause = WILD.AfterStringRest * (brain.personality and brain.personality.Pause or 1) * (brain.mode and brain.mode.Pause or 1)
+	brain.busyUntil = now + lastHit * speedScale + pause
 	brain.cancelableAt = now + hits[1][1] * speedScale + 0.05
 	brain.comboIndex = 1
 	brain.lastString = def.Action
+	brain.model:SetAttribute("NightmareGuard", nil)
+	-- the combat brain's bookkeeping: stamina, variety, the signature cooldown
+	if not brain.possessedBy then
+		spendStamina(brain, COMBAT.CostOf(def), now)
+	end
+	table.insert(brain.history, 1, def.Action)
+	if #brain.history > #COMBAT.Repeat then
+		table.remove(brain.history)
+	end
+	if hasTag(def, "Signature") then
+		brain.signatureReadyAt = now + COMBAT.SignatureCooldown
+	end
 	brain.finisherPending = true
 	brain.chainPending = math.random() < WILD.ChainChance * (brain.flair or 1)
 	if not brain.possessedBy then
@@ -447,6 +473,37 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 					table.insert(names, v.Name)
 				end
 				print(("[Combo] %s hit %d @%.2f gap %.1f -> %s"):format(def.Action, index, os.clock() - startedAt, targetRoot and Util.FlatDistance(targetRoot.Position, brain.root.Position) or -1, #names > 0 and table.concat(names, ",") or "MISS"))
+			end
+			-- the OPENER missed (they're out of reach): a thinking fighter doesn't swing on
+			-- at air. By personality it breaks off and resets (the client blends out of the
+			-- combination into footwork), else it keeps going and tries to catch them.
+			if index == 1 and #victims == 0 and #hits > 1 and not brain.possessedBy then
+				brain.whiffs[def.Action] = os.clock()
+				local abort = brain.personality and brain.personality.Abort or 0.6
+				if math.random() < abort then
+					brain.castToken += 1
+					brain.busyUntil = os.clock() + 0.35
+					brain.finisherPending = false
+					brain.chainPending = false
+					self:PlayAction(brain, "Gym_Bounce", 0.3, 0.6)
+					if logging then
+						print(("[Combo] %s ABORTED after a missed opener (%s)"):format(def.Action, brain.personality and brain.personality.Name or "?"))
+					end
+					release()
+					return
+				end
+			end
+			-- the last hit landed: mastery (the brain's unlocks), and a FINISHER moment
+			if index == #hits and #victims > 0 and not brain.possessedBy then
+				local profile = services.PlayerDataService:Get(brain.owner)
+				if profile and profile.ComboMastery then
+					profile.ComboMastery[def.Action] = (profile.ComboMastery[def.Action] or 0) + 1
+				end
+				if hasTag(def, "Finisher") or hasTag(def, "Signature") then
+					Net.FireNearby(services.CombatService.Feedback, brain.root.Position, Config.Performance.EffectRadius, "Finisher", {
+						Attacker = brain.model, Target = victims[1], Name = def.Display or def.Action, Signature = hasTag(def, "Signature"),
+					})
+				end
 			end
 			for _, victim in victims do
 				services.CombatService:ApplyDamage({
@@ -564,6 +621,7 @@ function NightmareAIService:QuickStep(brain, direction: Vector3, distance: numbe
 	end
 
 	brain.dashReadyAt = now + FIGHT.DashCooldown
+	brain.model:SetAttribute("NightmareGuard", nil) -- (stepping out drops the guard)
 	brain.busyUntil = now + FIGHT.DashTime + 0.08
 	brain.cancelableAt = brain.busyUntil
 	self:Stop(brain)
@@ -604,7 +662,7 @@ local function watchTarget(brain, target: Model?, now: number)
 	end
 	local fresh = target == brain.seenTarget
 	brain.seenSeq, brain.seenTarget = seq, target
-	if not fresh or math.random() >= FIGHT.ReactChance then
+	if not fresh then
 		return
 	end
 	local targetRoot = target:FindFirstChild("HumanoidRootPart")
@@ -612,7 +670,17 @@ local function watchTarget(brain, target: Model?, now: number)
 		return
 	end
 	local threat = brain.hitboxSize.Z / 2 + brain.stats.Reach + math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2 + 6
-	if Util.FlatDistance(brain.root.Position, targetRoot.Position) <= threat then
+	if Util.FlatDistance(brain.root.Position, targetRoot.Position) > threat then
+		return
+	end
+	-- the brain remembers how hard it's being pressed (ReadTarget: "pressured")
+	table.insert(brain.pressure, now)
+	-- a step costs stamina; an exhausted Nightmare can't always get out of the way
+	local chance = FIGHT.ReactChance * (brain.personality and brain.personality.Dodge or 1)
+	if brain.stamina < COMBAT.Stamina.StepCost then
+		chance *= 0.3
+	end
+	if math.random() < chance then
 		brain.reactAt = now + randomIn(FIGHT.ReactDelay)
 	end
 end
@@ -644,8 +712,11 @@ function NightmareAIService:React(brain, target: Model, now: number): boolean
 	else
 		stepped = self:QuickStep(brain, away, FIGHT.StepBackDistance, "StepBack", targetRoot.Position)
 	end
+	if stepped then
+		spendStamina(brain, COMBAT.Stamina.StepCost, now)
+	end
 	-- Step out... then straight back in with a hit (the attacker is stuck in its swing).
-	if stepped and math.random() < FIGHT.CounterChance then
+	if stepped and math.random() < math.min(0.95, FIGHT.CounterChance * (brain.personality and brain.personality.Counter or 1)) then
 		brain.counterAt = now + FIGHT.DashTime + FIGHT.CounterDelay
 		brain.circleUntil = 0
 	end
@@ -764,6 +835,181 @@ function NightmareAIService:HandleQueuedAbility(brain, target: Model?, now: numb
 		self:MoveTo(brain, targetRoot.Position)
 	end
 	return true
+end
+
+------------------------------------------------------------------------------------------
+-- THE COMBAT BRAIN (NightmareCombatDefinitions): what to do next, by the situation
+------------------------------------------------------------------------------------------
+-- x weight from a { [tag] = multiplier } table for every tag `def` carries.
+local function tagMultiplier(def, multipliers): number
+	local m = 1
+	for _, tag in COMBAT.TagsOf(def) do
+		m *= multipliers[tag] or 1
+	end
+	return m
+end
+
+-- What's going on with the target right now (the brain's view of the fight).
+function NightmareAIService:ReadTarget(brain, target: Model, now: number)
+	local humanoid = target:FindFirstChildOfClass("Humanoid")
+	local serverNow = Workspace:GetServerTimeNow()
+	local recent = 0
+	for i = #brain.pressure, 1, -1 do
+		if now - brain.pressure[i] > COMBAT.PressureWindow then
+			table.remove(brain.pressure, i)
+		else
+			recent += 1
+		end
+	end
+	return {
+		staggered = self.Services.StatusService:IsStaggered(target),
+		guarding = target:GetAttribute("Guarding") == true or (target:GetAttribute("NightmareGuard") or 0) > serverNow,
+		down = target:GetAttribute("Ragdolled") == true,
+		lowHealth = humanoid ~= nil and humanoid.Health / math.max(humanoid.MaxHealth, 1) < COMBAT.LowHealth,
+		armoured = CollectionService:HasTag(target, "Boss") or (target:GetAttribute("Defence") or 0) >= COMBAT.ArmouredDefence,
+		fast = humanoid ~= nil and humanoid.WalkSpeed > COMBAT.FastSpeed,
+		pressured = recent >= COMBAT.PressureAttacks,
+		followUp = brain.ownerHitTarget == target and now - (brain.ownerHitAt or -math.huge) < 1.2,
+		grabbable = canClinch(target),
+	}
+end
+
+-- Is this string allowed right now (body, stamina, unlocks, cooldowns, target)?
+function NightmareAIService:CanUse(brain, def, can, state, now: number): boolean
+	if not canThrow(def, can) or hasTag(def, "Counter") then
+		return false -- (counters only come out of an evade: React)
+	end
+	local floor = brain.mode and brain.mode.StaminaFloor or 0
+	if COMBAT.CostOf(def) > brain.stamina - floor and brain.stamina < COMBAT.Stamina.Max then
+		return false
+	end
+	if hasTag(def, "Grab") and def.Grab and not state.grabbable then
+		return false -- (a held grab needs something that can be held)
+	end
+	if hasTag(def, "Signature") and (now < brain.signatureReadyAt or not (state.staggered or state.lowHealth)) then
+		return false
+	end
+	if def.Unlock and def.Unlock.Boss then
+		local profile = self.Services.PlayerDataService:Get(brain.owner)
+		local record = profile and profile.Bosses[def.Unlock.Boss]
+		if not (record and (record.Wins or 0) > 0) and not RunService:IsStudio() then
+			return false
+		end
+	end
+	return true
+end
+
+-- Scores everything it could do and picks one in proportion. Returns { Kind, Def? }.
+function NightmareAIService:ChooseMove(brain, target: Model, now: number, state)
+	local personality = brain.personality or COMBAT.Personalities.Technical
+	local mode = brain.mode or COMBAT.Modes.Balanced
+	local can = bodyCan(brain)
+	local options = {}
+	local function add(kind, weight, def)
+		if weight > 0 then
+			table.insert(options, { Kind = kind, Weight = weight, Def = def })
+		end
+	end
+
+	-- forced (Studio demonstrations)
+	if brain.forceString and RunService:IsStudio() then
+		local forced = self:PickString(brain)
+		if forced then
+			return { Kind = "String", Def = forced }
+		end
+	end
+
+	if not state.down then
+		for _, def in NM.Moveset do
+			if self:CanUse(brain, def, can, state, now) then
+				local w = def.Weight * tagMultiplier(def, personality.Tags) * tagMultiplier(def, mode.Tags)
+				if state.staggered then w *= tagMultiplier(def, COMBAT.Situation.Staggered) end
+				if state.guarding then w *= tagMultiplier(def, COMBAT.Situation.Guarding) end
+				if state.lowHealth then w *= tagMultiplier(def, COMBAT.Situation.LowHealth) end
+				if state.armoured then w *= tagMultiplier(def, COMBAT.Situation.Armoured) end
+				if state.fast then w *= tagMultiplier(def, COMBAT.Situation.Fast) end
+				if state.pressured then w *= tagMultiplier(def, COMBAT.Situation.Pressured) end
+				if state.followUp and mode.FollowUp then
+					w *= hasTag(def, "Light") and mode.FollowUp or 1.3
+				end
+				for index, multiplier in COMBAT.Repeat do
+					if brain.history[index] == def.Action then
+						w *= multiplier
+					end
+				end
+				if now - (brain.whiffs[def.Action] or -math.huge) < COMBAT.WhiffMemory then
+					w *= COMBAT.WhiffPenalty
+				end
+				add("String", w, def)
+			end
+		end
+		if self:HeavyReady(brain, now) and can.Arms then
+			local w = COMBAT.Footwork.Heavy * (personality.Tags.Heavy or 1) * (mode.Tags.Heavy or 1)
+			if state.staggered then w *= 2.5 end
+			if state.guarding then w *= 2.0 end -- (it breaks guards)
+			add("Heavy", w)
+		end
+	end
+	-- footwork: always possible; more so when tired, when they're down, when pressured
+	local tired = brain.stamina < COMBAT.Stamina.Low
+	local function footwork(kind)
+		return COMBAT.Footwork[kind] * (personality.Footwork[kind] or 1) * (mode.Footwork[kind] or 1)
+	end
+	add("Circle", footwork("Circle") * (tired and 3 or 1) * (state.down and 6 or 1) * (mode.FollowUp and not state.followUp and 1.6 or 1))
+	if not state.down then
+		add("Feint", footwork("Feint") * (state.guarding and 1.6 or 1))
+		add("Flank", footwork("Flank") * (state.guarding and 1.4 or 1) * (state.boss and 2 or 1) * (brain.flair or 1))
+		add("Guard", footwork("Guard") * (state.pressured and 2.2 or 1) * (tired and 2.5 or 1))
+	end
+
+	local total = 0
+	for _, option in options do
+		total += option.Weight
+	end
+	if total <= 0 then
+		return { Kind = "Circle" }
+	end
+	local roll = math.random() * total
+	local picked = options[#options]
+	for _, option in options do
+		roll -= option.Weight
+		if roll <= 0 then
+			picked = option
+			break
+		end
+	end
+	if RunService:IsStudio() and Config.Dev.LogNightmareCombos then
+		table.sort(options, function(a, b)
+			return a.Weight > b.Weight
+		end)
+		local top = {}
+		for i = 1, math.min(4, #options) do
+			local o = options[i]
+			table.insert(top, ("%s %.1f"):format(o.Def and o.Def.Action or o.Kind, o.Weight / total * 100))
+		end
+		local flags = {}
+		for key, value in state do
+			if value == true then
+				table.insert(flags, key)
+			end
+		end
+		print(("[Brain] %s (%s/%s, stamina %d%s) -> %s   [%s%%]"):format(
+			brain.model.Name, brain.personality and brain.personality.Name or "?", brain.mode and brain.mode.Name or "?", brain.stamina,
+			#flags > 0 and (", " .. table.concat(flags, ",")) or "", picked.Def and picked.Def.Action or picked.Kind, table.concat(top, " | ")))
+	end
+	return picked
+end
+
+-- GUARD: cover up for a moment (CombatService halves light hits; a Heavy breaks it).
+function NightmareAIService:StartGuard(brain, now: number)
+	local guard = COMBAT.Guard
+	local time = randomIn(guard.Time)
+	brain.busyUntil = now + time
+	brain.cancelableAt = now + 0.15 -- (React may still step out of it)
+	self:Stop(brain)
+	self:PlayAction(brain, guard.Action, 0, time)
+	brain.model:SetAttribute("NightmareGuard", Workspace:GetServerTimeNow() + time)
+	spendStamina(brain, guard.StaminaDrain * time, now)
 end
 
 function NightmareAIService:Engage(brain, target: Model, now: number)
@@ -929,27 +1175,25 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 		brain.chainPending = true -- and keep going while it's open
 		return
 	end
-	if math.random() < (isBoss and WILD.BossFlankChance or WILD.FlankChance) * flair then
+	-- THE COMBAT BRAIN decides (personality, mode, the target's state, stamina, variety)
+	local state = self:ReadTarget(brain, target, now)
+	state.boss = isBoss -- (bosses get circled and flanked more: their reach is huge)
+	local choice = self:ChooseMove(brain, target, now, state)
+	if choice.Kind == "String" then
+		self:StartString(brain, choice.Def, target, now)
+	elseif choice.Kind == "Heavy" then
+		self:StartHeavy(brain, now)
+		spendStamina(brain, COMBAT.Stamina.CostByTag.Heavy, now)
+	elseif choice.Kind == "Guard" then
+		self:StartGuard(brain, now)
+	elseif choice.Kind == "Feint" then
+		self:StartFeint(brain, now)
+	elseif choice.Kind == "Flank" then
 		local angle = math.rad(randomIn(WILD.FlankAngle)) * (math.random() < 0.5 and -1 or 1)
 		brain.flank = { Direction = CFrame.Angles(0, angle, 0):VectorToWorldSpace(-toTarget), Until = now + WILD.FlankTime }
-		return
-	end
-	if math.random() < WILD.FeintChance * flair then
-		self:StartFeint(brain, now)
-		return
-	end
-	-- Heavy attack: on a staggered target, or now and then when it's ready.
-	local targetStaggered = self.Services.StatusService:IsStaggered(target)
-	if self:HeavyReady(brain, now) and (targetStaggered or math.random() < 0.25) then
-		self:StartHeavy(brain, now)
-		return
-	end
-	-- Otherwise a real string (jabs, hooks, uppercuts, kicks...), else the classic combo.
-	local picked = math.random() < WILD.StringChance and self:PickString(brain)
-	if picked then
-		self:StartString(brain, picked, target, now)
-	else
-		self:StartAttack(brain, now)
+	else -- Circle: reposition (and get its breath back) just outside reach
+		brain.circleUntil = now + randomIn(FIGHT.CircleTime)
+		brain.circleSign = math.random() < 0.5 and -1 or 1
 	end
 end
 
@@ -994,6 +1238,15 @@ function NightmareAIService:Update(brain, now: number, dt: number)
 	if duelService:IsFrozen(brain.owner) then
 		self:Stop(brain)
 		return
+	end
+	-- stamina comes back once it stops spending it (the brain backs off when it's low)
+	local stamina = COMBAT.Stamina
+	if brain.stamina < stamina.Max and now - brain.staminaSpentAt > stamina.RegenDelay then
+		brain.stamina = math.min(stamina.Max, brain.stamina + stamina.Regen * dt)
+	end
+	local shown = math.floor(brain.stamina / 5) * 5
+	if brain.model:GetAttribute("Stamina") ~= shown then
+		brain.model:SetAttribute("Stamina", shown)
 	end
 	if self.Services.StatusService:IsStaggered(brain.model) or brain.model:GetAttribute("Ragdolled") or brain.model:GetAttribute("Gripped") then
 		self:Stop(brain) -- (Gripped: held in another Nightmare's jaws)
@@ -1106,12 +1359,43 @@ function NightmareAIService:Register(model: Model, owner: Player, stats, info)
 		lastDamagedAt = 0,
 		-- personality: how wild this one fights (chains, flanks, feints), 0.6 - 1.2
 		flair = 0.6 + math.random() * 0.6,
+		-- THE COMBAT BRAIN (NightmareCombatDefinitions): stamina, what it threw lately,
+		-- which openers whiffed, how often the target has been attacking it, its style
+		stamina = COMBAT.Stamina.Max,
+		staminaSpentAt = 0,
+		history = {},
+		whiffs = {},
+		pressure = {},
+		signatureReadyAt = 0,
 		possessedBy = nil,
 		nextIdleAction = now + math.random(NM.IdleActionInterval[1], NM.IdleActionInterval[2]),
 	}
 	brains[model] = brain
 	brainByPlayer[owner] = brain
 	model:SetAttribute("Command", "Defend")
+	self:ApplyStyle(owner)
+end
+
+-- Reads the owner's chosen fighting style (profile.NightmareStyle) onto their brain;
+-- "Auto" picks the personality from the body.
+function NightmareAIService:ApplyStyle(player: Player)
+	local brain = brainByPlayer[player]
+	if not brain then
+		return
+	end
+	local profile = self.Services.PlayerDataService:Get(player)
+	local style = profile and profile.NightmareStyle or { Personality = "Auto", Mode = "Balanced" }
+	local id = style.Personality
+	if not COMBAT.Personalities[id] then
+		id = COMBAT.AutoPersonality(brain.model)
+	end
+	brain.personality = COMBAT.Personalities[id]
+	brain.mode = COMBAT.Modes[style.Mode] or COMBAT.Modes.Balanced
+	brain.model:SetAttribute("Personality", id)
+	brain.model:SetAttribute("FightMode", style.Mode)
+	-- (the command menu shows the CHOICE: "Auto" stays "Auto")
+	player:SetAttribute("NightmarePersonality", style.Personality)
+	player:SetAttribute("NightmareMode", style.Mode)
 end
 
 function NightmareAIService:Unregister(model: Model?)
@@ -1142,6 +1426,26 @@ function NightmareAIService:HandleCommand(player: Player, command, arg)
 			return
 		end
 		spawnService:SetSummoned(player, not spawnService:IsSummoned(player))
+		return
+	end
+
+	-- FIGHTING STYLE: { Personality = id, Mode = id } (either may be left out); saved, and
+	-- applied straight away if it's out
+	if command == "Style" then
+		local profile = self.Services.PlayerDataService:Get(player)
+		if type(arg) ~= "table" or not profile then
+			return
+		end
+		local style = profile.NightmareStyle
+		if type(arg.Personality) == "string" and table.find(COMBAT.PersonalityOrder, arg.Personality) then
+			style.Personality = arg.Personality
+		end
+		if type(arg.Mode) == "string" and COMBAT.Modes[arg.Mode] then
+			style.Mode = arg.Mode
+		end
+		self:ApplyStyle(player)
+		player:SetAttribute("NightmarePersonality", style.Personality)
+		player:SetAttribute("NightmareMode", style.Mode)
 		return
 	end
 
@@ -1207,6 +1511,17 @@ function NightmareAIService:Start()
 		local attackerBrain = attacker and brains[attacker]
 		if attackerBrain then
 			attackerBrain.lastLandedAt = now
+		end
+		-- the OWNER landed a hit: the brain notes it (ReadTarget "followUp"), and in Assist
+		-- mode it goes after whatever its Handler is hitting
+		local ownerPlayer = attacker and Players:GetPlayerFromCharacter(attacker)
+		local ownerBrain = ownerPlayer and brainByPlayer[ownerPlayer]
+		if ownerBrain and CollectionService:HasTag(target, "Enemy") then
+			ownerBrain.ownerHitAt, ownerBrain.ownerHitTarget = now, target
+			if ownerBrain.mode and ownerBrain.mode.FollowUp and ownerBrain.command ~= "Retreat" and ownerBrain.command ~= "Attack" and ownerBrain.target ~= target then
+				ownerBrain.target = target
+				ownerBrain.targetSince = now
+			end
 		end
 		local brain = brains[target]
 		if not brain then

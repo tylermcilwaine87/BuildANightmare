@@ -22,9 +22,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Net = require(Shared:WaitForChild("Net"))
 local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local StatusDefinitions = require(Shared:WaitForChild("StatusDefinitions"))
 local LevelUnlocks = require(Shared:WaitForChild("LevelUnlocks"))
+local NightmareCombat = require(Shared:WaitForChild("NightmareCombatDefinitions"))
 local UIKit = require(script.Parent:WaitForChild("UIKit"))
 
 local HUDController = {}
@@ -167,7 +169,7 @@ local function buildCommandMenu(gui: ScreenGui)
 		Name = "CommandMenu",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.4),
-		Size = UDim2.fromOffset(440, 240),
+		Size = UDim2.fromOffset(440, 336),
 		BackgroundColor3 = C.Panel,
 		BackgroundTransparency = 0.05,
 		Visible = false,
@@ -197,6 +199,34 @@ local function buildCommandMenu(gui: ScreenGui)
 		end)
 		table.insert(ui.CommandButtons, button)
 	end
+	-- FIGHTING STYLE (the combat brain, NightmareCombatDefinitions): how it fights on its own.
+	-- Each button cycles; the choice is saved. (The menu stays open while you pick.)
+	local function styleRow(order: number, label: string, list, attribute: string, default: string, key: string, color: Color3)
+		local current = function()
+			return localPlayer:GetAttribute(attribute) or default
+		end
+		local blurb = function(id)
+			local def = (key == "Personality" and NightmareCombat.Personalities[id]) or NightmareCombat.Modes[id]
+			return def and def.Blurb or "Picked from its body: how it's built decides how it fights."
+		end
+		local button
+		local function refresh()
+			local id = current()
+			button.Text = ("%s: %s  —  %s"):format(label, string.upper(id), blurb(id))
+		end
+		button = UIKit.Button({ Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = color, MaxTextSize = 13, LayoutOrder = order, Parent = menu }, function()
+			local index = table.find(list, current()) or 0
+			local nextId = list[index % #list + 1]
+			localPlayer:SetAttribute(attribute, nextId) -- (shown straight away; the server confirms)
+			refresh()
+			Net.Get("NightmareCommand"):FireServer("Style", { [key] = nextId })
+		end)
+		localPlayer:GetAttributeChangedSignal(attribute):Connect(refresh)
+		refresh()
+		table.insert(ui.CommandButtons, button)
+	end
+	styleRow(10, "STYLE", NightmareCombat.PersonalityOrder, "NightmarePersonality", "Auto", "Personality", Color3.fromRGB(120, 70, 160))
+	styleRow(11, "MODE", NightmareCombat.ModeOrder, "NightmareMode", "Balanced", "Mode", Color3.fromRGB(70, 90, 150))
 end
 
 function HUDController:ToggleCommandMenu(force: boolean?)

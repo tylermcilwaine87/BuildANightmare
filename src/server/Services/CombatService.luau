@@ -36,6 +36,7 @@ local Net = require(Shared:WaitForChild("Net"))
 local StatCalculator = require(Shared:WaitForChild("StatCalculator"))
 local Util = require(Shared:WaitForChild("Util"))
 local Passives = require(Shared:WaitForChild("PassiveDefinitions"))
+local NightmareCombat = require(Shared:WaitForChild("NightmareCombatDefinitions"))
 
 local CombatService = {}
 
@@ -299,6 +300,18 @@ function CombatService:ApplyDamage(params): number
 	elseif (target:GetAttribute("PhaseUntil") or 0) > Workspace:GetServerTimeNow() then
 		amount = 0 -- (Afterimage passive) mid-step: the blow hits the afterimage
 	end
+	-- a Nightmare covering up (the combat brain's GUARD): light blows are mostly absorbed;
+	-- a Heavy smashes the guard open and staggers it harder
+	local guarded, guardBroken = false, false
+	if (target:GetAttribute("NightmareGuard") or 0) > Workspace:GetServerTimeNow() and not params.Unblockable then
+		if params.Heavy then
+			guardBroken = true
+			target:SetAttribute("NightmareGuard", nil)
+		else
+			guarded = true
+			amount *= 1 - NightmareCombat.Guard.Absorb
+		end
+	end
 
 	-- Shields (abilities) absorb damage before health.
 	local shield = target:GetAttribute("Shield") or 0
@@ -347,6 +360,9 @@ function CombatService:ApplyDamage(params): number
 	-- client-owned, so impulses from the server would be ignored or fight the client.
 	-- (a small body gets sent much further than a big one)
 	local knockback = (params.Knockback or 0) * (attacker and sizeFactor(RAG.SizeThrow, attacker, target) or 1)
+	if guarded then
+		knockback *= 0.3 -- (braced behind the guard)
+	end
 	if Passives.Has(target, "Sturdy") then
 		knockback *= Passives.ById.Sturdy.KnockbackMultiplier -- (passive) planted
 	end
@@ -379,7 +395,7 @@ function CombatService:ApplyDamage(params): number
 		local boss = isBoss(target)
 		local worthy = if boss then special else (special or big or knockback >= cfg.MinKnockback)
 		-- NoKnockdown: the blow holds them instead (a bite's clamp keeps them in its jaws)
-		if worthy and not params.NoKnockdown then
+		if worthy and not params.NoKnockdown and not guarded then
 			local chance = self:KnockdownChance(attacker, target, big or params.Launch ~= nil)
 			if chance > 0 and random:NextNumber() < chance then
 				local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis
@@ -417,6 +433,11 @@ function CombatService:ApplyDamage(params): number
 	if humanoid.Health > 0 then
 		if params.Stagger and params.Stagger > 0 then
 			local stagger = params.Stagger * (exposed and Config.Bosses.Exposed.StaggerMultiplier or 1)
+			if guarded then
+				stagger *= 0.35
+			elseif guardBroken then
+				stagger *= 2
+			end
 			if synced > 1 then
 				stagger *= Config.Sync.StaggerMultiplier
 			end
@@ -442,6 +463,8 @@ function CombatService:ApplyDamage(params): number
 		Exposed = exposed or nil, -- (punished an exposed boss)
 		Broken = broken or nil, -- (hit a broken boss)
 		Synced = synced > 1 or nil, -- (a synced hit)
+		Guarded = guarded or nil, -- (blocked by a Nightmare's guard)
+		GuardBroken = guardBroken or nil,
 	})
 
 	for _, listener in damageListeners do

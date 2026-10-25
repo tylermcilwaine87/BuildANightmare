@@ -43,6 +43,7 @@ local MeleeDefinitions = require(Shared:WaitForChild("MeleeDefinitions"))
 local SettingsDefinitions = require(Shared:WaitForChild("SettingsDefinitions"))
 
 local MonetizationDefinitions = require(Shared:WaitForChild("MonetizationDefinitions"))
+local NightmareCombat = require(Shared:WaitForChild("NightmareCombatDefinitions"))
 
 local PlayerDataService = {}
 PlayerDataService.SCHEMA_VERSION = 11
@@ -148,6 +149,10 @@ local function makeDefaultProfile()
 		Purchases = { Log = {}, Robux = 0, Count = 0 },
 		Owned = {},
 		Titles = {},
+		-- How the Nightmare fights (NightmareCombatDefinitions): personality ("Auto" = from its
+		-- body) and mode; Mastery = { [Moveset action] = times it landed one in a fight }
+		NightmareStyle = { Personality = "Auto", Mode = "Balanced" },
+		ComboMastery = {},
 		CreatedAt = os.time(),
 	}
 end
@@ -359,6 +364,19 @@ local function validate(data)
 	for id, value in data.Titles do
 		if not MonetizationDefinitions.Titles[id] or value ~= true then
 			data.Titles[id] = nil
+		end
+	end
+	-- Nightmare fighting style: known values only
+	local style = data.NightmareStyle
+	if style.Personality ~= "Auto" and not NightmareCombat.Personalities[style.Personality] then
+		style.Personality = "Auto"
+	end
+	if not NightmareCombat.Modes[style.Mode] then
+		style.Mode = "Balanced"
+	end
+	for id, count in data.ComboMastery do
+		if type(id) ~= "string" or not isNonNegativeInteger(count) then
+			data.ComboMastery[id] = nil
 		end
 	end
 
@@ -716,6 +734,8 @@ function PlayerDataService:Snapshot(player: Player)
 		Gym = Util.DeepCopy(data.Gym),
 		Owned = Util.DeepCopy(data.Owned),
 		Titles = Util.DeepCopy(data.Titles),
+		NightmareStyle = Util.DeepCopy(data.NightmareStyle),
+		ComboMastery = Util.DeepCopy(data.ComboMastery),
 		Shop = PlayerDataService.SnapshotExtras and PlayerDataService.SnapshotExtras(player) or nil,
 	}
 end
