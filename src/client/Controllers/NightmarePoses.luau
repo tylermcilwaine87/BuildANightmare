@@ -825,6 +825,29 @@ local ULTIMATE = {
 	},
 }
 
+-- THE BOXER'S GUARD (the autonomous combos): bladed, chin down, fists by the face, elbows
+-- bent (Sub_*Arm_Fore), the feet planted while the hips turn (Joint_Legs counter-turns the
+-- core). Combo keys are this with a few joints changed (at()).
+local BOXER = {
+	Joint_CorePos = { 0, 0.12, 0 }, Joint_Core = { -6, -10, 0 }, Joint_Legs = { 6, 10, 0 }, Joint_Head = { -10, 10, 0 },
+	Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 },
+	Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 },
+}
+-- (the Brutal Boxer's measured punches, reused: lead hook and rear uppercut contact frames)
+local B_HOOK_LOAD = { Joint_Core = { -8, 22, 2 }, Joint_Legs = { 8, -22, 0 }, Joint_Head = { -10, -6, 0 }, Joint_LeftArm = { 84, 0, -8 }, Sub_LeftArm_Fore = { 72, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
+local B_HOOK = { Joint_Core = { -8, -35, 4 }, Joint_Legs = { 8, 35, -4 }, Joint_Head = { -10, 14, 0 }, Joint_LeftArm = { 80, 0, 40 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 22, 0, 0 } }
+local B_DIP = { Joint_Core = { -14, -22, 0 }, Joint_Legs = { 14, 22, 0 }, Joint_Head = { -12, 8, 0 }, Joint_RightArm = { 38, 0, -42 }, Sub_RightArm_Fore = { 112, 0, 0 }, Joint_LeftArm = { 56, 0, 48 }, Sub_LeftArm_Fore = { 98, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
+local B_UPPER = { Joint_Core = { 2, 28, 0 }, Joint_Legs = { -2, -28, 0 }, Joint_Head = { -6, -10, 0 }, Joint_RightArm = { 60, 0, -45 }, Sub_RightArm_Fore = { 85, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
+local function with(...)
+	local out = {}
+	for _, part in { ... } do
+		for joint, v in part do
+			out[joint] = v
+		end
+	end
+	return out
+end
+
 local POSES = {
 	-- Any body (Nightmares, enemies, bosses: everything has Joint_Core; legs / arms / head
 	-- are used where they exist). The gym's bag work (GYM above) is merged in below.
@@ -918,6 +941,102 @@ local POSES = {
 			},
 		},
 
+		-- PERFECT COUNTER (React: their attack comes in): SLIP it - a sharp sidestep down and
+		-- to the right, head off the line (the server slides the body and gives it i-frames
+		-- for the slip) - and come straight back up off the slip with the lead hook, dip,
+		-- rear uppercut, then chamber the knee and drive a push kick through them.
+		Combo_PerfectCounter = {
+			Duration = 1.9,
+			Markers = {
+				{ 0.22, "StepR" }, { 0.34, "Whoosh" }, { 0.46, "Strike" }, { 0.6, "Whoosh" }, { 0.7, "Strike" },
+				{ 0.86, "Whoosh" }, { 1.0, "Strike" }, { 1.45, "StepR" },
+			},
+			Keys = {
+				{ T = 0 },
+				at(0.08, BOXER),
+				-- the slip: down and right, the head off the line
+				at(0.22, BOXER, { Joint_CorePos = { 0.6, -0.07, 0.15 }, Joint_Core = { -16, -20, 14 }, Joint_Legs = { 16, 20, -14 }, Joint_Head = { -16, 16, 10 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } }),
+				-- up out of it, the hips loading the hook
+				at(0.34, BOXER, with(B_HOOK_LOAD, { Joint_CorePos = { 0.35, 0.08, -0.2 } })),
+				at(0.46, BOXER, with(B_HOOK, { Joint_CorePos = { 0.2, 0.08, -0.35 } })),
+				at(0.6, BOXER, with(B_DIP, { Joint_CorePos = { 0.1, 0.05, -0.25 } })),
+				at(0.7, BOXER, with(B_UPPER, { Joint_CorePos = { 0, 0.13, -0.35 } })),
+				-- chamber the knee, then the push kick through the middle
+				at(0.86, BOXER, { Joint_CorePos = { 0, -0.02, -0.1 }, Joint_Core = { 6, 0, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -12, 0, 0 }, Sub_Legs_R = { 70, 0, -10 }, Sub_Legs_L = { -2, 0, 0 } }),
+				at(1.0, BOXER, { Joint_CorePos = { 0, -0.05, -0.35 }, Joint_Core = { 14, 0, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -16, 0, 0 }, Sub_Legs_R = { 95, 0, -18 }, Sub_Legs_L = { -6, 0, 0 } }),
+				at(1.18, BOXER, { Joint_CorePos = { 0, -0.02, -0.3 }, Joint_Core = { 6, 0, 0 }, Joint_Legs = { 0, 0, 0 }, Sub_Legs_R = { 55, 0, -10 }, Sub_Legs_L = { 0, 0, 0 } }),
+				at(1.45, BOXER, { Joint_CorePos = { 0, 0.12, -0.2 } }),
+				{ T = 1.9 },
+			},
+		},
+		-- SAVAGE EXECUTION (a grab): both hands shoot out and take them by the collar (the
+		-- server holds them there, in front of the chest), haul them in, two headbutts, then
+		-- a hip toss: load left, whip the hips round to the right and throw them away.
+		Combo_SavageExecution = {
+			Duration = 2.2,
+			Markers = {
+				{ 0.3, "Strike" }, { 0.3, "StepL" }, { 0.45, "Whoosh" }, { 0.62, "Strike" }, { 0.78, "Whoosh" }, { 0.94, "Strike" },
+				{ 1.12, "StepR" }, { 1.12, "Whoosh" }, { 1.38, "Strike" }, { 1.38, "StepL" },
+			},
+			Keys = {
+				{ T = 0 },
+				at(0.1, BOXER),
+				-- the grab: both hands shoot out to them, stepping in
+				at(0.3, BOXER, { Joint_CorePos = { 0, 0.1, -0.5 }, Joint_Core = { -14, 0, 0 }, Joint_Legs = { 14, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 100, 0, -34 }, Sub_RightArm_Fore = { 15, 0, 0 }, Joint_LeftArm = { 100, 0, 34 }, Sub_LeftArm_Fore = { 15, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }),
+				-- haul them up and in (the server lifts them to the hands), head back: loading
+				at(0.45, BOXER, { Joint_CorePos = { 0, 0.12, -0.2 }, Joint_Core = { -6, 0, 0 }, Joint_Legs = { 6, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 100, 0, -32 }, Sub_RightArm_Fore = { 25, 0, 0 }, Joint_LeftArm = { 100, 0, 32 }, Sub_LeftArm_Fore = { 25, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }),
+				-- HEADBUTT: the skull driven into their face, the hands pulling them onto it
+				at(0.62, BOXER, { Joint_CorePos = { 0, 0.05, -0.45 }, Joint_Core = { -22, 0, 0 }, Joint_Legs = { 22, 0, 0 }, Joint_Head = { -38, 0, 0 }, Joint_RightArm = { 92, 0, -32 }, Sub_RightArm_Fore = { 35, 0, 0 }, Joint_LeftArm = { 92, 0, 32 }, Sub_LeftArm_Fore = { 35, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }),
+				at(0.78, BOXER, { Joint_CorePos = { 0, 0.12, -0.2 }, Joint_Core = { -4, 0, 0 }, Joint_Legs = { 4, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 100, 0, -32 }, Sub_RightArm_Fore = { 25, 0, 0 }, Joint_LeftArm = { 100, 0, 32 }, Sub_LeftArm_Fore = { 25, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }),
+				-- and again
+				at(0.94, BOXER, { Joint_CorePos = { 0, 0.05, -0.45 }, Joint_Core = { -22, 0, 0 }, Joint_Legs = { 22, 0, 0 }, Joint_Head = { -38, 0, 0 }, Joint_RightArm = { 92, 0, -32 }, Sub_RightArm_Fore = { 35, 0, 0 }, Joint_LeftArm = { 92, 0, 32 }, Sub_LeftArm_Fore = { 35, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }),
+				-- load the throw: hips turned left, them carried round with the arms
+				at(1.12, BOXER, { Joint_CorePos = { 0, 0.18, -0.1 }, Joint_Core = { -10, 30, 0 }, Joint_Legs = { 10, -30, 0 }, Joint_Head = { -6, -20, 0 }, Joint_RightArm = { 100, 0, -20 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 100, 0, 40 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }),
+				-- THE TOSS: the hips whip round to the right, the arms sling them across
+				at(1.38, BOXER, { Joint_CorePos = { 0, 0.01, -0.4 }, Joint_Core = { -28, -75, -10 }, Joint_Legs = { 20, 45, 8 }, Joint_Head = { -14, 30, 0 }, Joint_RightArm = { 70, 0, -60 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 95, 0, 55 }, Sub_LeftArm_Fore = { 20, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } }),
+				at(1.6, BOXER, { Joint_CorePos = { 0, 0.03, -0.45 }, Joint_Core = { -20, -85, -6 }, Joint_Legs = { 16, 50, 4 }, Joint_Head = { -12, 36, 0 }, Joint_RightArm = { 40, 0, -50 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 70, 0, 60 }, Sub_LeftArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } }),
+				at(1.95, BOXER, { Joint_CorePos = { 0, 0.12, -0.3 } }),
+				{ T = 2.2 },
+			},
+		},
+		-- CYCLONE DESTROYER (a SIGNATURE: rare, only on a staggered or beaten target): jab,
+		-- spin away to the right and whip the back of the right fist round into them, come
+		-- out of the spin into a crouch, LEAP with both fists high, and crash a double
+		-- hammerfist down through them. (The spin runs -360 on through to the end: the code
+		-- poses interpolate the numbers.)
+		Combo_CycloneDestroyer = {
+			Duration = 2.3,
+			Markers = {
+				{ 0.22, "Whoosh" }, { 0.3, "Strike" }, { 0.45, "StepR" }, { 0.6, "Whoosh" }, { 0.72, "Strike" }, { 1.0, "StepL" },
+				{ 1.2, "StepR" }, { 1.42, "Whoosh" }, { 1.58, "Strike" }, { 1.58, "Land" },
+			},
+			Keys = {
+				{ T = 0 },
+				at(0.1, BOXER),
+				-- JAB (the Brutal Boxer's)
+				{ T = 0.22, Joint_CorePos = { 0, 0.11, -0.15 }, Joint_Core = { -8, -18, 0 }, Joint_Legs = { 8, 18, 0 }, Joint_Head = { -10, 14, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 82, 0, 36 }, Sub_LeftArm_Fore = { 50, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				{ T = 0.3, Joint_CorePos = { 0, 0.08, -0.35 }, Joint_Core = { -10, -24, 0 }, Joint_Legs = { 10, 24, 0 }, Joint_Head = { -10, 16, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 100, 0, 22 }, Sub_LeftArm_Fore = { 8, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				-- the spin: turning away to the right, everything tucked
+				{ T = 0.45, Joint_CorePos = { 0, 0.15, -0.4 }, Joint_Core = { -6, -90, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 40, 0, -30 }, Sub_RightArm_Fore = { 110, 0, 0 }, Joint_LeftArm = { 50, 0, 30 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 16, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+				-- back turned, the head whipping round first to find them
+				{ T = 0.6, Joint_CorePos = { 0, 0.06, -0.4 }, Joint_Core = { -6, -180, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -6, -70, 0 }, Joint_RightArm = { 30, 0, 40 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 50, 0, 30 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				-- SPINNING BACKFIST: the right side comes round to them, the arm whipping out straight
+				{ T = 0.72, Joint_CorePos = { 0, 0.28, -0.3 }, Joint_Core = { -8, -265, -6 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -6, -85, 0 }, Joint_RightArm = { 35, 0, 88 }, Sub_RightArm_Fore = { 55, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 16, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+				{ T = 0.86, Joint_CorePos = { 0, 0.15, -0.45 }, Joint_Core = { -6, -320, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -6, -40, 0 }, Joint_RightArm = { 30, 0, 60 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 16, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				{ T = 1.0, Joint_CorePos = { 0, 0.12, -0.6 }, Joint_Core = { -6, -360, 0 }, Joint_Legs = { 6, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				-- crouch to spring, both fists going up
+				{ T = 1.2, Joint_CorePos = { 0, 0.1, -0.4 }, Joint_Core = { -14, -360, 0 }, Joint_Legs = { 14, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 165, 0, -10 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 165, 0, 10 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+				-- the LEAP: up and arched back, fists high
+				{ T = 1.42, Joint_CorePos = { 0, 1.3, -0.9 }, Joint_Core = { 12, -360, 0 }, Joint_Legs = { -12, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 178, 0, -8 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 178, 0, 8 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+				-- DOUBLE HAMMERFIST: crashing down through them as it lands
+				{ T = 1.58, Joint_CorePos = { 0, -0.47, -1.3 }, Joint_Core = { -38, -360, 0 }, Joint_Legs = { 30, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 80, 0, -14 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 80, 0, 14 }, Sub_LeftArm_Fore = { 10, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+				{ T = 1.8, Joint_CorePos = { 0, -0.59, -1.35 }, Joint_Core = { -42, -360, 0 }, Joint_Legs = { 32, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 45, 0, -18 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 45, 0, 18 }, Sub_LeftArm_Fore = { 20, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+				-- and up, back into the guard
+				{ T = 2.05, Joint_CorePos = { 0, 0.12, -0.9 }, Joint_Core = { -6, -370, 0 }, Joint_Legs = { 6, 10, 0 }, Joint_Head = { -10, 10, 0 }, Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				{ T = 2.3, Joint_Core = { 0, -360, 0 } },
+			},
+		},
+
 		-- HIGH GUARD (the combat brain covering up): elbows in, forearms stood up in front of
 		-- the face, chin down behind them, knees soft; it breathes behind it, then opens up.
 		Guard_Hold = {
@@ -951,6 +1070,42 @@ local POSES = {
 				-- recover
 				{ T = 0.82, Joint_CorePos = { 0, -0.15, -0.4 }, Joint_Core = { -6, 10, 0 }, Joint_Head = { 0, -6, 0 }, Joint_RightArm = { 12, 0, -6 }, Joint_LeftArm = { 6, 0, -6 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
 				{ T = 1.0 },
+			},
+		},
+	},
+	-- Four-legged bodies (Sub_Legs_FL/FR/BL/BR; +X swings a leg forward; Joint_Core +X
+	-- rears the front up). The shared beast moves are in Common (BEAST).
+	Quadruped = {
+		-- PREDATOR RUSH: crouch, eyes fixed on them; spring in (the server carries the body)
+		-- with the right forepaw raking across their face, bite, bite again and wrench, then
+		-- rear up on the hind legs and slam both forepaws down through them.
+		Combo_PredatorRush = {
+			Duration = 1.9,
+			Markers = {
+				{ 0.2, "StepL" }, { 0.3, "Whoosh" }, { 0.42, "Strike" }, { 0.42, "Land" }, { 0.6, "Whoosh" }, { 0.7, "JawSnap" },
+				{ 0.9, "Whoosh" }, { 1.0, "JawSnap" }, { 1.25, "StepR" }, { 1.45, "Strike" }, { 1.45, "Land" },
+			},
+			Keys = {
+				{ T = 0 },
+				-- the crouch: low, coiled on the hind legs, head level and still
+				{ T = 0.2, Joint_CorePos = { 0, 0.19, 0.35 }, Joint_Core = { -4, 0, 0 }, Joint_Head = { 6, 0, 0 }, Sub_Head_Jaw = { -6, 0, 0 }, Sub_Legs_FL = { -18, 0, 0 }, Sub_Legs_FR = { -18, 0, 0 }, Sub_Legs_BL = { 30, 0, 0 }, Sub_Legs_BR = { 30, 0, 0 }, Joint_Tail = { 10, 0, 0 } },
+				-- spring, the right forepaw cocked high
+				{ T = 0.3, Joint_CorePos = { 0, 0.6, -0.3 }, Joint_Core = { 12, 0, -6 }, Joint_Head = { 4, -10, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Sub_Legs_FL = { 50, 0, 0 }, Sub_Legs_FR = { 110, 0, 0 }, Sub_Legs_BL = { -40, 0, 0 }, Sub_Legs_BR = { -40, 0, 0 }, Joint_Tail = { -10, 0, 0 } },
+				-- RAKE: the paw comes down and across through them as it lands
+				{ T = 0.42, Joint_CorePos = { 0, 0.39, -0.7 }, Joint_Core = { -10, -16, 8 }, Joint_Head = { 14, 16, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 60, -30, -20 }, Sub_Legs_BL = { -14, 0, 0 }, Sub_Legs_BR = { -14, 0, 0 }, Joint_Tail = { 0, 20, 0 } },
+				-- jaws wide, reaching in
+				{ T = 0.6, Joint_CorePos = { 0, 0.27, -0.6 }, Joint_Core = { -14, 6, 0 }, Joint_Head = { 10, -6, 0 }, Sub_Head_Jaw = { -50, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 26, 0, 0 }, Sub_Legs_BL = { -12, 0, 0 }, Sub_Legs_BR = { -12, 0, 0 }, Joint_Tail = { 0, -10, 0 } },
+				-- BITE
+				{ T = 0.7, Joint_CorePos = { 0, 0.23, -1.0 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { 75, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 48, 0, 0 }, Sub_Legs_FR = { 48, 0, 0 }, Sub_Legs_BL = { -26, 0, 0 }, Sub_Legs_BR = { -26, 0, 0 }, Joint_Tail = { 0, 0, 0 } },
+				{ T = 0.9, Joint_CorePos = { 0, 0.25, -0.55 }, Joint_Core = { -12, -10, -4 }, Joint_Head = { 6, 14, 0 }, Sub_Head_Jaw = { -50, 0, 0 }, Sub_Legs_FL = { 28, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { -12, 0, 0 }, Sub_Legs_BR = { -12, 0, 0 }, Joint_Tail = { 0, 10, 0 } },
+				-- BITE and WRENCH: clamp and twist the head
+				{ T = 1.0, Joint_CorePos = { 0, 0.23, -1.0 }, Joint_Core = { -38, 10, 6 }, Joint_Head = { 75, -20, -14 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 48, 0, 0 }, Sub_Legs_FR = { 48, 0, 0 }, Sub_Legs_BL = { -26, 0, 0 }, Sub_Legs_BR = { -26, 0, 0 }, Joint_Tail = { 0, -14, 0 } },
+				-- rear up on the hind legs, forepaws high
+				{ T = 1.25, Joint_CorePos = { 0, 0.28, 0.3 }, Joint_Core = { 35, 0, 0 }, Joint_Head = { 24, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Sub_Legs_FL = { 80, 0, 0 }, Sub_Legs_FR = { 80, 0, 0 }, Sub_Legs_BL = { -35, 0, 0 }, Sub_Legs_BR = { -35, 0, 0 }, Joint_Tail = { -20, 0, 0 } },
+				-- SLAM: both forepaws down through them
+				{ T = 1.45, Joint_CorePos = { 0, -0.05, -1.0 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Sub_Legs_FL = { 60, 0, 0 }, Sub_Legs_FR = { 60, 0, 0 }, Sub_Legs_BL = { -6, 0, 0 }, Sub_Legs_BR = { -6, 0, 0 }, Joint_Tail = { 10, 0, 0 } },
+				{ T = 1.65, Joint_CorePos = { 0, 0.19, -0.5 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { 0, 0, 0 }, Sub_Head_Jaw = { -10, 0, 0 }, Sub_Legs_FL = { 20, 0, 0 }, Sub_Legs_FR = { 20, 0, 0 }, Sub_Legs_BL = { -4, 0, 0 }, Sub_Legs_BR = { -4, 0, 0 } },
+				{ T = 1.9 },
 			},
 		},
 	},

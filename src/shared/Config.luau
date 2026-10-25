@@ -334,6 +334,18 @@ Config.Nightmare = {
 		-- Shared/Animations): jab, cross, lead hook, uppercut, OVERHAND (knockdown), each hit on
 		-- the clip's measured contact frame. Needs both arms and two legs (BothArms + Legs).
 		{ Action = "Combo_BrutalBoxer", Duration = 2.4, Weight = 3, Tags = { "Long", "Finisher" }, Cost = 30, Arms = true, BothArms = true, Legs = true, Hits = { { 0.3, 0.5 }, { 0.55, 0.7, 4 }, { 0.82, 0.8, 8 }, { 1.1, 0.9, 6 }, { 1.62, 1.9, 34, true } } },
+		-- PERFECT COUNTER (React only: Counter): the slip IS the evasion (Evade: the server slides
+		-- the body Distance to the side over Time, untouchable), then hook, uppercut, push kick.
+		{ Action = "Combo_PerfectCounter", Duration = 1.9, Weight = 3, Tags = { "Counter", "Kick", "Space" }, Cost = 24, Arms = true, BothArms = true, Legs = true, Evade = { Time = 0.26, Distance = 2.4 }, Hits = { { 0.46, 0.8, 4 }, { 0.7, 1.0, 8 }, { 1.0, 1.3, 30, true } } },
+		-- SAVAGE EXECUTION (a grab: Hold keeps them in front of the chest): collar grab, two
+		-- headbutts, hip toss (Throw: they fly off to its right, flipping)
+		{ Action = "Combo_SavageExecution", Duration = 2.2, Weight = 2, Tags = { "Grab", "GuardBreak", "Finisher" }, Cost = 28, Arms = true, BothArms = true, Head = true, Clinch = true, Grab = true, Hold = { Reach = 3.5, Height = 1.7, Lift = 3.5, Throw = Vector3.new(3.0, 0, -2.2) }, Throw = "Right", Hits = { { 0.3, 0.3 }, { 0.62, 0.9 }, { 0.94, 1.0 }, { 1.38, 1.8, 30, true, { Lift = 40, Push = 30, Spin = 7 } } } },
+		-- CYCLONE DESTROYER (a SIGNATURE: rare; unlocked by beating the Storm Beast): jab,
+		-- spinning backfist, leaping double hammerfist
+		{ Action = "Combo_CycloneDestroyer", Duration = 2.3, Weight = 3, Tags = { "Signature", "Finisher", "Long" }, Cost = 40, Arms = true, BothArms = true, Legs = true, Unlock = { Boss = "StormBeast" }, Leap = { At = 1.2, Time = 0.3, Max = 5 }, Hits = { { 0.3, 0.5 }, { 0.72, 1.2, 14 }, { 1.58, 2.4, 0, true, { Lift = 50, Push = 18, Spin = 6 } } } },
+		-- PREDATOR RUSH (four legs and a head): spring in raking with a forepaw, bite, bite and
+		-- wrench, rear up and slam both forepaws down
+		{ Action = "Combo_PredatorRush", Duration = 1.9, Weight = 3, Tags = { "Beast", "Rush", "Long", "Finisher" }, Cost = 30, Quad = true, Head = true, Leap = { At = 0.2, Time = 0.22, Max = 8 }, Hits = { { 0.42, 0.7, 4 }, { 0.7, 0.9 }, { 1.0, 1.0, 6 }, { 1.45, 1.6, 30, true } } },
 		{ Action = "Gym_ComboA", Duration = 1.6, Weight = 3, Tags = { "Light" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.54, 0.55 }, { 0.8, 0.95, 10 } } }, -- jab, jab, cross
 		{ Action = "Gym_ComboB", Duration = 1.8, Weight = 3, Tags = { "Light" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.56, 0.8, 6 }, { 0.86, 1.05, 16 } } }, -- jab, cross, hook
 		{ Action = "Gym_ComboC", Duration = 2.1, Weight = 2, Tags = { "Heavy", "Finisher" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.58, 0.85, 8 }, { 1.04, 1.6, 32, true } } }, -- jab, hook, OVERHAND

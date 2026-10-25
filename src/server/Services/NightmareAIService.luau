@@ -292,7 +292,9 @@ function NightmareAIService:PickString(brain, filter: ((any) -> boolean)?)
 	end
 	local options, total = {}, 0
 	for _, def in NM.Moveset do
-		if canThrow(def, can) and def.Action ~= brain.lastString and (not filter or filter(def)) then
+		-- (counters come out of an evade, signatures and unlockables only through the brain)
+		local special = hasTag(def, "Counter") or hasTag(def, "Signature") or def.Unlock ~= nil
+		if canThrow(def, can) and not special and def.Action ~= brain.lastString and (not filter or filter(def)) then
 			table.insert(options, def)
 			total += def.Weight
 		end
@@ -325,6 +327,10 @@ function NightmareAIService:DevStartString(player: Player, action: string, targe
 				self:Face(brain, root.Position)
 			end
 			brain.target = target
+			if def.Evade then
+				self:StartCounter(brain, def, target, os.clock())
+				return true
+			end
 			return self:StartString(brain, def, target, os.clock())
 		end
 	end
@@ -455,11 +461,34 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 					pressIn(brain, toTarget, gap + 0.5)
 				end
 			end
-			-- the clinch: grab them on the first knee and hold them for the rest
+			-- the clinch: grab them on the first beat (only if they're really within reach) and
+			-- hold them for the rest
 			if def.Clinch and index == 1 and targetRoot and canClinch(target) then
-				grabbed = target
-				target:SetAttribute("Gripped", true)
-				targetRoot.Anchored = true
+				local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+				if Util.FlatDistance(targetRoot.Position, brain.root.Position) - radius - brain.hitboxSize.Z / 2 <= reach + 0.5 then
+					grabbed = target
+					target:SetAttribute("Gripped", true)
+					targetRoot.Anchored = true
+				end
+			end
+			-- a HOLD (Savage Execution): held up in its hands, facing it, on every beat: the
+			-- face of the victim at Hold.Reach (where the headbutt lands), its upper body at
+			-- the hands' height (a small one is lifted off its feet, never more than Hold.Lift);
+			-- on the throw it's slung round to the side it goes flying (Hold.Throw)
+			if def.Hold and grabbed and targetRoot then
+				local hold = def.Hold
+				local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+				local offset = index == #hits and hold.Throw or Vector3.new(0, 0, -(hold.Reach + radius))
+				local at = (brain.root.CFrame * CFrame.new(offset)).Position
+				local standing = brain.holdStandY or targetRoot.Position.Y
+				if index == 1 then
+					brain.holdStandY = targetRoot.Position.Y
+					standing = targetRoot.Position.Y
+				end
+				local y = math.clamp(brain.root.Position.Y + hold.Height - targetRoot.Size.Y * 0.25, standing, standing + hold.Lift)
+				at = Vector3.new(at.X, y, at.Z)
+				local wanted = CFrame.lookAt(at, Vector3.new(brain.root.Position.X, at.Y, brain.root.Position.Z))
+				target:PivotTo(wanted * targetRoot.CFrame:ToObjectSpace(target:GetPivot()))
 			end
 			if index == #hits then
 				release() -- the last one sends them flying
@@ -505,6 +534,15 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 					})
 				end
 			end
+			-- the last beat of a THROW goes off to the side it slings them (Throw); a throw or a
+			-- signature's last blow always puts them down
+			local finalBlow = index == #hits and (def.Throw ~= nil or hasTag(def, "Signature"))
+			local throwDirection = nil
+			if def.Throw and index == #hits then
+				local side = Util.FlatUnit(brain.root.CFrame.RightVector) or Vector3.xAxis
+				local look = Util.FlatUnit(brain.root.CFrame.LookVector) or Vector3.zAxis
+				throwDirection = ((def.Throw == "Left" and -side or side) * 0.75 + look * 0.65).Unit
+			end
 			for _, victim in victims do
 				services.CombatService:ApplyDamage({
 					Attacker = brain.model,
@@ -514,6 +552,8 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 					Knockback = hit[3] or 0,
 					Heavy = hit[4] == true,
 					Launch = hit[5],
+					HitDirection = throwDirection,
+					Thrown = finalBlow or nil,
 					NoKnockdown = grabbed == victim, -- held in the clinch: rocked, not dropped
 					Stagger = 4 + 6 * hit[2],
 					Status = rollOnHitStatus(brain, index == #hits and 3 or 1),
@@ -685,6 +725,26 @@ local function watchTarget(brain, target: Model?, now: number)
 	end
 end
 
+-- A counter combination: square up, start the string, and on its first beat (the slip)
+-- slide out of the line to the right, untouchable for the slip (Evade).
+function NightmareAIService:StartCounter(brain, def, target: Model, now: number)
+	local targetRoot = target:FindFirstChild("HumanoidRootPart")
+	local speedScale = 100 / brain.stats.AttackSpeed
+	local evade = def.Evade
+	self:Stop(brain)
+	if targetRoot then
+		self:Face(brain, targetRoot.Position)
+	end
+	self:StartString(brain, def, target, now)
+	local right = Util.FlatUnit(brain.root.CFrame.RightVector) or Vector3.xAxis
+	brain.model:SetAttribute("PhaseUntil", Workspace:GetServerTimeNow() + evade.Time * speedScale)
+	pressIn(brain, right, evade.Distance, evade.Time * speedScale)
+	brain.dashReadyAt = now + FIGHT.DashCooldown
+	if RunService:IsStudio() and Config.Dev.LogNightmareCombos then
+		print(("[Brain] %s COUNTERS with %s"):format(brain.model.Name, def.Action))
+	end
+end
+
 -- Performs a pending reaction. Returns true if it stepped.
 function NightmareAIService:React(brain, target: Model, now: number): boolean
 	local reactAt = brain.reactAt
@@ -705,6 +765,14 @@ function NightmareAIService:React(brain, target: Model, now: number): boolean
 		return false
 	end
 	brain.reactAt = nil
+	-- a COUNTER COMBINATION: the slip is the first beat of the combo itself (one continuous
+	-- animation): slide out of the line untouchable, then straight back in with the hits
+	local counterChance = math.min(0.9, FIGHT.CounterChance * 0.6 * (brain.personality and brain.personality.Counter or 1))
+	local counter = math.random() < counterChance and self:PickCounter(brain, now)
+	if counter and not brain.root.Anchored then
+		self:StartCounter(brain, counter, target, now)
+		return true
+	end
 	local stepped
 	if math.random() < FIGHT.SidestepShare then
 		local side = Vector3.new(-away.Z, 0, away.X) * (math.random() < 0.5 and -1 or 1)
@@ -897,6 +965,30 @@ function NightmareAIService:CanUse(brain, def, can, state, now: number): boolean
 		end
 	end
 	return true
+end
+
+-- A COUNTER combination (tag Counter, with an Evade) this body can throw right now, by
+-- Weight; nil when there's none or it's too tired.
+function NightmareAIService:PickCounter(brain, now: number)
+	if brain.possessedBy or brain.stamina < COMBAT.Stamina.Low then
+		return nil
+	end
+	local can = bodyCan(brain)
+	local options, total = {}, 0
+	for _, def in NM.Moveset do
+		if hasTag(def, "Counter") and def.Evade and canThrow(def, can) and COMBAT.CostOf(def) <= brain.stamina then
+			table.insert(options, def)
+			total += def.Weight
+		end
+	end
+	local roll = math.random() * total
+	for _, def in options do
+		roll -= def.Weight
+		if roll <= 0 then
+			return def
+		end
+	end
+	return options[#options]
 end
 
 -- Scores everything it could do and picks one in proportion. Returns { Kind, Def? }.

@@ -221,6 +221,7 @@ end
 	  Launch: table?         { Lift, Push, Spin }: the knockdown throws the target UP (studs/s),
 	                         a little away, rotating heels over head (rad/s) - a leg sweep
 	                         (Config.Ragdoll.Sweep), a scythe's harvest
+	  Thrown: boolean?       a throw / a signature's last blow: always knocks down (not a boss)
 	  NoKnockdown: boolean?  never knocks down (the blow holds or rocks them instead)
 	  Ground: boolean?       comes up out of the floor (arena hazards): misses a hovering
 	                         Nightmare (Hover passive)
@@ -397,6 +398,9 @@ function CombatService:ApplyDamage(params): number
 		-- NoKnockdown: the blow holds them instead (a bite's clamp keeps them in its jaws)
 		if worthy and not params.NoKnockdown and not guarded then
 			local chance = self:KnockdownChance(attacker, target, big or params.Launch ~= nil)
+			if params.Thrown and not boss then
+				chance = 1 -- (a throw, a signature's last blow: they go down)
+			end
 			if chance > 0 and random:NextNumber() < chance then
 				local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis
 				local force = math.max(knockback, cfg.MinThrow)
