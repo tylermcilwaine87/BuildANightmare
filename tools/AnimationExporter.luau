@@ -110,6 +110,25 @@ local SOURCES = {
 			Knee_R = { "Shin_R", "Legs_R" },
 		}, "Joint_Core", "Joint_CorePos"
 	end,
+	-- every boss (Boss_<BossId>_<Action>): the rig is read off the boss's own model, built
+	-- for the moment by its behaviour module (BuildModel) far below the map
+	Boss = function()
+		local library, rigs = {}, {}
+		local ServerScriptService = game:GetService("ServerScriptService")
+		local BossDefinitions = freshRequire(ReplicatedStorage.Shared.BossDefinitions)
+		for bossId, moves in freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.BossPoses) do
+			local behaviour = freshRequire(ServerScriptService.Server.Services.Bosses[bossId])
+			local def = BossDefinitions.Get(bossId)
+			local model = behaviour.BuildModel(CFrame.new(0, -2000, 0), def.HitboxSize)
+			rigs[bossId] = Exporter.RigFromModel(model)
+			model:Destroy()
+			for action, move in moves do
+				library["Boss_" .. bossId .. "_" .. action] = move
+				move.__rig = bossId
+			end
+		end
+		return library, rigs, "Joint_Core", "Joint_CorePos"
+	end,
 	Nightmare = function()
 		local library = {}
 		for archetype, moves in freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.NightmarePoses) do
@@ -209,7 +228,7 @@ function Exporter.Export(kind: string, names: { string }, sourceOverride)
 				warn(("[Exporter] %s marker %s at %.3f is not on a keyframe: add a key there"):format(name, marker[2], marker[1]))
 			end
 		end
-		Exporter.Build(name, def, rig, rootJoint, rootPosKey).Parent = folder
+		Exporter.Build(name, def, def.__rig and rig[def.__rig] or rig, rootJoint, rootPosKey).Parent = folder
 	end
 	folder.Parent = exportRoot
 	game:GetService("Selection"):Set({ folder })
