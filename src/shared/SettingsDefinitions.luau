@@ -20,6 +20,7 @@ SettingsDefinitions.List = {
 	{ Key = "HitFlashes", Label = "Hit flashes", Type = "Toggle", Default = true, Hint = "The white flash when something takes a hit." },
 	{ Key = "ImpactEffects", Label = "Impact effects", Type = "Choice", Options = { "Full", "Reduced", "Minimal" }, Default = "Full", Hint = "Dust, debris, shockwaves, hit-stop and slow-motion on big moments. Reduced keeps the big ones; Minimal turns them all down." },
 	{ Key = "DamageNumbers", Label = "Damage numbers", Type = "Toggle", Default = true },
+	{ Key = "FinisherCamera", Label = "Finisher camera", Type = "Toggle", Default = true, Hint = "A one-second side-on camera swing when your Nightmare lands a signature finisher (and now and then another finisher)." },
 	{ Key = "OtherNightmares", Label = "Other players' Nightmares (outside fights)", Type = "Toggle", Default = true, Hint = "Turn off for better performance in busy servers. Always shown in your boss fights and duels." },
 	{ Key = "ControlHints", Label = "Control hints (bottom left)", Type = "Toggle", Default = true },
 }

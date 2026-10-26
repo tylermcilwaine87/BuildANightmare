@@ -49,6 +49,7 @@ local Net = require(Shared:WaitForChild("Net"))
 local Util = require(Shared:WaitForChild("Util"))
 local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local Passives = require(Shared:WaitForChild("PassiveDefinitions"))
+local MutationDefinitions = require(Shared:WaitForChild("MutationDefinitions"))
 
 local COMBAT = require(Shared:WaitForChild("NightmareCombatDefinitions"))
 
@@ -248,8 +249,56 @@ local function spendStamina(brain, amount: number, now: number)
 	brain.staminaSpentAt = now
 end
 
+-- HABITS (NightmareCombatDefinitions.Adapt): what this target keeps doing to it.
+-- kind: "Attack" | "Guard" | "Evade" | "Hurt"
+local function noteHabit(brain, target: Model?, kind: string)
+	if not target or not brain.habits then
+		return
+	end
+	local seen = brain.habits[target]
+	if not seen then
+		seen = {}
+		brain.habits[target] = seen
+	end
+	seen[kind] = seen[kind] or {}
+	table.insert(seen[kind], os.clock())
+end
+
+-- Which habits the target has shown lately: { Aggressor = true, ... } (names = Adapt keys).
+local function adaptOf(brain, target: Model?)
+	local out = {}
+	local seen = target and brain.habits and brain.habits[target]
+	if not seen then
+		return out
+	end
+	local now = os.clock()
+	for kind, times in seen do
+		for i = #times, 1, -1 do
+			if now - times[i] > COMBAT.Adapt.Window then
+				table.remove(times, i)
+			end
+		end
+		local name = COMBAT.HabitOf[kind]
+		if name and #times >= COMBAT.Adapt[name].Threshold then
+			out[name] = true
+		end
+	end
+	return out
+end
+
 local function hasTag(def, tag: string): boolean
 	return def.Tags ~= nil and table.find(def.Tags, tag) ~= nil
+end
+
+-- A MUTATED Nightmare's finishers carry its element: the last blow of a Finisher or
+-- Signature combo always applies the first mutation's status (burn, chill, shock...).
+local function elementOf(brain, def): string?
+	if not (hasTag(def, "Finisher") or hasTag(def, "Signature")) then
+		return nil
+	end
+	local ids = brain.model:GetAttribute("Mutations")
+	local mutation = ids and MutationDefinitions.Get(string.split(ids, ",")[1])
+	return mutation and mutation.OnHit and mutation.OnHit.Status or nil
 end
 
 -- What this body can throw: punches need an arm, kicks need two legs (a Biped); the beast
@@ -263,11 +312,12 @@ local function bodyCan(brain)
 		Quad = model:GetAttribute("Archetype") == "Quadruped",
 		Head = model:FindFirstChild("Joint_Head", true) ~= nil,
 		Tail = model:FindFirstChild("Joint_Tail", true) ~= nil,
+		Tentacle = model:GetAttribute("RightArmSet") == "Tentacle", -- (a Shadow Tentacle right arm)
 	}
 end
 
 local function canThrow(def, can): boolean
-	for _, need in { "Arms", "BothArms", "Legs", "Quad", "Head", "Tail" } do
+	for _, need in { "Arms", "BothArms", "Legs", "Quad", "Head", "Tail", "Tentacle" } do
 		if def[need] and not can[need] then
 			return false
 		end
@@ -440,6 +490,23 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 	local logging = RunService:IsStudio() and Config.Dev.LogNightmareCombos == true
 	local startedAt = os.clock()
 	for index, hit in hits do
+		-- (hit[6].Chase: lunge after a body that slid away, landing just as this beat hits)
+		local chase = hit[6] and hit[6].Chase
+		if chase then
+			task.delay(math.max(0, hit[1] * speedScale - 0.22), function()
+				local targetRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+				local toTarget = targetRoot and Util.FlatUnit(targetRoot.Position - brain.root.Position)
+				if brains[brain.model] ~= brain or brain.castToken ~= castToken or not toTarget then
+					return
+				end
+				self:Face(brain, targetRoot.Position)
+				local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+				local gap = Util.FlatDistance(targetRoot.Position, brain.root.Position) - radius - brain.hitboxSize.Z / 2 - reach * 0.8
+				if gap > 0 then
+					pressIn(brain, toTarget, math.min(gap + 0.5, chase), 0.2)
+				end
+			end)
+		end
 		task.delay(hit[1] * speedScale, function()
 			if brains[brain.model] ~= brain or brain.humanoid.Health <= 0 or brain.castToken ~= castToken
 				or services.StatusService:IsStaggered(brain.model) or brain.model:GetAttribute("Ragdolled") then
@@ -475,27 +542,66 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			-- face of the victim at Hold.Reach (where the headbutt lands), its upper body at
 			-- the hands' height (a small one is lifted off its feet, never more than Hold.Lift);
 			-- on the throw it's slung round to the side it goes flying (Hold.Throw)
+			-- (Hold.Path: carried along a path instead - the tentacle: { x right, height above
+			-- where they stood, z back } per beat - gliding to the next point between beats)
 			if def.Hold and grabbed and targetRoot then
 				local hold = def.Hold
 				local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
-				local offset = index == #hits and hold.Throw or Vector3.new(0, 0, -(hold.Reach + radius))
-				local at = (brain.root.CFrame * CFrame.new(offset)).Position
-				local standing = brain.holdStandY or targetRoot.Position.Y
 				if index == 1 then
 					brain.holdStandY = targetRoot.Position.Y
-					standing = targetRoot.Position.Y
 				end
-				local y = math.clamp(brain.root.Position.Y + hold.Height - targetRoot.Size.Y * 0.25, standing, standing + hold.Lift)
-				at = Vector3.new(at.X, y, at.Z)
-				local wanted = CFrame.lookAt(at, Vector3.new(brain.root.Position.X, at.Y, brain.root.Position.Z))
-				target:PivotTo(wanted * targetRoot.CFrame:ToObjectSpace(target:GetPivot()))
+				local standing = brain.holdStandY or targetRoot.Position.Y
+				local function holdAt(offset: Vector3, lifted: number?)
+					local at = (brain.root.CFrame * CFrame.new(offset.X, 0, offset.Z)).Position
+					local y = lifted or math.clamp(brain.root.Position.Y + hold.Height - targetRoot.Size.Y * 0.25, standing, standing + hold.Lift)
+					at = Vector3.new(at.X, y, at.Z)
+					return CFrame.lookAt(at, Vector3.new(brain.root.Position.X, at.Y, brain.root.Position.Z)) * targetRoot.CFrame:ToObjectSpace(target:GetPivot())
+				end
+				if hold.Path then
+					local point = hold.Path[index]
+					target:PivotTo(holdAt(point, standing + point.Y))
+					local nextPoint = hold.Path[index + 1]
+					if nextPoint and hits[index + 1] then
+						-- glide to the next point by the next beat
+						local from, to = target:GetPivot(), holdAt(nextPoint, standing + nextPoint.Y)
+						local duration = (hits[index + 1][1] - hit[1]) * speedScale
+						local heldNow = grabbed
+						task.spawn(function()
+							local started = os.clock()
+							while grabbed == heldNow and target.Parent and os.clock() - started < duration do
+								local k = (os.clock() - started) / duration
+								target:PivotTo(from:Lerp(to, k * k * (3 - 2 * k)))
+								task.wait()
+							end
+						end)
+					end
+				else
+					local offset = index == #hits and hold.Throw or Vector3.new(0, 0, -(hold.Reach + radius))
+					target:PivotTo(holdAt(offset))
+				end
 			end
 			if index == #hits then
 				release() -- the last one sends them flying
 			end
+			-- hit[6] = options: Radius (a shockwave round the impact in front: everything in it,
+			-- with the slam effect), Up (studs: the box reaches higher - blows in the air),
+			-- Force (always knocks down), Crumple (drops them where they stand)
+			local options = hit[6] or {}
 			local hitbox = brain.hitboxSize
-			local boxCFrame = brain.root.CFrame * CFrame.new(0, 0, -(hitbox.Z / 2 + reach / 2))
-			local victims = services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 2, hitbox.Y + 2, reach), ignoreList(brain), brain.root.Position)
+			local victims
+			if options.Radius then
+				local center = (brain.root.CFrame * CFrame.new(0, 0, -(hitbox.Z / 2 + reach * 0.5))).Position
+				victims = services.HitDetectionService:QueryRadius(center, options.Radius, ignoreList(brain), brain.root.Position)
+				local params = RaycastParams.new()
+				params.FilterDescendantsInstances = ignoreList(brain)
+				local floor = Workspace:Raycast(center, Vector3.new(0, -(hitbox.Y + 12), 0), params)
+				local ground = floor and floor.Position or center
+				Net.FireNearby(services.TelegraphService.WorldFX, ground, Config.Performance.EffectRadius, "Slam", { Position = ground, Radius = options.Radius, Power = 0.8 })
+			else
+				local up = options.Up or 0
+				local boxCFrame = brain.root.CFrame * CFrame.new(0, up / 2, -(hitbox.Z / 2 + reach / 2))
+				victims = services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 2, hitbox.Y + 2 + up, reach), ignoreList(brain), brain.root.Position)
+			end
 			if logging then
 				local names = {}
 				for _, v in victims do
@@ -508,6 +614,7 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			-- combination into footwork), else it keeps going and tries to catch them.
 			if index == 1 and #victims == 0 and #hits > 1 and not brain.possessedBy then
 				brain.whiffs[def.Action] = os.clock()
+				noteHabit(brain, target, "Evade")
 				local abort = brain.personality and brain.personality.Abort or 0.6
 				if math.random() < abort then
 					brain.castToken += 1
@@ -525,18 +632,28 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			-- the last hit landed: mastery (the brain's unlocks), and a FINISHER moment
 			if index == #hits and #victims > 0 and not brain.possessedBy then
 				local profile = services.PlayerDataService:Get(brain.owner)
-				if profile and profile.ComboMastery then
-					profile.ComboMastery[def.Action] = (profile.ComboMastery[def.Action] or 0) + 1
+				if profile and profile.ComboMastery and not brain.model:GetAttribute("DevBuild") then
+					local count = (profile.ComboMastery[def.Action] or 0) + 1
+					profile.ComboMastery[def.Action] = count
+					-- MASTERED: a combo that this one unlocks (its "II" version) is now open
+					for _, other in NM.Moveset do
+						local mastery = other.Unlock and other.Unlock.Mastery
+						if mastery and mastery.Action == def.Action and mastery.Count == count then
+							Net.Get("UIStateUpdate"):FireClient(brain.owner, "Toast", {
+								Text = ("%s MASTERED: your Nightmare now fights with %s."):format(COMBAT.DisplayName(def.Action), COMBAT.DisplayName(other.Action)),
+							})
+						end
+					end
 				end
 				if hasTag(def, "Finisher") or hasTag(def, "Signature") then
 					Net.FireNearby(services.CombatService.Feedback, brain.root.Position, Config.Performance.EffectRadius, "Finisher", {
-						Attacker = brain.model, Target = victims[1], Name = def.Display or def.Action, Signature = hasTag(def, "Signature"),
+						Attacker = brain.model, Target = victims[1], Name = def.Display or def.Action, Signature = hasTag(def, "Signature"), Element = elementOf(brain, def),
 					})
 				end
 			end
 			-- the last beat of a THROW goes off to the side it slings them (Throw); a throw or a
 			-- signature's last blow always puts them down
-			local finalBlow = index == #hits and (def.Throw ~= nil or hasTag(def, "Signature"))
+			local finalBlow = options.Force or (index == #hits and (def.Throw ~= nil or hasTag(def, "Signature")))
 			local throwDirection = nil
 			if def.Throw and index == #hits then
 				local side = Util.FlatUnit(brain.root.CFrame.RightVector) or Vector3.xAxis
@@ -553,10 +670,11 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 					Heavy = hit[4] == true,
 					Launch = hit[5],
 					HitDirection = throwDirection,
+					Crumple = options.Crumple,
 					Thrown = finalBlow or nil,
 					NoKnockdown = grabbed == victim, -- held in the clinch: rocked, not dropped
 					Stagger = 4 + 6 * hit[2],
-					Status = rollOnHitStatus(brain, index == #hits and 3 or 1),
+					Status = (index == #hits and elementOf(brain, def)) or rollOnHitStatus(brain, index == #hits and 3 or 1),
 					Source = "NightmareString",
 				})
 			end
@@ -715,6 +833,7 @@ local function watchTarget(brain, target: Model?, now: number)
 	end
 	-- the brain remembers how hard it's being pressed (ReadTarget: "pressured")
 	table.insert(brain.pressure, now)
+	noteHabit(brain, target, "Attack")
 	-- a step costs stamina; an exhausted Nightmare can't always get out of the way
 	local chance = FIGHT.ReactChance * (brain.personality and brain.personality.Dodge or 1)
 	if brain.stamina < COMBAT.Stamina.StepCost then
@@ -767,7 +886,7 @@ function NightmareAIService:React(brain, target: Model, now: number): boolean
 	brain.reactAt = nil
 	-- a COUNTER COMBINATION: the slip is the first beat of the combo itself (one continuous
 	-- animation): slide out of the line untouchable, then straight back in with the hits
-	local counterChance = math.min(0.9, FIGHT.CounterChance * 0.6 * (brain.personality and brain.personality.Counter or 1))
+	local counterChance = math.min(0.9, FIGHT.CounterChance * 0.6 * (brain.personality and brain.personality.Counter or 1) * (adaptOf(brain, target).Aggressor and COMBAT.Adapt.Aggressor.CounterChance or 1))
 	local counter = math.random() < counterChance and self:PickCounter(brain, now)
 	if counter and not brain.root.Anchored then
 		self:StartCounter(brain, counter, target, now)
@@ -957,12 +1076,32 @@ function NightmareAIService:CanUse(brain, def, can, state, now: number): boolean
 	if hasTag(def, "Signature") and (now < brain.signatureReadyAt or not (state.staggered or state.lowHealth)) then
 		return false
 	end
-	if def.Unlock and def.Unlock.Boss then
-		local profile = self.Services.PlayerDataService:Get(brain.owner)
-		local record = profile and profile.Bosses[def.Unlock.Boss]
-		if not (record and (record.Wins or 0) > 0) and not RunService:IsStudio() then
+	return def.Unlock == nil or self:Unlocked(brain, def)
+end
+
+-- UNLOCKS (Config Moveset Unlock): Boss = beaten that boss; Mutation = a mutated part on
+-- this Nightmare; Mastery = { Action, Count } = that combo finished Count fights.
+-- (Studio: workspace attribute NMUnlockAll opens everything for testing.)
+function NightmareAIService:Unlocked(brain, def): boolean
+	local unlock = def.Unlock
+	if not unlock or (RunService:IsStudio() and Workspace:GetAttribute("NMUnlockAll")) then
+		return true
+	end
+	local profile = self.Services.PlayerDataService:Get(brain.owner)
+	if not profile then
+		return false
+	end
+	if unlock.Boss then
+		local record = profile.Bosses[unlock.Boss]
+		if not (record and (record.Wins or 0) > 0) then
 			return false
 		end
+	end
+	if unlock.Mutation and not brain.model:GetAttribute("Mutations") then
+		return false
+	end
+	if unlock.Mastery and ((profile.ComboMastery or {})[unlock.Mastery.Action] or 0) < unlock.Mastery.Count then
+		return false
 	end
 	return true
 end
@@ -1015,6 +1154,18 @@ function NightmareAIService:ChooseMove(brain, target: Model, now: number, state)
 			table.insert(options, { Kind = kind, Weight = weight, Def = def })
 		end
 	end
+	-- how this enemy has been fighting it (Adapt)
+	if state.guarding then
+		noteHabit(brain, target, "Guard")
+	end
+	local adapt = adaptOf(brain, target)
+	local function adaptFootwork(kind)
+		local m = 1
+		for name in adapt do
+			m *= COMBAT.Adapt[name].Footwork[kind] or 1
+		end
+		return m
+	end
 
 	-- forced (Studio demonstrations)
 	if brain.forceString and RunService:IsStudio() then
@@ -1025,8 +1176,15 @@ function NightmareAIService:ChooseMove(brain, target: Model, now: number, state)
 	end
 
 	if not state.down then
+		-- a MASTERED combo takes over from its base version (Replaces)
+		local replaced = {}
 		for _, def in NM.Moveset do
-			if self:CanUse(brain, def, can, state, now) then
+			if def.Replaces and canThrow(def, can) and self:Unlocked(brain, def) then
+				replaced[def.Replaces] = true
+			end
+		end
+		for _, def in NM.Moveset do
+			if not replaced[def.Action] and self:CanUse(brain, def, can, state, now) then
 				local w = def.Weight * tagMultiplier(def, personality.Tags) * tagMultiplier(def, mode.Tags)
 				if state.staggered then w *= tagMultiplier(def, COMBAT.Situation.Staggered) end
 				if state.guarding then w *= tagMultiplier(def, COMBAT.Situation.Guarding) end
@@ -1034,6 +1192,9 @@ function NightmareAIService:ChooseMove(brain, target: Model, now: number, state)
 				if state.armoured then w *= tagMultiplier(def, COMBAT.Situation.Armoured) end
 				if state.fast then w *= tagMultiplier(def, COMBAT.Situation.Fast) end
 				if state.pressured then w *= tagMultiplier(def, COMBAT.Situation.Pressured) end
+				for name in adapt do
+					w *= tagMultiplier(def, COMBAT.Adapt[name].Tags)
+				end
 				if state.followUp and mode.FollowUp then
 					w *= hasTag(def, "Light") and mode.FollowUp or 1.3
 				end
@@ -1058,7 +1219,7 @@ function NightmareAIService:ChooseMove(brain, target: Model, now: number, state)
 	-- footwork: always possible; more so when tired, when they're down, when pressured
 	local tired = brain.stamina < COMBAT.Stamina.Low
 	local function footwork(kind)
-		return COMBAT.Footwork[kind] * (personality.Footwork[kind] or 1) * (mode.Footwork[kind] or 1)
+		return COMBAT.Footwork[kind] * (personality.Footwork[kind] or 1) * (mode.Footwork[kind] or 1) * adaptFootwork(kind)
 	end
 	add("Circle", footwork("Circle") * (tired and 3 or 1) * (state.down and 6 or 1) * (mode.FollowUp and not state.followUp and 1.6 or 1))
 	if not state.down then
@@ -1097,6 +1258,9 @@ function NightmareAIService:ChooseMove(brain, target: Model, now: number, state)
 			if value == true then
 				table.insert(flags, key)
 			end
+		end
+		for name in adapt do
+			table.insert(flags, "adapt:" .. name)
 		end
 		print(("[Brain] %s (%s/%s, stamina %d%s) -> %s   [%s%%]"):format(
 			brain.model.Name, brain.personality and brain.personality.Name or "?", brain.mode and brain.mode.Name or "?", brain.stamina,
@@ -1471,6 +1635,7 @@ function NightmareAIService:Register(model: Model, owner: Player, stats, info)
 		history = {},
 		whiffs = {},
 		pressure = {},
+		habits = setmetatable({}, { __mode = "k" }), -- [target] = what it keeps doing (Adapt)
 		signatureReadyAt = 0,
 		possessedBy = nil,
 		nextIdleAction = now + math.random(NM.IdleActionInterval[1], NM.IdleActionInterval[2]),
@@ -1633,6 +1798,7 @@ function NightmareAIService:Start()
 			return
 		end
 		brain.lastDamagedAt = now
+		noteHabit(brain, attacker, "Hurt")
 		if not attacker or attacker == brain.target or brain.command == "Retreat" or brain.command == "Attack" then
 			return
 		end

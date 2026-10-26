@@ -811,6 +811,53 @@ function EffectsController:ImpactPunch(strength: number)
 	TweenService:Create(camera, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { FieldOfView = base }):Play()
 end
 
+-- FINISHER CAMERA (Settings: FinisherCamera): when YOUR Nightmare lands a signature (always)
+-- or now and then another finisher, the camera swings out to a low side-on angle on the
+-- two of them for about a second, drifting round as it holds, then eases straight back to
+-- your normal camera. Never a cutscene: nothing stops, you keep control.
+local FINISHER_CAM = { Time = 1.15, In = 0.22, Out = 0.3, Chance = 0.25, Cooldown = 12 }
+local finisherCamUntil, finisherCamNext = 0, 0
+function EffectsController:FinisherCam(attacker: Model?, target: Model?, signature: boolean?)
+	local now = os.clock()
+	local a = attacker and attacker:FindFirstChild("HumanoidRootPart")
+	local b = target and target:FindFirstChild("HumanoidRootPart")
+	local camera = Workspace.CurrentCamera
+	if not a or not b or not camera or now < finisherCamUntil or controllers.PossessionController:IsPossessing() then
+		return
+	end
+	if not controllers.SettingsController:Get("FinisherCamera") then
+		return
+	end
+	if not signature and (now < finisherCamNext or math.random() > FINISHER_CAM.Chance) then
+		return
+	end
+	finisherCamUntil = now + FINISHER_CAM.Time
+	finisherCamNext = now + FINISHER_CAM.Cooldown
+	-- the side of the fight the camera is already nearer
+	local line = (b.Position - a.Position) * Vector3.new(1, 0, 1)
+	line = line.Magnitude > 0.1 and line.Unit or Vector3.zAxis
+	local side = Vector3.new(-line.Z, 0, line.X)
+	if (camera.CFrame.Position - a.Position):Dot(side) < 0 then
+		side = -side
+	end
+	local size = math.max(a.Size.Y, b.Size.Y)
+	local started = now
+	RunService:BindToRenderStep("FinisherCam", Enum.RenderPriority.Last.Value + 20, function()
+		local t = os.clock() - started
+		if t >= FINISHER_CAM.Time or not a.Parent or not b.Parent then
+			RunService:UnbindFromRenderStep("FinisherCam")
+			return
+		end
+		local alpha = math.min(t / FINISHER_CAM.In, 1, (FINISHER_CAM.Time - t) / FINISHER_CAM.Out)
+		alpha = alpha * alpha * (3 - 2 * alpha)
+		local mid = (a.Position + b.Position) / 2
+		local swing = CFrame.Angles(0, math.rad(-12 + 24 * t / FINISHER_CAM.Time), 0):VectorToWorldSpace(side)
+		local distance = 9 + size * 1.4
+		local shot = CFrame.lookAt(mid + swing * distance + Vector3.new(0, size * 0.25, 0), mid + Vector3.new(0, size * 0.1, 0))
+		camera.CFrame = camera.CFrame:Lerp(shot, alpha)
+	end)
+end
+
 function EffectsController:ShieldBubble(model: Model?, duration: number)
 	if not model or not model.Parent then
 		return
@@ -1054,6 +1101,13 @@ function EffectsController:Start()
 				self:PopText(root.Position + Vector3.new(0, 4, 0), title .. "!", data.Signature and Color3.fromRGB(255, 90, 60) or Color3.fromRGB(255, 200, 80), mine and 40 or 26)
 				if mine then
 					self:ImpactPunch(data.Signature and 1 or 0.7)
+					self:FinisherCam(attacker, target, data.Signature)
+				end
+				-- a mutated Nightmare's finisher carries its element
+				local element = type(data.Element) == "string" and StatusDefinitions.Get(data.Element)
+				if element then
+					self:PopText(root.Position + Vector3.new(0, 6.5, 0), string.upper(element.DisplayName) .. " FINISH", element.Color, mine and 30 or 22)
+					self:HitBurst(root.Position + Vector3.new(0, 1, 0), nil, "Slash")
 				end
 			end
 		elseif kind == "KnockedDown" then

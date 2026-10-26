@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Net = require(Shared:WaitForChild("Net"))
 local BossDefinitions = require(Shared:WaitForChild("BossDefinitions"))
 local RarityDefinitions = require(Shared:WaitForChild("RarityDefinitions"))
 local MutationDefinitions = require(Shared:WaitForChild("MutationDefinitions"))
@@ -114,6 +115,17 @@ function BossRewardService:GrantVictory(player: Player, bossId: string, mode: st
 	-- Normal wins unlock Hard; Hard wins unlock Nightmare.
 	local record = profile.Bosses[bossId] or { Wins = 0 }
 	record.Wins += 1
+	-- a first win teaches your Nightmare this boss's combo (Config Moveset Unlock.Boss)
+	if record.Wins == 1 then
+		local NightmareCombat = require(Shared:WaitForChild("NightmareCombatDefinitions"))
+		for _, def in Config.Nightmare.Moveset do
+			if def.Unlock and def.Unlock.Boss == bossId then
+				Net.Get("UIStateUpdate"):FireClient(player, "Toast", {
+					Text = ("NEW NIGHTMARE COMBO: %s. Your Nightmare learned it from this fight."):format(NightmareCombat.DisplayName(def.Action)),
+				})
+			end
+		end
+	end
 	local rounded = math.floor(fightTime + 0.5)
 	local modeBest = nil
 	if mode ~= "Tutorial" then

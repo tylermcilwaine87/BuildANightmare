@@ -98,6 +98,23 @@ Combat.ArmouredDefence = 10
 Combat.PressureWindow = 6 -- seconds: attacks it threw at us in this long count as pressure
 Combat.PressureAttacks = 3
 
+-- ADAPTING to how THIS enemy fights: over the last Window seconds the brain counts what it
+-- has seen from its target - attacks thrown at it, guards held, its openers dodged, hits
+-- taken from it - and past each Threshold it changes how it fights them:
+--   Aggressor  (keeps attacking)       -> counters, space, guard; counters come more often
+--   Turtle     (keeps guarding)        -> grabs and guard breaks, feints
+--   Evasive    (keeps slipping away)   -> rushing, leaping, quick strings, flanks
+--   Punishing  (keeps hurting it)      -> safer: guard, circle, space
+Combat.Adapt = {
+	Window = 20,
+	Aggressor = { Threshold = 5, Tags = { Counter = 1.6, Space = 1.5, Light = 1.2, Long = 0.7 }, Footwork = { Guard = 1.6, Circle = 1.2 }, CounterChance = 1.5 },
+	Turtle = { Threshold = 3, Tags = { Grab = 2.0, GuardBreak = 2.0, Light = 0.6 }, Footwork = { Feint = 1.8 } },
+	Evasive = { Threshold = 2, Tags = { Rush = 1.8, Light = 1.3, Long = 0.6 }, Footwork = { Flank = 1.5 } },
+	Punishing = { Threshold = 4, Tags = { Space = 1.4, Light = 1.2, Heavy = 0.8 }, Footwork = { Guard = 1.8, Circle = 1.4 } },
+}
+-- what each kind of habit is counted from (NightmareAIService: noteHabit)
+Combat.HabitOf = { Attack = "Aggressor", Guard = "Turtle", Evade = "Evasive", Hurt = "Punishing" }
+
 -- Footwork options' base weights (vs a string's own Weight).
 Combat.Footwork = { Circle = 1.2, Feint = 0.6, Flank = 0.9, Guard = 0.8, Heavy = 1.0 }
 
@@ -138,6 +155,11 @@ function Combat.AutoPersonality(model: Model): string
 		return "Technical"
 	end
 	return "Technical"
+end
+
+-- "Combo_BrutalBoxerII" -> "Brutal Boxer II" (what the player reads).
+function Combat.DisplayName(action: string): string
+	return (action:gsub("^Combo_", ""):gsub("(%l)(%u)", "%1 %2"))
 end
 
 -- The tags a Moveset entry carries (its own Tags, never nil).

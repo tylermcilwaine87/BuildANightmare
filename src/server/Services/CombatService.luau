@@ -396,7 +396,7 @@ function CombatService:ApplyDamage(params): number
 		local boss = isBoss(target)
 		local worthy = if boss then special else (special or big or knockback >= cfg.MinKnockback)
 		-- NoKnockdown: the blow holds them instead (a bite's clamp keeps them in its jaws)
-		if worthy and not params.NoKnockdown and not guarded then
+		if (worthy or (params.Thrown and not boss)) and not params.NoKnockdown and not guarded then
 			local chance = self:KnockdownChance(attacker, target, big or params.Launch ~= nil)
 			if params.Thrown and not boss then
 				chance = 1 -- (a throw, a signature's last blow: they go down)
@@ -432,6 +432,14 @@ function CombatService:ApplyDamage(params): number
 				end
 			end
 		end
+	end
+
+	-- already down and flying (a launcher's follow-up in the air, a spike): the blow sends
+	-- the loose body where it says instead
+	if not knockedDown and attacker and params.Launch and target:GetAttribute("Ragdolled") and root and not root.Anchored and root:GetNetworkOwner() == nil then
+		local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis
+		local scale = sizeFactor(RAG.SizeThrow, attacker, target)
+		root.AssemblyLinearVelocity = direction * params.Launch.Push * scale + Vector3.new(0, params.Launch.Lift * scale, 0)
 	end
 
 	if humanoid.Health > 0 then

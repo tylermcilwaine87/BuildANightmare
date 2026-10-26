@@ -27,6 +27,7 @@ local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local StatusDefinitions = require(Shared:WaitForChild("StatusDefinitions"))
 local LevelUnlocks = require(Shared:WaitForChild("LevelUnlocks"))
 local NightmareCombat = require(Shared:WaitForChild("NightmareCombatDefinitions"))
+local BossDefinitions = require(Shared:WaitForChild("BossDefinitions"))
 local UIKit = require(script.Parent:WaitForChild("UIKit"))
 
 local HUDController = {}
@@ -169,7 +170,7 @@ local function buildCommandMenu(gui: ScreenGui)
 		Name = "CommandMenu",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.4),
-		Size = UDim2.fromOffset(440, 336),
+		Size = UDim2.fromOffset(440, 382),
 		BackgroundColor3 = C.Panel,
 		BackgroundTransparency = 0.05,
 		Visible = false,
@@ -227,6 +228,134 @@ local function buildCommandMenu(gui: ScreenGui)
 	end
 	styleRow(10, "STYLE", NightmareCombat.PersonalityOrder, "NightmarePersonality", "Auto", "Personality", Color3.fromRGB(120, 70, 160))
 	styleRow(11, "MODE", NightmareCombat.ModeOrder, "NightmareMode", "Balanced", "Mode", Color3.fromRGB(70, 90, 150))
+	-- what it knows: every combination, locked or not, and how far it's mastered
+	local combosButton = UIKit.Button({ Text = "COMBOS  —  what your Nightmare knows, and what it can still learn", Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Color3.fromRGB(150, 60, 70), MaxTextSize = 13, LayoutOrder = 12, Parent = menu }, function()
+		HUDController:ToggleCommandMenu(false)
+		HUDController:ToggleCombos(true)
+	end)
+	table.insert(ui.CommandButtons, combosButton)
+end
+
+-- NIGHTMARE COMBOS (Config.Nightmare.Moveset): every combination the brain can use, what
+-- body it needs, how it's unlocked and how many fights it has finished (Combo Mastery).
+local function comboRequirement(def): string
+	local needs = {}
+	if def.Quad then
+		table.insert(needs, "4 legs")
+	elseif def.Legs then
+		table.insert(needs, "2 legs")
+	end
+	if def.Tentacle then
+		table.insert(needs, "a tentacle arm")
+	elseif def.BothArms then
+		table.insert(needs, "2 arms")
+	elseif def.Arms then
+		table.insert(needs, "an arm")
+	end
+	if def.Head then
+		table.insert(needs, "a head")
+	end
+	return #needs > 0 and table.concat(needs, ", ") or "any body"
+end
+
+local function comboLock(def, profile): string?
+	local unlock = def.Unlock
+	if not unlock then
+		return nil
+	end
+	if unlock.Boss then
+		local record = profile and profile.Bosses and profile.Bosses[unlock.Boss]
+		if not (record and (record.Wins or 0) > 0) then
+			local boss = BossDefinitions.Get(unlock.Boss)
+			return ("Beat %s"):format(boss and boss.DisplayName or unlock.Boss)
+		end
+	end
+	if unlock.Mutation then
+		local model = controllers.ClientState:GetMyNightmare()
+		if not (model and model:GetAttribute("Mutations")) then
+			return "Equip a mutated part"
+		end
+	end
+	if unlock.Mastery then
+		local have = profile and profile.ComboMastery and profile.ComboMastery[unlock.Mastery.Action] or 0
+		if have < unlock.Mastery.Count then
+			return ("Master %s: %d / %d finished fights"):format(NightmareCombat.DisplayName(unlock.Mastery.Action), have, unlock.Mastery.Count)
+		end
+	end
+	return nil
+end
+
+local function buildCombosPanel(gui: ScreenGui)
+	local panel = UIKit.New("Frame", {
+		Name = "CombosPanel",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.48),
+		Size = UDim2.fromOffset(560, 470),
+		BackgroundColor3 = C.Panel,
+		BackgroundTransparency = 0.03,
+		Visible = false,
+		Parent = gui,
+	}, { UIKit.Corner(12), UIKit.Stroke(C.Accent, 2, 0.2), UIKit.Padding(12) })
+	UIKit.AutoScale(panel)
+	UIKit.Responsive(panel)
+	ui.CombosPanel = panel
+	UIKit.Label({ Text = "NIGHTMARE COMBOS", Size = UDim2.new(1, -50, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, MaxTextSize = 20, Parent = panel })
+	UIKit.Button({ Text = "X", Size = UDim2.fromOffset(34, 30), Position = UDim2.new(1, -34, 0, 0), BackgroundColor3 = C.PanelLighter, MaxTextSize = 16, Parent = panel }, function()
+		HUDController:ToggleCombos(false)
+	end)
+	UIKit.Label({ Text = "Your Nightmare picks these itself in a fight. Finishing a fight with a combo counts towards mastering it.", Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 13, TextWrapped = true, Parent = panel })
+	local list = UIKit.New("ScrollingFrame", {
+		Position = UDim2.fromOffset(0, 68),
+		Size = UDim2.new(1, 0, 1, -68),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 6,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		Parent = panel,
+	}, { UIKit.List(6) })
+	ui.CombosList = list
+end
+
+function HUDController:RefreshCombos()
+	local list = ui.CombosList
+	if not list then
+		return
+	end
+	for _, child in list:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	local profile = controllers.ClientState.Profile
+	for order, def in Config.Nightmare.Moveset do
+		if def.Action:sub(1, 6) == "Combo_" then
+			local lock = comboLock(def, profile)
+			local mastery = profile and profile.ComboMastery and profile.ComboMastery[def.Action] or 0
+			local row = UIKit.New("Frame", { Size = UDim2.new(1, -8, 0, 52), BackgroundColor3 = lock and C.PanelLight or C.PanelLighter, LayoutOrder = order, Parent = list }, { UIKit.Corner(8), UIKit.Padding(6) })
+			local tags = table.concat(def.Tags or {}, " · ")
+			UIKit.Label({ Text = string.upper(NightmareCombat.DisplayName(def.Action)) .. (lock and "  🔒" or ""), Size = UDim2.new(0.6, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = lock and C.SubText or C.Text, MaxTextSize = 16, Parent = row })
+			UIKit.Label({ Text = lock or ("Mastery: %d finished fight%s"):format(mastery, mastery == 1 and "" or "s"), Position = UDim2.new(0.6, 0, 0, 0), Size = UDim2.new(0.4, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = lock and C.Warn or C.Good, Font = UIKit.FontBody, MaxTextSize = 13, Parent = row })
+			UIKit.Label({ Text = ("Needs %s  ·  %s"):format(comboRequirement(def), tags), Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 0, 18), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 12, Parent = row })
+		end
+	end
+end
+
+function HUDController:ToggleCombos(force: boolean?)
+	local panel = ui.CombosPanel
+	if not panel then
+		return
+	end
+	local visible = if force == nil then not panel.Visible else force
+	panel.Visible = visible
+	if visible then
+		self:RefreshCombos()
+		task.spawn(function()
+			if controllers.ClientState:Refresh() and panel.Visible then
+				self:RefreshCombos() -- (fresh mastery counts)
+			end
+		end)
+	end
 end
 
 function HUDController:ToggleCommandMenu(force: boolean?)
@@ -417,6 +546,7 @@ function HUDController:Start()
 	buildAbilityBar(gui)
 	buildMeters(gui)
 	buildCommandMenu(gui)
+	buildCombosPanel(gui)
 	buildTopButtons(gui)
 	if UserInputService.TouchEnabled then
 		buildMobileControls(gui)

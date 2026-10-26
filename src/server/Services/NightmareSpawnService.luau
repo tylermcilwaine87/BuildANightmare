@@ -249,6 +249,21 @@ function NightmareSpawnService:Spawn(player: Player): Model?
 	model:SetAttribute("Reach", stats.Reach)
 	model:SetAttribute("PowerCost", stats.PowerCost)
 	model:SetAttribute("ActionSeq", 0)
+	model:SetAttribute("DevBuild", devBuild[player] and true or nil) -- (Studio test body: earns no mastery)
+	-- (the combat brain: which combos this body can do) an arm's animation set (e.g. a
+	-- Tentacle) and the mutations it carries (a mutated part unlocks the Frenzy)
+	for _, slot in { "RightArm", "LeftArm" } do
+		local def = build.Parts[slot] and PartDefinitions.Get(build.Parts[slot])
+		model:SetAttribute(slot .. "Set", def and def.AnimationSet or nil)
+	end
+	local mutations = {}
+	for slot in build.Parts do
+		local id = MutationDefinitions.ForSlot(build, slot)
+		if id and MutationDefinitions.Get(id) then
+			table.insert(mutations, id)
+		end
+	end
+	model:SetAttribute("Mutations", #mutations > 0 and table.concat(mutations, ",") or nil)
 	model:SetAttribute("Command", "Follow")
 	-- always-on part passives (PassiveDefinitions): "Splinters,Sprint"
 	model:SetAttribute("Passives", table.concat(PassiveDefinitions.ForBuild(build, PartDefinitions), ","))

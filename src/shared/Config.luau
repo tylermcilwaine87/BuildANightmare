@@ -346,6 +346,32 @@ Config.Nightmare = {
 		-- PREDATOR RUSH (four legs and a head): spring in raking with a forepaw, bite, bite and
 		-- wrench, rear up and slam both forepaws down
 		{ Action = "Combo_PredatorRush", Duration = 1.9, Weight = 3, Tags = { "Beast", "Rush", "Long", "Finisher" }, Cost = 30, Quad = true, Head = true, Leap = { At = 0.2, Time = 0.22, Max = 8 }, Hits = { { 0.42, 0.7, 4 }, { 0.7, 0.9 }, { 1.0, 1.0, 6 }, { 1.45, 1.6, 30, true } } },
+		-- hit[6] options: Radius = a shockwave round the impact (everything inside, the slam
+		-- effect), Up = the hit reaches that much higher (blows in the air), Force = always
+		-- knocks down. Unlock: Boss / Mutation / Mastery (NightmareAIService:Unlocked).
+		-- GROUND BREAKER (unlocked by the Abyssal Maw): low kick, rising knee, leaping
+		-- two-fist ground pound with a shockwave
+		{ Action = "Combo_GroundBreaker", Duration = 2.3, Weight = 2, Tags = { "Heavy", "Finisher", "GuardBreak" }, Cost = 32, Arms = true, BothArms = true, Legs = true, Unlock = { Boss = "AbyssalMaw" }, Leap = { At = 0.95, Time = 0.37, Max = 5 }, Hits = { { 0.3, 0.5, 4 }, { 0.7, 0.8, 10 }, { 1.32, 1.8, 0, true, { Lift = 36, Push = 10, Spin = 4 }, { Radius = 10, Force = true } } } },
+		-- AERIAL CRUSHER (a SIGNATURE, unlocked by the Mirror Warden): launcher uppercut,
+		-- flying knee, spike back down
+		{ Action = "Combo_AerialCrusher", Duration = 2.0, Weight = 3, Tags = { "Signature", "Finisher" }, Cost = 40, Arms = true, BothArms = true, Legs = true, Unlock = { Boss = "MirrorWarden" }, Leap = { At = 0.45, Time = 0.4, Max = 4 }, Hits = { { 0.36, 0.9, 0, false, { Lift = 40, Push = 6, Spin = 3 }, { Force = true } }, { 0.72, 0.8, 0, false, { Lift = 12, Push = 4, Spin = 2 }, { Up = 7 } }, { 1.08, 1.8, 0, true, { Lift = -45, Push = 8, Spin = 4 }, { Up = 7, Force = true } } } },
+		-- TITAN COMBINATION (unlocked by the Scrap Titan): haymaker, body uppercut,
+		-- axe-handle smash that cracks the floor
+		{ Action = "Combo_TitanCombination", Duration = 2.6, Weight = 2, Tags = { "Heavy", "Long", "Finisher", "GuardBreak" }, Cost = 34, Arms = true, BothArms = true, Legs = true, Unlock = { Boss = "ScrapTitan" }, Hits = { { 0.72, 1.3, 6 }, { 1.1, 1.0, 10 }, { 1.7, 2.2, 30, true, nil, { Radius = 7 } } } },
+		-- NIGHTMARE FRENZY (any two arms, legs or not; unlocked by a MUTATED part): six wild
+		-- rakes, a roar, a two-handed shove
+		{ Action = "Combo_NightmareFrenzy", Duration = 2.3, Weight = 3, Tags = { "Long", "Rush", "Finisher" }, Cost = 34, Arms = true, BothArms = true, Unlock = { Mutation = true }, Hits = { { 0.3, 0.35, 2 }, { 0.48, 0.35, 2 }, { 0.66, 0.35, 2 }, { 0.84, 0.35, 2 }, { 1.02, 0.4, 2 }, { 1.2, 0.45, 4 }, { 1.72, 1.5, 40, true } } },
+		-- TENTACLE SLAM (a Shadow Tentacle right arm): wrap them at range, haul in, hoist
+		-- high, smash down (Hold.Path: where the tentacle carries them, per beat)
+		{ Action = "Combo_TentacleSlam", Duration = 2.2, Weight = 3, Tags = { "Grab", "Finisher" }, Cost = 28, Tentacle = true, Clinch = true, Grab = true, ExtraReach = 1.5, Hold = { Path = { Vector3.new(2.0, 0, -4.6), Vector3.new(0.8, 3.0, -3.6), Vector3.new(1.0, 7.0, -3.0), Vector3.new(1.0, 0, -3.8) } }, Hits = { { 0.32, 0.5 }, { 0.6, 0.4 }, { 0.95, 0.3 }, { 1.25, 2.0, 0, true, { Lift = -40, Push = 6, Spin = 3 }, { Force = true } } } },
+		-- BEASTLY ASSAULT (four legs): ram, left rake, right rake, spin and buck
+		{ Action = "Combo_BeastlyAssault", Duration = 2.3, Weight = 3, Tags = { "Beast", "Rush", "Long", "Finisher" }, Cost = 30, Quad = true, Leap = { At = 0.15, Time = 0.2, Max = 6 }, Hits = { { 0.35, 0.9, 8 }, { 0.6, 0.6 }, { 0.85, 0.7, 6 }, { 1.45, 1.7, 42, true } } },
+		-- PREDATOR COUNTER (React; four legs and a head): hop out, pounce bite, shake, fling
+		{ Action = "Combo_PredatorCounter", Duration = 1.7, Weight = 3, Tags = { "Counter", "Beast" }, Cost = 24, Quad = true, Head = true, Evade = { Time = 0.22, Distance = 2.2 }, Hits = { { 0.55, 0.9 }, { 0.8, 0.6 }, { 1.05, 1.2, 30, true } } },
+		-- MASTERED versions (Combo Mastery: 15 finished fights with the base combo; then they
+		-- take its place)
+		{ Action = "Combo_BrutalBoxerII", Duration = 2.6, Weight = 3, Tags = { "Long", "Finisher" }, Cost = 32, Arms = true, BothArms = true, Legs = true, Unlock = { Mastery = { Action = "Combo_BrutalBoxer", Count = 15 } }, Replaces = "Combo_BrutalBoxer", Hits = { { 0.3, 0.5 }, { 0.55, 0.7, 4 }, { 0.82, 0.8, 8 }, { 1.1, 0.9, 6 }, { 1.32, 0.9, 6 }, { 1.84, 2.0, 36, true } } },
+		{ Action = "Combo_PredatorRushII", Duration = 2.6, Weight = 3, Tags = { "Beast", "Rush", "Long", "Finisher" }, Cost = 32, Quad = true, Head = true, Leap = { At = 0.2, Time = 0.22, Max = 8 }, Unlock = { Mastery = { Action = "Combo_PredatorRush", Count = 15 } }, Replaces = "Combo_PredatorRush", Hits = { { 0.42, 0.7, 4 }, { 0.7, 0.9 }, { 1.0, 1.0, 6 }, { 1.45, 1.6, 0, true, nil, { Crumple = true, Force = true } }, { 1.82, 0.9, 0, false, nil, { Chase = 9 } }, { 2.05, 1.1, 25 } } },
 		{ Action = "Gym_ComboA", Duration = 1.6, Weight = 3, Tags = { "Light" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.54, 0.55 }, { 0.8, 0.95, 10 } } }, -- jab, jab, cross
 		{ Action = "Gym_ComboB", Duration = 1.8, Weight = 3, Tags = { "Light" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.56, 0.8, 6 }, { 0.86, 1.05, 16 } } }, -- jab, cross, hook
 		{ Action = "Gym_ComboC", Duration = 2.1, Weight = 2, Tags = { "Heavy", "Finisher" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.58, 0.85, 8 }, { 1.04, 1.6, 32, true } } }, -- jab, hook, OVERHAND
