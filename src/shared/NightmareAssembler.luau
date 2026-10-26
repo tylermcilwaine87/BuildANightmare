@@ -29,6 +29,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = script.Parent
 local SlotDefinitions = require(Shared.SlotDefinitions)
 local PartDefinitions = require(Shared.PartDefinitions)
+local PartMeshes = require(Shared.PartMeshes)
 local ArchetypeDefinitions = require(Shared.ArchetypeDefinitions)
 local StatCalculator = require(Shared.StatCalculator)
 local MutationDefinitions = require(Shared.MutationDefinitions)
@@ -160,6 +161,35 @@ local function findAssetOverride(def, mirror: boolean): Model?
 	return nil
 end
 
+-- Studio's 3D importer turns a mesh half round (it takes +Z as an OBJ's front; the forge
+-- sculpts facing -Z, like every part here), so each mesh is turned back as it is placed.
+local IMPORT_TURN = CFrame.Angles(0, math.pi, 0)
+
+-- The sculpted mesh templates (Shared/Meshes/PartMeshes, made by tools/MeshForge), or nil.
+local function meshTemplates(): Instance?
+	local meshes = Shared:FindFirstChild("Meshes")
+	return meshes and meshes:FindFirstChild("PartMeshes")
+end
+
+-- A part's sculpted meshes, if every template it needs is there (else nil: use the blocks).
+-- A mirrored (left) arm uses each mesh's mirror image, <Mesh>_L.
+local function sculptedMeshes(def, mirror: boolean)
+	local entries = PartMeshes[def.Id]
+	local templates = entries and meshTemplates()
+	if not templates then
+		return nil
+	end
+	local list = {}
+	for _, entry in entries do
+		local template = mirror and templates:FindFirstChild(entry.Mesh .. "_L") or templates:FindFirstChild(entry.Mesh)
+		if not (template and template:IsA("MeshPart")) then
+			return nil
+		end
+		table.insert(list, { Entry = entry, Template = template })
+	end
+	return list
+end
+
 -- Builds one part's geometry, attached to slotRoot whose world frame is frameCF.
 local function buildSlotGeometry(model: Model, slot: string, def, slotRoot: BasePart, frameCF: CFrame, scale: number, mirror: boolean, visualParts)
 	-- 1) Real art override from ReplicatedStorage/Assets/PartModels
@@ -182,7 +212,7 @@ local function buildSlotGeometry(model: Model, slot: string, def, slotRoot: Base
 		return
 	end
 
-	-- 2) Procedural placeholder from definition pieces
+	-- 2) The sculpted meshes, or the block pieces from the definition, on the same joints
 	local groupRoots, groupFrames = {}, {}
 	if def.Groups then
 		for groupName, group in def.Groups do
@@ -196,6 +226,28 @@ local function buildSlotGeometry(model: Model, slot: string, def, slotRoot: Base
 			groupRoots[groupName] = groupRoot
 			groupFrames[groupName] = groupCF
 		end
+	end
+
+	local sculpted = sculptedMeshes(def, mirror)
+	if sculpted then
+		for index, item in sculpted do
+			local entry = item.Entry
+			local baseCF = (entry.Group and groupFrames[entry.Group]) or frameCF
+			local attachTo = (entry.Group and groupRoots[entry.Group]) or slotRoot
+			local part = item.Template:Clone()
+			part.Name = slot .. "_" .. index
+			part.Size = entry.Size * scale
+			part.CFrame = baseCF * CFrame.new((mirror and mirrorPos(entry.Pos) or entry.Pos) * scale) * IMPORT_TURN
+			part.Color = entry.Color
+			part.Material = entry.Material
+			part.Transparency = entry.Transparency or 0
+			part.CastShadow = part.Transparency < 0.5
+			styleVisual(part)
+			part.Parent = model
+			weld(attachTo, part)
+			table.insert(visualParts, part)
+		end
+		return
 	end
 
 	for index, spec in def.Visual do
