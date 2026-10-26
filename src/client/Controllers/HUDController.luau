@@ -285,7 +285,9 @@ local function comboLock(def, profile): string?
 	return nil
 end
 
-local function buildCombosPanel(gui: ScreenGui)
+local function buildCombosPanel(hud: ScreenGui)
+	-- (its own layer, above the hotbar and the rest of the HUD)
+	local gui = UIKit.New("ScreenGui", { Name = "NightmareCombos", ResetOnSpawn = false, DisplayOrder = 21, IgnoreGuiInset = hud.IgnoreGuiInset, Parent = hud.Parent })
 	local panel = UIKit.New("Frame", {
 		Name = "CombosPanel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
