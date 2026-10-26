@@ -366,9 +366,188 @@ Attacks.StaticNova = {
 	end,
 }
 
+------------------------------------------------------------------------------------------
+-- SIGNATURE COMBOS (ctx:Combo; BossPoses.StormBeast.<name>)
+------------------------------------------------------------------------------------------
+local function boxBeat(at: number, length: number, width: number, damage: number, opts)
+	return {
+		At = at,
+		Telegraph = function(ctx, lead)
+			local cf, size = ctx:FrontBox(length, width)
+			ctx:Box(cf, size, lead)
+			return { cf, size }
+		end,
+		Strike = function(ctx, box)
+			ctx:DamageBox(box[1], box[2], damage, opts)
+		end,
+	}
+end
+local function aroundBeat(at: number, radius: number, damage: number, opts, warn: number?)
+	return {
+		At = at,
+		Warn = warn,
+		Telegraph = function(ctx, lead)
+			local center = ctx:GroundPosition(ctx.Model)
+			ctx:Circle(center, radius, lead)
+			return center
+		end,
+		Strike = function(ctx, center)
+			ctx:Impact(center, radius)
+			opts.Radial = center
+			ctx:DamageCircle(center, radius, damage, opts)
+		end,
+	}
+end
+-- lightning on every target's spot
+local function boltsBeat(at: number, radius: number, damage: number, warn: number)
+	return {
+		At = at,
+		Warn = warn,
+		Telegraph = function(ctx, lead)
+			local spots = {}
+			for _, victim in ctx:Targets() do
+				local spot = ctx:GroundPosition(victim)
+				table.insert(spots, spot)
+				ctx:Circle(spot, radius, lead)
+			end
+			return spots
+		end,
+		Strike = function(ctx, spots)
+			for _, spot in spots do
+				ctx:Impact(spot, radius)
+			end
+			ctx:DamageCircles(spots, radius, damage, { Heavy = true, Knockback = 20, Status = "Shock" })
+		end,
+	}
+end
+
+-- THUNDER MAUL: left paw, right paw, a lunging bite, then it whips round and the tail scythes
+-- through everything around it.
+Attacks.ThunderMaul = {
+	Weight = function(_, distance)
+		return distance < 16 and 24 or 0
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("ThunderMaul", 2.4, {
+			boxBeat(0.6, 14, 12, 14, { Knockback = 15 }),
+			boxBeat(1.0, 14, 12, 14, { Knockback = 15 }),
+			boxBeat(1.25, 18, 7, 18, { Knockback = 25, Status = "Shock" }),
+			aroundBeat(1.8, 11, 18, { Knockback = 35 }),
+		}, 1.3)
+	end,
+}
+
+-- STORM CHARGE: it lowers its head and charges straight through them, crackling, rears and
+-- slams a static burst where it stops, then howls bolts down on everyone.
+Attacks.StormCharge = {
+	Weight = function(_, distance)
+		return distance > 12 and 26 or 10
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		local from = ctx:GroundPosition(ctx.Model)
+		ctx:Combo("StormCharge", 2.8, {
+			{
+				At = 0.8,
+				Telegraph = function(c, lead)
+					local aim = c:GroundPosition(target)
+					local direction = (aim - from) * Vector3.new(1, 0, 1)
+					direction = direction.Magnitude > 0.1 and direction.Unit or (c.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+					local stop = c:ClampToArena(aim + direction * 8)
+					local length = (stop - from).Magnitude
+					local mid = (from + stop) / 2
+					local cf = CFrame.lookAt(mid, mid + direction)
+					c:Box(cf, Vector3.new(10, 1, length), lead)
+					return { Stop = stop, CF = cf, Size = Vector3.new(10, 1, length) }
+				end,
+				Strike = function(c, data)
+					c:Dash(data.Stop, 0.3)
+					c:DamageBox(data.CF, data.Size, 22, { Heavy = true, Knockback = 40, Status = "Shock" })
+				end,
+			},
+			aroundBeat(1.75, 10, 20, { Knockback = 35, Status = "Shock" }, 0.6),
+			boltsBeat(2.1, 5, 14, 0.75),
+		}, 1.3)
+	end,
+}
+
+-- ROLLING THUNDER: three bounding leaps at them, each landing a shock, and a nova at the end.
+Attacks.RollingThunder = {
+	Weight = function(_, distance)
+		return distance > 10 and 22 or 8
+	end,
+	Run = function(ctx, target)
+		local function bound(at: number)
+			return {
+				At = at,
+				Warn = 0.45,
+				Telegraph = function(c, lead)
+					local aim = c:GroundPosition(target)
+					local here = c:GroundPosition(c.Model)
+					local step = (aim - here) * Vector3.new(1, 0, 1)
+					local landing = step.Magnitude > 12 and c:ClampToArena(here + step.Unit * 12) or aim
+					c:Face(landing)
+					c:Leap(landing, lead)
+					c:Circle(landing, 7, lead)
+					return landing
+				end,
+				Strike = function(c, landing)
+					c:Impact(landing, 7)
+					c:SlamFX(landing, 7, 0.6)
+					c:DamageCircle(landing, 7, 16, { Knockback = 25, Status = "Shock", Radial = landing })
+				end,
+			}
+		end
+		ctx:Combo("RollingThunder", 2.6, {
+			bound(0.7),
+			bound(1.25),
+			bound(1.8),
+			aroundBeat(2.3, 13, 20, { Knockback = 40, Status = "Shock" }, 0.5),
+		}, 1.4)
+	end,
+}
+
+-- SKY SPLITTER (supercharged only): it rears up and slams down three forks of lightning
+-- across the ground in front, then calls a bolt down on every one of them.
+Attacks.SkySplitter = {
+	Weight = function(ctx, _distance)
+		return supercharged(ctx) and 26 or 0
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("SkySplitter", 2.8, {
+			{
+				At = 1.2,
+				Telegraph = function(c, lead)
+					local base = c:GroundPosition(c.Model)
+					local look = (c.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+					local boxes = {}
+					for _, angle in { -30, 0, 30 } do
+						local direction = CFrame.Angles(0, math.rad(angle), 0):VectorToWorldSpace(look)
+						local mid = base + direction * (c.Root.Size.Z / 2 + 12)
+						local box = { CFrame = CFrame.lookAt(mid, mid + direction), Size = Vector3.new(5, 1, 24) }
+						table.insert(boxes, box)
+						c:Box(box.CFrame, box.Size, lead)
+					end
+					return boxes
+				end,
+				Strike = function(c, boxes)
+					c:DamageBoxes(boxes, 18, { Knockback = 25, Status = "Shock" })
+				end,
+			},
+			boltsBeat(2.0, 6, 20, 0.8),
+		}, 1.4)
+	end,
+}
+
 StormBeast.Attacks = Attacks
 
 function StormBeast.ChooseAttack(ctx, distance: number)
+	local forced = game:GetService("RunService"):IsStudio() and workspace:GetAttribute("ForceBossAttack")
+	if forced and Attacks[forced] then
+		return forced, Attacks[forced]
+	end
 	local total = 0
 	local weights = {}
 	for name, attack in Attacks do

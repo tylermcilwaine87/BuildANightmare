@@ -373,7 +373,208 @@ Attacks.AbyssPools = {
 
 AbyssalMaw.Attacks = Attacks
 
+------------------------------------------------------------------------------------------
+-- SIGNATURE COMBOS (ctx:Combo; BossPoses.AbyssalMaw.<name>)
+------------------------------------------------------------------------------------------
+local function frontPoint(ctx, distance: number): Vector3
+	local look = (ctx.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+	return ctx:ClampToArena(ctx:GroundPosition(ctx.Model) + look * (ctx.Root.Size.Z / 2 + distance))
+end
+local function boxBeat(at: number, length: number, width: number, damage: number, opts)
+	return {
+		At = at,
+		Telegraph = function(ctx, lead)
+			local cf, size = ctx:FrontBox(length, width)
+			ctx:Box(cf, size, lead)
+			return { cf, size }
+		end,
+		Strike = function(ctx, box)
+			ctx:DamageBox(box[1], box[2], damage, opts)
+		end,
+	}
+end
+local function biteBeat(at: number, warn: number?)
+	return {
+		At = at,
+		Warn = warn,
+		Telegraph = function(ctx, lead)
+			local point = frontPoint(ctx, 6)
+			ctx:Circle(point, 7, lead)
+			return point
+		end,
+		Strike = function(ctx, point)
+			ctx:Impact(point, 7)
+			ctx:DamageCircle(point, 7, 22, { Heavy = true, Knockback = 30, Radial = point })
+		end,
+	}
+end
+
+-- ABYSSAL LASH: the right tentacle sweeps across, then the left, then both come down in a
+-- long slam in front of it.
+Attacks.AbyssalLash = {
+	Weight = function(_, distance)
+		return distance < 22 and 22 or 8
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("AbyssalLash", 2.4, {
+			boxBeat(0.7, 22, 16, 18, { Knockback = 30 }),
+			boxBeat(1.1, 22, 16, 18, { Knockback = 30 }),
+			{
+				At = 1.7,
+				Warn = 0.6,
+				Telegraph = function(c, lead)
+					local cf, size = c:FrontBox(30, 8)
+					c:Box(cf, size, lead)
+					return { cf, size }
+				end,
+				Strike = function(c, box)
+					c:Impact(box[1].Position, 6)
+					c:DamageBox(box[1], box[2], 26, { Heavy = true, Knockback = 30 })
+				end,
+			},
+		}, 1.3)
+	end,
+}
+
+-- DEVOUR: two lunging bites in front of it, then it spits the dark straight out.
+Attacks.Devour = {
+	Weight = function(_, distance)
+		return distance < 18 and 22 or 6
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("Devour", 2.6, {
+			biteBeat(0.8),
+			biteBeat(1.4, 0.5),
+			boxBeat(2.0, 20, 14, 16, { Knockback = 35, Status = "Weaken" }),
+		}, 1.3)
+	end,
+}
+
+-- UNDERTOW: it sinks into the floor, erupts under one of them, sinks again and erupts under
+-- another, then thrashes its tentacles round where it came up.
+Attacks.Undertow = {
+	Weight = function(_, distance)
+		return distance > 14 and 22 or 10
+	end,
+	Run = function(ctx, target)
+		local home = ctx:GroundPosition(ctx.Model)
+		local function sink(): boolean
+			ctx:Action("Burrow", 0.3, 1)
+			if not ctx:Wait(0.5) then
+				return false
+			end
+			ctx.Root.Anchored = true
+			ctx.Model:PivotTo(ctx.Root.CFrame - Vector3.new(0, 45, 0)) -- underground: can't be hit
+			return true
+		end
+		local function erupt(victim): boolean
+			local position = ctx:GroundPosition(victim)
+			local windup = ctx:WindupTime(1.0)
+			ctx:Circle(position, 9, windup)
+			if not ctx:Wait(windup) then
+				ctx.Root.Anchored = false
+				ctx:PlaceAt(home)
+				return false
+			end
+			ctx.Root.Anchored = false
+			ctx:PlaceAt(position)
+			ctx:Action("Erupt", 0.05, 0.8)
+			ctx:Impact(position, 9)
+			ctx:DamageCircle(position, 9, 24, { Heavy = true, Knockback = 45, Radial = position })
+			return ctx:Wait(0.6)
+		end
+		if not sink() or not erupt(target) then
+			return
+		end
+		if not sink() or not erupt(ctx:PickTarget() or target) then
+			return
+		end
+		ctx:Combo("Undertow", 1.6, {
+			{
+				At = 0.6,
+				Telegraph = function(c, lead)
+					local center = c:GroundPosition(c.Model)
+					c:Circle(center, 13, lead)
+					return center
+				end,
+				Strike = function(c, center)
+					c:DamageCircle(center, 13, 18, { Knockback = 40, Radial = center })
+				end,
+			},
+		}, 1.4)
+	end,
+}
+
+-- INK TIDE (after the abyss opens): ink spat out in a fan, the tentacles sweeping flat
+-- round it, then geysers of the dark under every one of them.
+Attacks.InkTide = {
+	Weight = function(ctx, _distance)
+		return ctx.Overdrive and 26 or 0
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("InkTide", 2.8, {
+			{
+				At = 1.0,
+				Telegraph = function(c, lead)
+					local base = c:GroundPosition(c.Model)
+					local look = (c.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+					local spots = {}
+					for _, angle in { -25, 0, 25 } do
+						local spot = c:ClampToArena(base + CFrame.Angles(0, math.rad(angle), 0):VectorToWorldSpace(look) * (c.Root.Size.Z / 2 + 12))
+						table.insert(spots, spot)
+						c:Circle(spot, 6, lead)
+					end
+					return spots
+				end,
+				Strike = function(c, spots)
+					for _, spot in spots do
+						c:Impact(spot, 6)
+					end
+					c:DamageCircles(spots, 6, 12, { Knockback = 10, Status = "Weaken" })
+				end,
+			},
+			{
+				At = 1.6,
+				Telegraph = function(c, lead)
+					local center = c:GroundPosition(c.Model)
+					c:Circle(center, 14, lead)
+					return center
+				end,
+				Strike = function(c, center)
+					c:DamageCircle(center, 14, 18, { Knockback = 40, Radial = center })
+				end,
+			},
+			{
+				At = 2.2,
+				Warn = 0.8,
+				Telegraph = function(c, lead)
+					local spots = {}
+					for _, victim in c:Targets() do
+						local spot = c:GroundPosition(victim)
+						table.insert(spots, spot)
+						c:Circle(spot, 6, lead)
+					end
+					return spots
+				end,
+				Strike = function(c, spots)
+					for _, spot in spots do
+						c:Impact(spot, 6)
+					end
+					c:DamageCircles(spots, 6, 20, { Heavy = true, Knockback = 30, Ground = true })
+				end,
+			},
+		}, 1.4)
+	end,
+}
+
 function AbyssalMaw.ChooseAttack(ctx, distance: number)
+	local forced = game:GetService("RunService"):IsStudio() and workspace:GetAttribute("ForceBossAttack")
+	if forced and Attacks[forced] then
+		return forced, Attacks[forced]
+	end
 	local total = 0
 	local weights = {}
 	for name, attack in Attacks do

@@ -347,6 +347,192 @@ Attacks.MagnetPull = {
 	end,
 }
 
+------------------------------------------------------------------------------------------
+-- SIGNATURE COMBOS (ctx:Combo: one continuous clip, several telegraphed beats, each
+-- landing on its animation frame; BossPoses.ScrapTitan.<name>)
+------------------------------------------------------------------------------------------
+local function frontPoint(ctx, distance: number): Vector3
+	local look = (ctx.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+	return ctx:ClampToArena(ctx:GroundPosition(ctx.Model) + look * (ctx.Root.Size.Z / 2 + distance))
+end
+local function boxBeat(at: number, length: number, width: number, damage: number, opts)
+	return {
+		At = at,
+		Telegraph = function(ctx, lead)
+			local cf, size = ctx:FrontBox(length, width)
+			ctx:Box(cf, size, lead)
+			return { cf, size }
+		end,
+		Strike = function(ctx, box)
+			ctx:DamageBox(box[1], box[2], damage, opts)
+		end,
+	}
+end
+
+-- WRECKING COMBO: the wrecking ball swung across, backhanded back the other way, then
+-- raised and smashed down in front.
+Attacks.WreckingCombo = {
+	Weight = function(_, distance)
+		return distance < 18 and 22 or 0
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("WreckingCombo", 3.0, {
+			boxBeat(0.85, 16, 14, 18, { Knockback = 20 }),
+			boxBeat(1.45, 16, 14, 18, { Knockback = 25 }),
+			{
+				At = 2.15,
+				Telegraph = function(c, lead)
+					local point = frontPoint(c, 6)
+					c:Circle(point, 8, lead)
+					return point
+				end,
+				Strike = function(c, point)
+					c:Impact(point, 8)
+					c:SlamFX(point, 8, 0.9)
+					c:DamageCircle(point, 8, 26, { Heavy = true, Knockback = 40, Radial = point })
+				end,
+			},
+		}, 1.4)
+	end,
+}
+
+-- MAGNET UPPERCUT: the magnet drags everyone in, the wrecking ball comes up underneath
+-- whoever arrived, then a stomp that throws everyone off it.
+Attacks.MagnetUppercut = {
+	Weight = function(_, distance)
+		return distance < 26 and 18 or 10
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("MagnetUppercut", 2.8, {
+			{
+				At = 1.0,
+				Telegraph = function(c, lead)
+					c:Circle(c:GroundPosition(c.Model), 26, lead, "Pull")
+				end,
+				Strike = function(c)
+					c:Pull(26, 55)
+				end,
+			},
+			boxBeat(1.5, 10, 11, 22, { Heavy = true, Knockback = 35 }),
+			{
+				At = 2.15,
+				Telegraph = function(c, lead)
+					local center = c:GroundPosition(c.Model)
+					c:Circle(center, 10, lead)
+					return center
+				end,
+				Strike = function(c, center)
+					c:Impact(center, 10)
+					c:SlamFX(center, 10, 0.8)
+					c:DamageCircle(center, 10, 20, { Knockback = 35, Radial = center })
+				end,
+			},
+		}, 1.2)
+	end,
+}
+
+-- SCRAP QUAKE: stomp, stomp, then both fists into the floor and the scrap around it erupts.
+Attacks.ScrapQuake = {
+	Weight = function(_, distance)
+		return distance < 20 and 18 or 8
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		local function stomp(at: number, side: number)
+			return {
+				At = at,
+				Telegraph = function(c, lead)
+					local foot = c:ClampToArena((c.Root.CFrame * CFrame.new(side * 4, 0, -2)).Position)
+					c:Circle(foot, 7, lead)
+					return foot
+				end,
+				Strike = function(c, foot)
+					c:Impact(foot, 7)
+					c:SlamFX(foot, 7, 0.6)
+					c:DamageCircle(foot, 7, 16, { Knockback = 25, Radial = foot })
+				end,
+			}
+		end
+		ctx:Combo("ScrapQuake", 2.8, {
+			stomp(0.7, -1),
+			stomp(1.2, 1),
+			{
+				At = 1.85,
+				Warn = 0.65,
+				Telegraph = function(c, lead)
+					local point = frontPoint(c, 5)
+					local ring = {}
+					for i = 1, 6 do
+						local spot = c:ClampToArena(point + CFrame.Angles(0, math.rad(60 * i), 0):VectorToWorldSpace(Vector3.new(0, 0, 15)))
+						table.insert(ring, spot)
+						c:Circle(spot, 4.5, lead)
+					end
+					c:Circle(point, 10, lead)
+					return { Point = point, Ring = ring }
+				end,
+				Strike = function(c, data)
+					c:Impact(data.Point, 10)
+					c:SlamFX(data.Point, 10, 1)
+					c:DamageCircle(data.Point, 10, 26, { Heavy = true, Knockback = 40, Radial = data.Point })
+					for _, spot in data.Ring do
+						c:Impact(spot, 4.5)
+					end
+					c:DamageCircles(data.Ring, 4.5, 12, { Knockback = 15 })
+				end,
+			},
+		}, 1.5)
+	end,
+}
+
+-- REACTOR RUSH (Overdrive only): it drops its shoulder and charges straight through the
+-- target's spot, backhands whoever is in front, then the reactor bursts around it.
+Attacks.ReactorRush = {
+	Weight = function(ctx, distance)
+		return ctx.Overdrive and (distance > 12 and 28 or 14) or 0
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		local from = ctx:GroundPosition(ctx.Model)
+		ctx:Combo("ReactorRush", 3.2, {
+			{
+				At = 1.0,
+				Telegraph = function(c, lead)
+					local aim = c:GroundPosition(target)
+					local direction = (aim - from) * Vector3.new(1, 0, 1)
+					direction = direction.Magnitude > 0.1 and direction.Unit or (c.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+					local stop = c:ClampToArena(aim + direction * 6)
+					local length = (stop - from).Magnitude
+					local mid = (from + stop) / 2
+					local cf = CFrame.lookAt(mid, mid + direction)
+					c:Box(cf, Vector3.new(12, 1, length), lead)
+					return { Stop = stop, CF = cf, Size = Vector3.new(12, 1, length) }
+				end,
+				Strike = function(c, data)
+					c:Dash(data.Stop, 0.35)
+					c:DamageBox(data.CF, data.Size, 24, { Heavy = true, Knockback = 45 })
+				end,
+			},
+			boxBeat(1.6, 14, 14, 18, { Knockback = 30 }),
+			{
+				At = 2.3,
+				Warn = 0.7,
+				Telegraph = function(c, lead)
+					local center = c:GroundPosition(c.Model)
+					c:Circle(center, 13, lead)
+					return center
+				end,
+				Strike = function(c, center)
+					c:Impact(center, 13)
+					c:SlamFX(center, 13, 1.2)
+					c:DamageCircle(center, 13, 22, { Knockback = 45, Radial = center })
+				end,
+			},
+		}, 1.6)
+	end,
+}
+
 ScrapTitan.Attacks = Attacks
 
 function ScrapTitan.ChooseAttack(ctx, distance: number)

@@ -383,6 +383,307 @@ local AbyssalMaw = {
 	},
 }
 
+
+------------------------------------------------------------------------------------------
+-- SIGNATURE COMBOS: one continuous clip each, several beats (the server's ctx:Combo lands
+-- every beat on its frame; the "Hit" marker is the FIRST beat, which syncs the speed).
+-- Built from each boss's own measured poses above, so the body moves the same way.
+------------------------------------------------------------------------------------------
+-- SCRAP TITAN
+-- WRECKING COMBO: the wrecking ball swung across, backhanded back, raised and smashed down.
+ScrapTitan.WreckingCombo = {
+	Duration = 3.0,
+	Markers = { { 0.5, "StepR" }, { 0.5, "Whoosh" }, { 0.85, "Hit" }, { 1.1, "Whoosh" }, { 1.45, "Strike" }, { 1.8, "Whoosh" }, { 2.15, "Land" } },
+	Keys = {
+		{ T = 0 },
+		titanKey(0.5, 1, { Joint_Core = { 4, -25, 0 }, Joint_Head = { 0, 20, 0 }, Joint_RightArm = { 70, 0, 75 }, Joint_LeftArm = { 30, 0, -20 } }),
+		titanKey(0.85, 1.2, { Joint_Core = { -10, 20, 0 }, Joint_Head = { -4, -10, 0 }, Joint_RightArm = { 85, 0, -30 }, Joint_LeftArm = { 20, 0, -30 } }),
+		titanKey(1.1, 1.2, { Joint_Core = { -12, 35, 0 }, Joint_Head = { -4, -20, 0 }, Joint_RightArm = { 70, 0, -70 }, Joint_LeftArm = { 20, 0, -30 } }),
+		-- the BACKHAND: back across to the right
+		titanKey(1.45, 1.2, { Joint_Core = { -10, -30, 0 }, Joint_Head = { -4, 15, 0 }, Joint_RightArm = { 85, 0, 55 }, Joint_LeftArm = { 20, 0, -30 } }),
+		titanKey(1.8, 0.3, { Joint_Core = { 12, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 175, 0, 10 }, Joint_LeftArm = { 60, 0, -10 } }),
+		-- the SMASH
+		titanKey(2.15, 1.8, { Joint_Core = { -30, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 50, 0, 0 }, Joint_LeftArm = { 40, 0, -10 } }),
+		titanKey(2.5, 1.6, { Joint_Core = { -26, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 46, 0, 0 }, Joint_LeftArm = { 40, 0, -10 } }),
+		{ T = 3.0 },
+	},
+}
+-- MAGNET UPPERCUT: the magnet drags them in, the ball comes up under them, a stomp.
+ScrapTitan.MagnetUppercut = {
+	Duration = 2.8,
+	Markers = { { 0.8, "StepL" }, { 1.0, "Hit" }, { 1.25, "Whoosh" }, { 1.5, "Strike" }, { 2.15, "Land" } },
+	Keys = {
+		{ T = 0 },
+		titanKey(0.8, 1, { Joint_Core = { -6, -15, 0 }, Joint_Head = { -6, 10, 0 }, Joint_LeftArm = { 95, 0, 10 }, Joint_RightArm = { 30, 0, 20 } }),
+		titanKey(1.0, 1, { Joint_Core = { -6, -15, 3 }, Joint_Head = { -6, 10, 0 }, Joint_LeftArm = { 98, 0, 8 }, Joint_RightArm = { 30, 0, 20 } }),
+		titanKey(1.25, 1.6, { Joint_Core = { -16, -20, 0 }, Joint_Head = { -6, 10, 0 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 60, 0, -10 } }),
+		-- UPPERCUT: up out of the squat, the ball driven up through them
+		titanKey(1.5, 0.2, { Joint_Core = { 12, 15, 0 }, Joint_Head = { 14, 0, 0 }, Joint_RightArm = { 165, 0, -10 }, Joint_LeftArm = { 40, 0, -20 } }),
+		-- the right foot up...
+		titanKey(1.85, 0.6, { Joint_Core = { 6, 0, 0 }, Joint_RightArm = { 60, 0, 20 }, Joint_LeftArm = { 60, 0, -20 }, Sub_Legs_R = { 55, 0, 0 }, Knee_R = { -60, 0, 0 } }),
+		-- ...STOMP
+		titanKey(2.15, 1.2, { Joint_Core = { -14, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 40, 0, 20 }, Joint_LeftArm = { 40, 0, -20 } }),
+		titanKey(2.45, 0.6, { Joint_Core = { -6, 0, 0 } }),
+		{ T = 2.8 },
+	},
+}
+-- SCRAP QUAKE: stomp left, stomp right, both fists into the floor.
+ScrapTitan.ScrapQuake = {
+	Duration = 2.8,
+	Markers = { { 0.45, "Whoosh" }, { 0.7, "Hit" }, { 0.7, "Land" }, { 1.2, "Land" }, { 1.5, "Whoosh" }, { 1.85, "Land" } },
+	Keys = {
+		{ T = 0 },
+		titanKey(0.45, 0.5, { Joint_Core = { 6, 0, -6 }, Joint_RightArm = { 40, 0, 30 }, Joint_LeftArm = { 40, 0, -30 }, Sub_Legs_L = { 55, 0, 0 }, Knee_L = { -55, 0, 0 } }),
+		titanKey(0.7, 1.2, { Joint_Core = { -10, 10, 4 }, Joint_RightArm = { 30, 0, 30 }, Joint_LeftArm = { 30, 0, -30 } }),
+		titanKey(0.95, 0.5, { Joint_Core = { 6, 0, 6 }, Joint_RightArm = { 40, 0, 30 }, Joint_LeftArm = { 40, 0, -30 }, Sub_Legs_R = { 55, 0, 0 }, Knee_R = { -55, 0, 0 } }),
+		titanKey(1.2, 1.2, { Joint_Core = { -10, -10, -4 }, Joint_RightArm = { 30, 0, 30 }, Joint_LeftArm = { 30, 0, -30 } }),
+		titanKey(1.5, 0.3, { Joint_Core = { 14, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 175, 0, 10 }, Joint_LeftArm = { 175, 0, -10 } }),
+		titanKey(1.85, 1.9 / 0.6, { Joint_CorePos = { 0, -1.9, -0.4 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 72, 0, 8 }, Joint_LeftArm = { 72, 0, -8 } }),
+		titanKey(2.2, 1.7 / 0.6, { Joint_CorePos = { 0, -1.7, -0.35 }, Joint_Core = { -34, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 64, 0, 8 }, Joint_LeftArm = { 64, 0, -8 } }),
+		{ T = 2.8 },
+	},
+}
+-- REACTOR RUSH (Overdrive): shoulder down, the charge, a backhand, the reactor bursts.
+ScrapTitan.ReactorRush = {
+	Duration = 3.2,
+	Markers = { { 0.6, "StepL" }, { 1.0, "Hit" }, { 1.0, "StepR" }, { 1.25, "Whoosh" }, { 1.6, "Strike" }, { 2.3, "Land" } },
+	Keys = {
+		{ T = 0 },
+		titanKey(0.6, 1.4, { Joint_Core = { -24, -20, 0 }, Joint_Head = { 10, 10, 0 }, Joint_RightArm = { 30, 0, 20 }, Joint_LeftArm = { 60, 0, -30 } }),
+		titanKey(1.0, 1.0, { Joint_Core = { -28, -25, 0 }, Joint_Head = { 12, 12, 0 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 70, 0, -30 } }),
+		titanKey(1.25, 1.2, { Joint_Core = { -14, -25, 0 }, Joint_Head = { 0, 20, 0 }, Joint_RightArm = { 70, 0, 75 }, Joint_LeftArm = { 30, 0, -20 } }),
+		titanKey(1.6, 1.2, { Joint_Core = { -10, 30, 0 }, Joint_Head = { -4, -15, 0 }, Joint_RightArm = { 80, 0, -70 }, Joint_LeftArm = { 20, 0, -30 } }),
+		titanKey(1.95, 1.3, { Joint_Core = { -14, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 } }),
+		titanKey(2.3, 0, { Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 20, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 125, 0, 60 }, Joint_LeftArm = { 125, 0, -60 } }),
+		titanKey(2.7, 0.2, { Joint_CorePos = { 0, 0.15, 0 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 118, 0, 56 }, Joint_LeftArm = { 118, 0, -56 } }),
+		{ T = 3.2 },
+	},
+}
+
+-- MIRROR WARDEN
+local W_RAISE = { Joint_CorePos = { 0, 1.2, 0.4 }, Joint_Core = { 14, -10, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 185, 0, 10 }, Joint_LeftArm = { 80, 0, -10 } }
+local W_STAB = { Joint_CorePos = { 0, -0.8, -1.6 }, Joint_Core = { -30, 10, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 60, 0, -10 }, Joint_LeftArm = { 30, 0, -30 } }
+local W_DRAW = { Joint_CorePos = { 0, 0.2, 0.6 }, Joint_Core = { 4, -25, 0 }, Joint_Head = { 0, 20, 0 }, Joint_RightArm = { 90, 0, 40 }, Joint_LeftArm = { 60, 0, -10 } }
+local W_THRUST = { Joint_CorePos = { 0, -0.2, -1.6 }, Joint_Core = { -12, 10, 0 }, Joint_Head = { -6, -6, 0 }, Joint_RightArm = { 92, 0, -5 }, Joint_LeftArm = { 40, 0, -30 } }
+local function wkey(t: number, pose)
+	local key = table.clone(pose)
+	key.T = t
+	return key
+end
+-- MIRRORED STRIKE: a diagonal cut (it lands twice: here and in the reflection), a shield
+-- bash, a rising cleave.
+MirrorWarden.MirroredStrike = {
+	Duration = 2.3,
+	Markers = { { 0.45, "Whoosh" }, { 0.75, "Hit" }, { 1.25, "Strike" }, { 1.5, "Whoosh" }, { 1.75, "Strike" } },
+	Keys = {
+		{ T = 0 },
+		{ T = 0.45, Joint_CorePos = { 0, 0.3, 0.4 }, Joint_Core = { 6, -30, 0 }, Joint_Head = { 0, 20, 0 }, Joint_RightArm = { 150, 0, 50 }, Joint_LeftArm = { 40, 0, -20 } },
+		{ T = 0.75, Joint_CorePos = { 0, -0.4, -1.2 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -6, -4, 0 }, Joint_RightArm = { 70, 0, -25 }, Joint_LeftArm = { 50, 0, -30 } },
+		{ T = 1.0, Joint_CorePos = { 0, 0, 0.2 }, Joint_Core = { 4, 20, 0 }, Joint_Head = { 0, -10, 0 }, Joint_LeftArm = { 100, 0, 30 }, Joint_RightArm = { 60, 0, 30 } },
+		-- SHIELD BASH
+		{ T = 1.25, Joint_CorePos = { 0, -0.2, -1.4 }, Joint_Core = { -10, -10, 0 }, Joint_Head = { -6, 0, 0 }, Joint_LeftArm = { 95, 0, -10 }, Joint_RightArm = { 50, 0, 30 } },
+		{ T = 1.5, Joint_CorePos = { 0, -0.4, -0.6 }, Joint_Core = { 10, -20, 0 }, Joint_Head = { 0, 10, 0 }, Joint_RightArm = { -20, 0, 40 }, Joint_LeftArm = { 40, 0, -20 } },
+		-- RISING CLEAVE
+		{ T = 1.75, Joint_CorePos = { 0, 1.0, -1.2 }, Joint_Core = { 16, 10, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 175, 0, -5 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 2.0, Joint_CorePos = { 0, 0.8, -1.0 }, Joint_Core = { 12, 8, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 170, 0, -5 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 2.3 },
+	},
+}
+-- SHARD LANCE: two long thrusts, then the blade raised and driven down at the far point.
+MirrorWarden.ShardLance = {
+	Duration = 2.4,
+	Markers = { { 0.55, "Whoosh" }, { 0.8, "Hit" }, { 1.05, "Whoosh" }, { 1.3, "Strike" }, { 1.55, "Whoosh" }, { 1.8, "Strike" } },
+	Keys = {
+		{ T = 0 },
+		wkey(0.55, W_DRAW),
+		wkey(0.8, W_THRUST),
+		wkey(1.05, W_DRAW),
+		wkey(1.3, W_THRUST),
+		{ T = 1.55, Joint_CorePos = { 0, 0.6, 0 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 175, 0, 0 }, Joint_LeftArm = { 60, 0, -20 } },
+		{ T = 1.8, Joint_CorePos = { 0, -0.3, -1.2 }, Joint_Core = { -20, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 90, 0, -5 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 2.05, Joint_CorePos = { 0, -0.3, -1.1 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 86, 0, -5 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 2.4 },
+	},
+}
+-- SHIELD RIPOSTE: covered behind the mirror, a bash, then a full spin of the blade.
+MirrorWarden.ShieldRiposte = {
+	Duration = 2.4,
+	Markers = { { 0.3, "Whoosh" }, { 1.1, "Hit" }, { 1.35, "Whoosh" }, { 1.7, "Strike" } },
+	Keys = {
+		{ T = 0 },
+		{ T = 0.3, Joint_CorePos = { 0, -0.2, 0.3 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_LeftArm = { 95, 0, 15 }, Joint_RightArm = { 40, 0, 40 } },
+		{ T = 0.9, Joint_CorePos = { 0, -0.25, 0.3 }, Joint_Core = { -8, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_LeftArm = { 96, 0, 14 }, Joint_RightArm = { 40, 0, 40 } },
+		{ T = 1.1, Joint_CorePos = { 0, -0.2, -1.5 }, Joint_Core = { -12, -10, 0 }, Joint_Head = { -6, 0, 0 }, Joint_LeftArm = { 95, 0, -15 }, Joint_RightArm = { 40, 0, 40 } },
+		{ T = 1.35, Joint_CorePos = { 0, 0, -0.8 }, Joint_Core = { 0, 60, 0 }, Joint_Head = { 0, -30, 0 }, Joint_RightArm = { 90, 0, 70 }, Joint_LeftArm = { 50, 0, -20 } },
+		-- the BLADE SPIN: round once, arm out
+		{ T = 1.5, Joint_CorePos = { 0, 0, -0.8 }, Joint_Core = { 0, -60, 0 }, Joint_RightArm = { 90, 0, 85 }, Joint_LeftArm = { 50, 0, -20 } },
+		{ T = 1.6, Joint_CorePos = { 0, 0, -0.8 }, Joint_Core = { 0, -180, 0 }, Joint_RightArm = { 90, 0, 85 }, Joint_LeftArm = { 50, 0, -20 } },
+		{ T = 1.7, Joint_CorePos = { 0, 0, -0.8 }, Joint_Core = { 0, -300, 0 }, Joint_RightArm = { 90, 0, 85 }, Joint_LeftArm = { 50, 0, -20 } },
+		{ T = 2.0, Joint_CorePos = { 0, 0, -0.6 }, Joint_Core = { 0, -360, 0 }, Joint_RightArm = { 60, 0, 30 }, Joint_LeftArm = { 40, 0, -20 } },
+		{ T = 2.4, Joint_Core = { 0, -360, 0 } },
+	},
+}
+-- KALEIDOSCOPE (cracked): three stabs from three sides (it blinks between them), an X-cut.
+MirrorWarden.Kaleidoscope = {
+	Duration = 2.6,
+	Markers = { { 0.5, "Whoosh" }, { 0.7, "Hit" }, { 1.15, "Strike" }, { 1.6, "Strike" }, { 1.95, "Whoosh" }, { 2.2, "Strike" } },
+	Keys = {
+		{ T = 0 },
+		wkey(0.5, W_RAISE),
+		wkey(0.7, W_STAB),
+		wkey(0.95, W_RAISE),
+		wkey(1.15, W_STAB),
+		wkey(1.4, W_RAISE),
+		wkey(1.6, W_STAB),
+		{ T = 1.95, Joint_CorePos = { 0, 0.3, 0.4 }, Joint_Core = { 6, -30, 0 }, Joint_Head = { 0, 20, 0 }, Joint_RightArm = { 150, 0, 50 }, Joint_LeftArm = { 40, 0, -20 } },
+		{ T = 2.2, Joint_CorePos = { 0, -0.4, -1.2 }, Joint_Core = { -12, 30, 0 }, Joint_Head = { -6, -18, 0 }, Joint_RightArm = { 50, 0, -65 }, Joint_LeftArm = { 50, 0, -30 } },
+		{ T = 2.6 },
+	},
+}
+
+-- STORM BEAST
+local SB_CROUCH = { Joint_CorePos = { 0, 0, 0.5 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 14, 0, 0 }, Sub_Legs_FL = { -10, 0, 0 }, Sub_Legs_FR = { -10, 0, 0 }, Sub_Legs_BL = { 6, 0, 0 }, Sub_Legs_BR = { 6, 0, 0 } }
+local SB_AIR = { Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Legs_FL = { 60, 0, 0 }, Sub_Legs_FR = { 60, 0, 0 }, Sub_Legs_BL = { -40, 0, 0 }, Sub_Legs_BR = { -40, 0, 0 } }
+local SB_LAND = { Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { -4, 0, 0 }, Joint_Head = { -20, 0, 0 }, Sub_Legs_FL = { 10, 0, -5 }, Sub_Legs_FR = { 10, 0, 5 }, Sub_Legs_BL = { -6, 0, -3 }, Sub_Legs_BR = { -6, 0, 3 } }
+local SB_SLAM = { Joint_CorePos = { 0, 0.15, 0 }, Joint_Core = { -3, 0, 0 }, Joint_Head = { -14, 0, 0 }, Sub_Legs_FL = { 8, 0, -4 }, Sub_Legs_FR = { 8, 0, 4 }, Sub_Legs_BL = { 3, 0, 0 }, Sub_Legs_BR = { 3, 0, 0 } }
+-- THUNDER MAUL: left paw, right paw, a lunging bite, then round it goes, the tail scything.
+StormBeast.ThunderMaul = {
+	Duration = 2.4,
+	Markers = { { 0.4, "Whoosh" }, { 0.6, "Hit" }, { 0.8, "Whoosh" }, { 1.0, "Strike" }, { 1.25, "JawSnap" }, { 1.5, "StepL" }, { 1.8, "Whoosh" } },
+	Keys = {
+		{ T = 0 },
+		rear(0.4, 14, { Joint_Head = { 10, 14, 0 }, Sub_Legs_FL = { 80, 0, -40 }, Sub_Legs_FR = { 10, 0, 0 } }),
+		rear(0.6, 4, { Joint_CorePos = { 0, 0.4, -0.8 }, Joint_Head = { -14, -16, 0 }, Sub_Legs_FL = { 55, 0, 40 }, Sub_Legs_FR = { 6, 0, 0 } }),
+		rear(0.8, 14, { Joint_Head = { 10, -14, 0 }, Sub_Legs_FR = { 80, 0, 40 }, Sub_Legs_FL = { 10, 0, 0 } }),
+		rear(1.0, 4, { Joint_CorePos = { 0, 0.4, -0.8 }, Joint_Head = { -14, 16, 0 }, Sub_Legs_FR = { 55, 0, -40 }, Sub_Legs_FL = { 6, 0, 0 } }),
+		-- the LUNGING BITE
+		{ T = 1.25, Joint_CorePos = { 0, 0.2, -2.0 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -30, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { -15, 0, 0 }, Sub_Legs_BR = { -15, 0, 0 } },
+		-- whips round: the TAIL
+		{ T = 1.5, Joint_CorePos = { 0, 0.1, -0.8 }, Joint_Core = { 0, -120, 0 }, Joint_Head = { -6, 30, 0 }, Joint_Tail = { 0, 40, 0 } },
+		{ T = 1.8, Joint_CorePos = { 0, 0.1, -0.6 }, Joint_Core = { 0, -240, 0 }, Joint_Head = { -6, 20, 0 }, Joint_Tail = { 0, 60, 0 } },
+		{ T = 2.05, Joint_CorePos = { 0, 0, -0.4 }, Joint_Core = { 0, -360, 0 }, Joint_Tail = { 0, 10, 0 } },
+		{ T = 2.4, Joint_Core = { 0, -360, 0 } },
+	},
+}
+-- STORM CHARGE: head down and charge through them, skid, rear and slam a burst, howl bolts.
+StormBeast.StormCharge = {
+	Duration = 2.8,
+	Markers = { { 0.5, "StepL" }, { 0.8, "Hit" }, { 1.0, "StepR" }, { 1.15, "Land" }, { 1.45, "Whoosh" }, { 1.75, "Land" }, { 2.1, "Roar" } },
+	Keys = {
+		{ T = 0 },
+		wkey(0.5, SB_CROUCH),
+		{ T = 0.8, Joint_CorePos = { 0, 0.6, -1 }, Joint_Core = { -8, 0, 0 }, Joint_Head = { -16, 0, 0 }, Sub_Legs_FL = { 60, 0, 0 }, Sub_Legs_FR = { 40, 0, 0 }, Sub_Legs_BL = { -50, 0, 0 }, Sub_Legs_BR = { -40, 0, 0 } },
+		{ T = 1.0, Joint_CorePos = { 0, 0.4, -0.6 }, Joint_Core = { -4, 0, 0 }, Joint_Head = { -12, 0, 0 }, Sub_Legs_FL = { -30, 0, 0 }, Sub_Legs_FR = { -20, 0, 0 }, Sub_Legs_BL = { 30, 0, 0 }, Sub_Legs_BR = { 40, 0, 0 } },
+		{ T = 1.15, Joint_CorePos = { 0, 0.2, -0.3 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Legs_FL = { 20, 0, 0 }, Sub_Legs_FR = { 10, 0, 0 }, Sub_Legs_BL = { -10, 0, 0 }, Sub_Legs_BR = { -15, 0, 0 } },
+		rear(1.45, 26, { Joint_Head = { 32, 0, 0 }, Sub_Legs_FL = { 55, 0, 0 }, Sub_Legs_FR = { 50, 0, 0 } }),
+		wkey(1.75, SB_SLAM),
+		rear(2.1, 10, { Joint_Head = { 36, 0, 0 } }),
+		rear(2.45, 4, { Joint_Head = { 10, 0, 0 } }),
+		{ T = 2.8 },
+	},
+}
+-- ROLLING THUNDER: three bounds (the server flies it), a nova.
+StormBeast.RollingThunder = {
+	Duration = 2.6,
+	Markers = { { 0.2, "StepL" }, { 0.7, "Hit" }, { 0.7, "Land" }, { 1.25, "Land" }, { 1.8, "Land" }, { 2.3, "Strike" } },
+	Keys = {
+		{ T = 0 },
+		wkey(0.2, SB_CROUCH),
+		wkey(0.45, SB_AIR),
+		wkey(0.7, SB_LAND),
+		wkey(0.85, SB_CROUCH),
+		wkey(1.0, SB_AIR),
+		wkey(1.25, SB_LAND),
+		wkey(1.4, SB_CROUCH),
+		wkey(1.55, SB_AIR),
+		wkey(1.8, SB_LAND),
+		{ T = 2.0, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { -2, 0, 3 }, Joint_Head = { -24, 0, 0 }, Sub_Legs_FL = { 3, 0, -5 }, Sub_Legs_FR = { 3, 0, 5 }, Sub_Legs_BL = { -3, 0, -5 }, Sub_Legs_BR = { -3, 0, 5 } },
+		{ T = 2.3, Joint_CorePos = { 0, 1.2, 0 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 24, 0, 0 }, Sub_Legs_FL = { 0, 0, -22 }, Sub_Legs_FR = { 0, 0, 22 }, Sub_Legs_BL = { 0, 0, -22 }, Sub_Legs_BR = { 0, 0, 22 }, Joint_Tail = { 30, 0, 0 } },
+		{ T = 2.6 },
+	},
+}
+-- SKY SPLITTER (supercharged): rear up high, slam three forks of lightning, howl bolts down.
+StormBeast.SkySplitter = {
+	Duration = 2.8,
+	Markers = { { 0.5, "StepR" }, { 0.8, "Whoosh" }, { 1.2, "Hit" }, { 1.2, "Land" }, { 2.0, "Roar" } },
+	Keys = {
+		{ T = 0 },
+		rear(0.5, 20, { Joint_Head = { 24, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 20, 0, 0 } }),
+		rear(0.8, 34, { Joint_Head = { 38, 0, 0 }, Sub_Legs_FL = { 60, 0, 0 }, Sub_Legs_FR = { 64, 0, 0 } }),
+		wkey(1.2, SB_SLAM),
+		rear(1.6, 12, { Joint_Head = { 34, 0, 0 } }),
+		rear(2.0, 14, { Joint_Head = { 40, 0, 0 }, Joint_Tail = { 30, 0, 0 } }),
+		{ T = 2.4, Joint_CorePos = { 0, 0.05, 0 }, Joint_Core = { -2, 0, 0 }, Joint_Head = { -8, 0, 0 } },
+		{ T = 2.8 },
+	},
+}
+
+-- ABYSSAL MAW
+local M_REAR = { Joint_CorePos = { 0, 0.8, 0.5 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 14, 0, 0 }, Joint_RightArm = { 175, 0, 20 }, Joint_LeftArm = { 175, 0, -20 } }
+local M_BITE = { Joint_CorePos = { 0, -1, -2.2 }, Joint_Core = { -32, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { 40, 0, 20 }, Joint_LeftArm = { 40, 0, -20 } }
+-- ABYSSAL LASH: the right tentacle across, the left back, both slammed down long.
+AbyssalMaw.AbyssalLash = {
+	Duration = 2.4,
+	Markers = { { 0.45, "Whoosh" }, { 0.7, "Hit" }, { 0.9, "Whoosh" }, { 1.1, "Strike" }, { 1.4, "Whoosh" }, { 1.7, "Land" } },
+	Keys = {
+		{ T = 0 },
+		{ T = 0.45, Joint_CorePos = { 0, 0.4, 0.3 }, Joint_Core = { 6, -20, 0 }, Joint_Head = { 10, 15, 0 }, Joint_RightArm = { 170, 0, 40 }, Joint_LeftArm = { 60, 0, -20 } },
+		{ T = 0.7, Joint_CorePos = { 0, -0.4, -0.8 }, Joint_Core = { -10, 20, 0 }, Joint_Head = { -10, -10, 0 }, Joint_RightArm = { 60, 0, -50 }, Joint_LeftArm = { 60, 0, -20 } },
+		{ T = 0.9, Joint_CorePos = { 0, 0.4, 0.3 }, Joint_Core = { 6, 20, 0 }, Joint_Head = { 10, -15, 0 }, Joint_LeftArm = { 170, 0, -40 }, Joint_RightArm = { 60, 0, 20 } },
+		{ T = 1.1, Joint_CorePos = { 0, -0.4, -0.8 }, Joint_Core = { -10, -20, 0 }, Joint_Head = { -10, 10, 0 }, Joint_LeftArm = { 60, 0, 50 }, Joint_RightArm = { 60, 0, 20 } },
+		wkey(1.4, M_REAR),
+		{ T = 1.7, Joint_CorePos = { 0, -0.8, -1.2 }, Joint_Core = { -22, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 55, 0, -10 }, Joint_LeftArm = { 55, 0, 10 } },
+		{ T = 2.0, Joint_CorePos = { 0, -0.8, -1.2 }, Joint_Core = { -20, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 50, 0, -10 }, Joint_LeftArm = { 50, 0, 10 } },
+		{ T = 2.4 },
+	},
+}
+-- DEVOUR: two lunging bites, then the dark spat straight out.
+AbyssalMaw.Devour = {
+	Duration = 2.6,
+	Markers = { { 0.5, "Whoosh" }, { 0.8, "Hit" }, { 0.8, "JawSnap" }, { 1.4, "JawSnap" }, { 2.0, "Strike" } },
+	Keys = {
+		{ T = 0 },
+		{ T = 0.5, Joint_CorePos = { 0, 1, 0.6 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 26, 0, 0 }, Joint_RightArm = { 90, 0, 60 }, Joint_LeftArm = { 90, 0, -60 } },
+		wkey(0.8, M_BITE),
+		{ T = 1.1, Joint_CorePos = { 0, 0.8, 0.4 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 80, 0, 50 }, Joint_LeftArm = { 80, 0, -50 } },
+		wkey(1.4, M_BITE),
+		{ T = 1.7, Joint_CorePos = { 0, 0.6, 0.6 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 40, 0, 30 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 2.0, Joint_CorePos = { 0, 0, -0.6 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 40, 0, 30 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 2.3, Joint_CorePos = { 0, 0.2, -0.3 }, Joint_Core = { -4, 0, 0 }, Joint_Head = { -6, 0, 0 } },
+		{ T = 2.6 },
+	},
+}
+-- UNDERTOW's finish: up out of the second eruption, tentacles thrashing round once.
+AbyssalMaw.Undertow = {
+	Duration = 1.6,
+	Markers = { { 0.3, "Whoosh" }, { 0.6, "Hit" } },
+	Keys = {
+		{ T = 0 },
+		{ T = 0.3, Joint_CorePos = { 0, 1, 0 }, Joint_Core = { 10, 40, 0 }, Joint_Head = { 14, -20, 0 }, Joint_RightArm = { 100, 0, 80 }, Joint_LeftArm = { 100, 0, -80 } },
+		{ T = 0.6, Joint_CorePos = { 0, 0.6, 0 }, Joint_Core = { 6, -60, 0 }, Joint_Head = { 6, 20, 0 }, Joint_RightArm = { 80, 0, 90 }, Joint_LeftArm = { 80, 0, -90 } },
+		{ T = 0.9, Joint_CorePos = { 0, 0.4, 0 }, Joint_Core = { 4, -150, 0 }, Joint_RightArm = { 70, 0, 80 }, Joint_LeftArm = { 70, 0, -80 } },
+		{ T = 1.2, Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { 0, -260, 0 }, Joint_RightArm = { 60, 0, 60 }, Joint_LeftArm = { 60, 0, -60 } },
+		{ T = 1.45, Joint_Core = { 0, -360, 0 } },
+		{ T = 1.6, Joint_Core = { 0, -360, 0 } },
+	},
+}
+-- INK TIDE (the abyss open): spit a fan of ink, sweep the tentacles flat round, geysers.
+AbyssalMaw.InkTide = {
+	Duration = 2.8,
+	Markers = { { 0.7, "Whoosh" }, { 1.0, "Hit" }, { 1.3, "Whoosh" }, { 1.6, "Strike" }, { 2.2, "Land" } },
+	Keys = {
+		{ T = 0 },
+		{ T = 0.7, Joint_CorePos = { 0, 0.6, 0.6 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 40, 0, 30 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 1.0, Joint_CorePos = { 0, 0, -0.6 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 40, 0, 30 }, Joint_LeftArm = { 40, 0, -30 } },
+		{ T = 1.3, Joint_CorePos = { 0, 0.8, 0.5 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 14, 0, 0 }, Joint_RightArm = { 120, 0, 70 }, Joint_LeftArm = { 120, 0, -70 } },
+		{ T = 1.6, Joint_CorePos = { 0, -0.6, -1.0 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 70, 0, -60 }, Joint_LeftArm = { 70, 0, 60 } },
+		{ T = 1.85, Joint_CorePos = { 0, 0.6, 0.4 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 120, 0, 40 }, Joint_LeftArm = { 120, 0, -40 } },
+		{ T = 2.2, Joint_CorePos = { 0, -2, -1.5 }, Joint_Core = { -40, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { 20, 0, 50 }, Joint_LeftArm = { 20, 0, -50 } },
+		{ T = 2.5, Joint_CorePos = { 0, -1.8, -1.4 }, Joint_Core = { -36, 0, 0 }, Joint_Head = { -26, 0, 0 }, Joint_RightArm = { 20, 0, 50 }, Joint_LeftArm = { 20, 0, -50 } },
+		{ T = 2.8 },
+	},
+}
+
 return {
 	AbyssalMaw = AbyssalMaw,
 	StormBeast = StormBeast,
@@ -392,6 +693,10 @@ return {
 		Barrage = ScrapTitan.Barrage,
 		MagnetPull = ScrapTitan.MagnetPull,
 		Roar = ScrapTitan.Roar,
+		WreckingCombo = ScrapTitan.WreckingCombo,
+		MagnetUppercut = ScrapTitan.MagnetUppercut,
+		ScrapQuake = ScrapTitan.ScrapQuake,
+		ReactorRush = ScrapTitan.ReactorRush,
 		-- GROUND SLAM: it squats deep with both fists coming up, springs into the air
 		-- arching back with the fists high over its head, then comes down with its whole
 		-- weight: a deep landing squat as both fists smash the floor in front of it. Holds

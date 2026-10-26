@@ -206,6 +206,87 @@ function Context:Leap(landing: Vector3, airTime: number)
 	end)
 end
 
+-- Drives the boss in a straight line along the floor to `to` over `time` (a charge): anchored
+-- and moved frame by frame like Leap, ghosted through players on the way.
+function Context:Dash(to: Vector3, time: number)
+	local root = self.Root
+	if root.Anchored or self.Model:GetAttribute("Ragdolled") then
+		return
+	end
+	local standY = self.Arena.GroundY + self.Humanoid.HipHeight + root.Size.Y / 2
+	local from = Vector3.new(root.Position.X, standY, root.Position.Z)
+	local goal = Vector3.new(to.X, standY, to.Z)
+	local facing = (goal - from).Magnitude > 0.1 and CFrame.lookAt(from, goal).Rotation or root.CFrame.Rotation
+	root.Anchored = true
+	root.CollisionGroup = "BossPhasing"
+	self.PhaseToken = (self.PhaseToken or 0) + 1
+	local token = self.PhaseToken
+	local began = os.clock()
+	local connection
+	connection = RunService.Heartbeat:Connect(function()
+		local k = math.min((os.clock() - began) / time, 1)
+		if root.Parent then
+			root.CFrame = CFrame.new(from:Lerp(goal, k)) * facing
+		end
+		if k >= 1 then
+			connection:Disconnect()
+			if root.Parent then
+				root.Anchored = false
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
+		end
+	end)
+	task.delay(time + 0.6, function()
+		if self.PhaseToken == token and root.Parent then
+			root.CollisionGroup = "Enemies"
+		end
+	end)
+end
+
+-- A SIGNATURE COMBO: one continuous keyframed clip (BossPoses <action>, its "Hit" marker
+-- on the first beat) carrying several telegraphed beats. beats = { { At = clip seconds,
+-- Warn = how long before it the warning shows (default: from the beat before),
+-- Telegraph = function(ctx, lead) -> data (draw the warning; return whatever Strike
+-- needs), Strike = function(ctx, data) } }. Every beat runs on the clip's own clock, scaled
+-- by the windup multiplier, so each impact lands on its animation frame. Returns false if
+-- the fight ended or the boss was interrupted.
+function Context:Combo(action: string, duration: number, beats, recovery: number?): boolean
+	local first = beats[1].At
+	local windup = self:WindupTime(first)
+	local scale = windup / first
+	local started = os.clock()
+	local function elapsed()
+		return os.clock() - started
+	end
+	-- the first warning goes up with the clip
+	local data = {}
+	data[1] = beats[1].Telegraph and beats[1].Telegraph(self, windup) or nil
+	self:Action(action, windup, duration * scale)
+	local previous = 0
+	for index, beat in beats do
+		local at = beat.At * scale
+		if index > 1 then
+			local warnAt = beat.Warn and (at - beat.Warn * scale) or previous
+			if not self:Wait(math.max(0, warnAt - elapsed())) then
+				return false
+			end
+			data[index] = beat.Telegraph and beat.Telegraph(self, math.max(0.3, at - elapsed())) or nil
+		end
+		if not self:Wait(math.max(0, at - elapsed())) then
+			return false
+		end
+		beat.Strike(self, data[index])
+		if RunService:IsStudio() and Config.Dev.LogNightmareCombos then
+			print(("[BossCombo] %s beat %d @%.2f s (its frame: %.2f s)"):format(action, index, elapsed(), at))
+		end
+		previous = at
+	end
+	if not self:Wait(math.max(0, duration * scale - elapsed())) then
+		return false
+	end
+	return self:Wait(recovery or 1.2)
+end
+
 function Context:Projectile(from: Vector3, to: Vector3, duration: number)
 	BossService.Services.TelegraphService:Projectile(from, to, duration)
 end

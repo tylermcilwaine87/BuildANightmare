@@ -387,9 +387,169 @@ Attacks.PrismBeam = {
 	end,
 }
 
+------------------------------------------------------------------------------------------
+-- SIGNATURE COMBOS (ctx:Combo; BossPoses.MirrorWarden.<name>)
+------------------------------------------------------------------------------------------
+local function frontPoint(ctx, distance: number): Vector3
+	local look = (ctx.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+	return ctx:ClampToArena(ctx:GroundPosition(ctx.Model) + look * (ctx.Root.Size.Z / 2 + distance))
+end
+local function boxBeat(at: number, length: number, width: number, damage: number, opts)
+	return {
+		At = at,
+		Telegraph = function(ctx, lead)
+			local cf, size = ctx:FrontBox(length, width)
+			ctx:Box(cf, size, lead)
+			return { cf, size }
+		end,
+		Strike = function(ctx, box)
+			ctx:DamageBox(box[1], box[2], damage, opts)
+		end,
+	}
+end
+
+-- MIRRORED STRIKE: a blade cut that lands twice - in front of it AND in its reflection
+-- across the arena - then a shield bash, then a rising cleave that throws them up.
+Attacks.MirroredStrike = {
+	Weight = function(_, distance)
+		return distance < 16 and 22 or 6
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("MirroredStrike", 2.3, {
+			{
+				At = 0.75,
+				Telegraph = function(c, lead)
+					local cf, size = c:FrontBox(14, 11)
+					local echo = c:Reflect(cf.Position)
+					local echoLook = -Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)
+					local echoCF = CFrame.lookAt(echo, echo + echoLook)
+					c:Box(cf, size, lead)
+					c:Box(echoCF, size, lead)
+					return { { CFrame = cf, Size = size }, { CFrame = echoCF, Size = size } }
+				end,
+				Strike = function(c, boxes)
+					c:DamageBoxes(boxes, 14, { Knockback = 10 })
+				end,
+			},
+			boxBeat(1.25, 9, 10, 16, { Knockback = 40 }),
+			boxBeat(1.75, 12, 8, 22, { Heavy = true, Knockback = 30 }),
+		}, 1.2)
+	end,
+}
+
+-- SHARD LANCE: the blade driven straight out in a long thrust, twice, then the glass
+-- bursts at the lance's point.
+Attacks.ShardLance = {
+	Weight = function(_, distance)
+		return distance > 10 and 22 or 10
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx:Combo("ShardLance", 2.4, {
+			boxBeat(0.8, 26, 5, 16, { Knockback = 15 }),
+			boxBeat(1.3, 26, 5, 16, { Knockback = 15 }),
+			{
+				At = 1.8,
+				Telegraph = function(c, lead)
+					local point = frontPoint(c, 22)
+					c:Circle(point, 7, lead)
+					return point
+				end,
+				Strike = function(c, point)
+					c:Impact(point, 7)
+					c:DamageCircle(point, 7, 24, { Heavy = true, Knockback = 35, Radial = point })
+				end,
+			},
+		}, 1.2)
+	end,
+}
+
+-- SHIELD RIPOSTE: it covers up behind the mirror (light blows mostly glance off it; a
+-- heavy one breaks the guard), then bashes whoever pressed it and spins the blade round.
+Attacks.ShieldRiposte = {
+	Weight = function(_, distance)
+		return distance < 12 and 20 or 0
+	end,
+	Run = function(ctx, target)
+		ctx:Face(ctx:Position(target))
+		ctx.Model:SetAttribute("NightmareGuard", workspace:GetServerTimeNow() + 1.0)
+		ctx:Combo("ShieldRiposte", 2.4, {
+			boxBeat(1.1, 9, 10, 18, { Knockback = 45 }),
+			{
+				At = 1.7,
+				Warn = 0.6,
+				Telegraph = function(c, lead)
+					local center = c:GroundPosition(c.Model)
+					c:Circle(center, 11, lead)
+					return center
+				end,
+				Strike = function(c, center)
+					c:DamageCircle(center, 11, 22, { Knockback = 40, Radial = center })
+				end,
+			},
+		}, 1.2)
+		ctx.Model:SetAttribute("NightmareGuard", nil)
+	end,
+}
+
+-- KALEIDOSCOPE (cracked only): it blinks round them, stabbing down from three sides, then a
+-- crossing X-cut through where they stand.
+Attacks.Kaleidoscope = {
+	Weight = function(ctx, _distance)
+		return reflections(ctx) and 26 or 0
+	end,
+	Run = function(ctx, target)
+		local function stab(at: number, angle: number)
+			return {
+				At = at,
+				Warn = 0.45,
+				Telegraph = function(c, lead)
+					local point = c:GroundPosition(target)
+					local offset = CFrame.Angles(0, math.rad(angle), 0):VectorToWorldSpace(Vector3.new(0, 0, 8))
+					c:PlaceAt(point + offset, point)
+					c:Circle(point, 6, lead)
+					return point
+				end,
+				Strike = function(c, point)
+					c:Impact(point, 6)
+					c:DamageCircle(point, 6, 16, { Knockback = 20, Radial = point })
+				end,
+			}
+		end
+		ctx:Combo("Kaleidoscope", 2.6, {
+			stab(0.7, 0),
+			stab(1.15, 120),
+			stab(1.6, 240),
+			{
+				At = 2.2,
+				Warn = 0.6,
+				Telegraph = function(c, lead)
+					local point = c:GroundPosition(target)
+					c:Face(point)
+					local look = (c.Root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+					local a = CFrame.lookAt(point, point + CFrame.Angles(0, math.rad(45), 0):VectorToWorldSpace(look))
+					local b = CFrame.lookAt(point, point + CFrame.Angles(0, math.rad(-45), 0):VectorToWorldSpace(look))
+					local size = Vector3.new(5, 1, 18)
+					c:Box(a, size, lead)
+					c:Box(b, size, lead)
+					return { { CFrame = a, Size = size }, { CFrame = b, Size = size } }
+				end,
+				Strike = function(c, boxes)
+					c:DamageBoxes(boxes, 24, { Heavy = true, Knockback = 30 })
+				end,
+			},
+		}, 1.4)
+	end,
+}
+
 MirrorWarden.Attacks = Attacks
 
 function MirrorWarden.ChooseAttack(ctx, distance: number)
+	local forced = game:GetService("RunService"):IsStudio() and workspace:GetAttribute("ForceBossAttack")
+	if forced and Attacks[forced] then
+		return forced, Attacks[forced]
+	end
 	local total = 0
 	local weights = {}
 	for name, attack in Attacks do
