@@ -190,6 +190,8 @@ local function rollOnHitStatus(brain, comboHit: number?): string?
 	return nil
 end
 
+local stepIntoRange, withTarget -- (below, with the strings)
+
 function NightmareAIService:StartAttack(brain, now: number)
 	if now > brain.comboResetAt then
 		brain.comboIndex = 1
@@ -211,6 +213,15 @@ function NightmareAIService:StartAttack(brain, now: number)
 	self:PlayAction(brain, hit.Name, windup, windup + recovery)
 
 	local castToken = brain.castToken
+	local stepTarget = brain.target
+	if stepTarget then
+		local lead = math.min(0.14, windup * 0.7)
+		task.delay(windup - lead, function()
+			if brains[brain.model] == brain and brain.castToken == castToken then
+				stepIntoRange(brain, stepTarget, false, lead)
+			end
+		end)
+	end
 	task.delay(windup, function()
 		-- The Nightmare may have died, been recalled, rebuilt, staggered or started an ability.
 		if brains[brain.model] ~= brain or brain.humanoid.Health <= 0 or brain.castToken ~= castToken or self.Services.StatusService:IsStaggered(brain.model) then
@@ -222,7 +233,11 @@ function NightmareAIService:StartAttack(brain, now: number)
 		local boxSize = Vector3.new(hitbox.X + 2, hitbox.Y + 2, reach)
 
 		local services = self.Services
-		for _, target in services.HitDetectionService:QueryBox(boxCFrame, boxSize, ignoreList(brain), brain.root.Position) do
+		local struck = services.HitDetectionService:QueryBox(boxCFrame, boxSize, ignoreList(brain), brain.root.Position)
+		if stepTarget then
+			struck = withTarget(brain, struck, stepTarget, reach)
+		end
+		for _, target in struck do
 			services.CombatService:ApplyDamage({
 				Attacker = brain.model,
 				Target = target,
@@ -231,6 +246,7 @@ function NightmareAIService:StartAttack(brain, now: number)
 				Knockback = hit.Knockback,
 				Stagger = Config.Stagger.ComboStagger[hitIndex],
 				Status = rollOnHitStatus(brain, hitIndex),
+				React = NM.Reactions[hit.Name] and NM.Reactions[hit.Name][1] or nil,
 				Source = "NightmareCombo",
 			})
 		end
@@ -411,6 +427,67 @@ local function pressIn(brain, direction: Vector3, distance: number, duration: nu
 	end)
 end
 
+-- How far this body's limb really reaches from its joint (arms: a fist; legs: a foot), measured
+-- off the assembled parts once: bodies differ a lot, and the blows have to land on the body.
+local function limbLength(model: Model, slots: { string }): number
+	local longest = 0
+	for _, slot in slots do
+		local base = model:FindFirstChild(slot .. "_Root") or model:FindFirstChild(slot)
+		if base and base:IsA("BasePart") then
+			for _, part in model:GetChildren() do
+				if part:IsA("BasePart") and part.Name:sub(1, #slot) == slot then
+					local half = part.Size / 2
+					for _, corner in { Vector3.new(half.X, half.Y, half.Z), Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new(half.X, -half.Y, half.Z), Vector3.new(-half.X, half.Y, -half.Z) } do
+						longest = math.max(longest, (part.CFrame:PointToWorldSpace(corner) - base.Position).Magnitude)
+					end
+				end
+			end
+		end
+	end
+	return longest
+end
+
+-- A BLOW HAS TO LAND ON THE BODY. A real fighter steps in behind the shot: `lead` seconds before
+-- a blow lands the body moves in until that limb will reach them (never into them, never more
+-- than a stride). The server's reach box is generous; this is what closes the air between them.
+function stepIntoRange(brain, target: Model, leg: boolean?, lead: number, furthest: number?)
+	local targetRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+	if not targetRoot or brain.possessedBy then
+		return
+	end
+	brain.armLength = brain.armLength or limbLength(brain.model, { "RightArm", "LeftArm" })
+	brain.legLength = brain.legLength or limbLength(brain.model, { "Legs_L", "Legs_R", "Legs_FL", "Legs_FR" })
+	local limb = leg and brain.legLength or brain.armLength
+	if limb <= 0 then
+		limb = brain.legLength > 0 and brain.legLength or brain.hitboxSize.Z
+	end
+	local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+	local distance = Util.FlatDistance(targetRoot.Position, brain.root.Position)
+	-- (the shoulder comes forward as the hips turn into it; the blow sinks in a little)
+	local wanted = math.max(limb + 0.5 + radius - 0.3, brain.hitboxSize.Z / 2 + radius + 0.6)
+	local toTarget = Util.FlatUnit(targetRoot.Position - brain.root.Position)
+	if toTarget and distance > wanted then
+		pressIn(brain, toTarget, math.min(distance - wanted, furthest or 4), lead)
+	end
+end
+
+-- THE BLOW CONNECTS: the body it's fighting takes the hit if it's anywhere near reach, whichever
+-- way the hit box happened to fall (it has been squared up on them and stepped in behind the
+-- shot). A dodge's i-frames, a guard and the rest of the pipeline still apply in ApplyDamage.
+function withTarget(brain, victims, target: Model?, reach: number)
+	local targetRoot = target and target.Parent and target:FindFirstChild("HumanoidRootPart")
+	if not targetRoot or table.find(victims, target) then
+		return victims
+	end
+	local humanoid = target:FindFirstChildOfClass("Humanoid")
+	local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
+	local out = Util.FlatDistance(targetRoot.Position, brain.root.Position) - radius - brain.hitboxSize.Z / 2
+	if humanoid and humanoid.Health > 0 and out <= reach + 3 and math.abs(targetRoot.Position.Y - brain.root.Position.Y) <= brain.hitboxSize.Y + 8 then
+		table.insert(victims, target)
+	end
+	return victims
+end
+
 -- A body small enough to be grabbed in the clinch: an ordinary enemy the server moves
 -- (never a boss or a player).
 local function canClinch(target: Model): boolean
@@ -425,6 +502,16 @@ end
 -- holds the target for the knees, and the last hit usually decides what happens next
 -- (chain straight into another string, hit and run...).
 function NightmareAIService:StartString(brain, def, target: Model, now: number)
+	-- never swing at air: if the opener can't get there (they've been thrown clear), it isn't
+	-- thrown at all: the brain goes after them first
+	local startRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+	if not startRoot then
+		return false
+	end
+	local startOut = Util.FlatDistance(startRoot.Position, brain.root.Position) - math.max(startRoot.Size.X, startRoot.Size.Z) / 2 - brain.hitboxSize.Z / 2
+	if startOut > brain.stats.Reach + (def.ExtraReach or 0) + (def.Leap and def.Leap.Max or 0) + 6 then
+		return false
+	end
 	local speedScale = 100 / brain.stats.AttackSpeed
 	local hits = def.Hits
 	local lastHit = hits[#hits][1]
@@ -490,6 +577,18 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 	local logging = RunService:IsStudio() and Config.Dev.LogNightmareCombos == true
 	local startedAt = os.clock()
 	for index, hit in hits do
+		-- each blow steps in behind itself, arriving with the fist (not a leap: that's already
+		-- bringing it onto them; not a grab's later beats: they're held)
+		if not leap and not (def.Clinch and index > 1) then
+			-- (the opener closes all the way in, however far it started: it's what commits to them)
+			local previous = index > 1 and hits[index - 1][1] or 0
+			local lead = math.min(index == 1 and 0.3 or 0.14, (hit[1] - previous) * 0.8) * speedScale
+			task.delay(hit[1] * speedScale - lead, function()
+				if brains[brain.model] == brain and brain.castToken == castToken and not brain.model:GetAttribute("Ragdolled") then
+					stepIntoRange(brain, target, def.ExtraReach ~= nil, lead, index == 1 and 10 or 4)
+				end
+			end)
+		end
 		-- (hit[6].Chase: lunge after a body that slid away, landing just as this beat hits)
 		local chase = hit[6] and hit[6].Chase
 		if chase then
@@ -602,6 +701,7 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 				local boxCFrame = brain.root.CFrame * CFrame.new(0, up / 2, -(hitbox.Z / 2 + reach / 2))
 				victims = services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 2, hitbox.Y + 2 + up, reach), ignoreList(brain), brain.root.Position)
 			end
+			victims = withTarget(brain, victims, target, reach)
 			if logging then
 				local names = {}
 				for _, v in victims do
@@ -675,6 +775,7 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 					NoKnockdown = grabbed == victim, -- held in the clinch: rocked, not dropped
 					Stagger = 4 + 6 * hit[2],
 					Status = (index == #hits and elementOf(brain, def)) or rollOnHitStatus(brain, index == #hits and 3 or 1),
+					React = NM.Reactions[def.Action] and NM.Reactions[def.Action][index] or nil,
 					Source = "NightmareString",
 				})
 			end
@@ -728,7 +829,7 @@ function NightmareAIService:StartHeavy(brain, now: number)
 		local reach = brain.stats.Reach + HEAVY.ExtraReach
 		local boxCFrame = brain.root.CFrame * CFrame.new(0, 0, -(hitbox.Z / 2 + reach / 2))
 		local services = self.Services
-		for _, target in services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 3, hitbox.Y + 2, reach), ignoreList(brain), brain.root.Position) do
+		for _, target in withTarget(brain, services.HitDetectionService:QueryBox(boxCFrame, Vector3.new(hitbox.X + 3, hitbox.Y + 2, reach), ignoreList(brain), brain.root.Position), brain.target, reach) do
 			services.CombatService:ApplyDamage({
 				Attacker = brain.model,
 				Target = target,
@@ -1500,6 +1601,14 @@ local function regenerate(brain, now: number, dt: number)
 end
 
 function NightmareAIService:Update(brain, now: number, dt: number)
+	-- the fighting stance: hands up while it has someone to fight (a player possessing it is
+	-- always fighting; NightmareAnimator lays the stance over everything else)
+	local opponent = brain.target
+	local opponentRoot = opponent and opponent.Parent and opponent:FindFirstChild("HumanoidRootPart")
+	local fighting = brain.possessedBy ~= nil or (opponentRoot ~= nil and not brain.scripted and Util.FlatDistance(opponentRoot.Position, brain.root.Position) <= NM.StanceRange)
+	if brain.model:GetAttribute("FightStance") ~= (fighting or nil) then
+		brain.model:SetAttribute("FightStance", fighting or nil)
+	end
 	-- scripted = another service is driving it (the Nightmare Gym's training routine)
 	if brain.humanoid.Health <= 0 or brain.possessedBy or brain.scripted then
 		return

@@ -882,4 +882,17 @@ POSES.Parried = {
 	},
 }
 
+-- The punches go all the way out and connect (FightAim): each contact frame, which arm, where.
+POSES.Jab.Aim = { { T = 0.11, Arm = "Left", At = "Head", Lead = 0.07 } }
+POSES.Cross.Aim = { { T = 0.14, Arm = "Right", At = "Head", Lead = 0.09 } }
+POSES.Hook.Aim = { { T = 0.17, Arm = "Left", At = "Head", Lead = 0.09 } }
+POSES.Uppercut.Aim = { { T = 0.18, Arm = "Right", At = "Head", Lead = 0.09 } }
+POSES.Overhand.Aim = { { T = 0.34, Arm = "Right", At = "Head", Lead = 0.09 } }
+POSES.HeadKick.Aim = { { T = 0.24, Arm = "RightLeg", At = "Head", Lead = 0.1 } }
+POSES.LegKick.Aim = { { T = 0.16, Arm = "RightLeg", At = "Legs", Lead = 0.09 } }
+POSES.FrontKick.Aim = { { T = 0.18, Arm = "RightLeg", At = "Body", Lead = 0.09 } }
+POSES.SpinKick.Aim = { { T = 0.36, Arm = "RightLeg", At = "Head", Lead = 0.1 } }
+POSES.SupermanPunch.Aim = { { T = 0.22, Arm = "Right", At = "Head", Lead = 0.09 } }
+POSES.CounterHeadKick.Aim = { { T = 0.3, Arm = "RightLeg", At = "Head", Lead = 0.1 } }
+
 return POSES

@@ -495,12 +495,16 @@ function MeleeService:Snare(player: Player, character: Model, root: BasePart, mo
 end
 
 function MeleeService:LandHit(player: Player, character: Model, root: BasePart, move)
-	-- the client slid forward during the windup; reach a little further to match
-	local range = move.Range + (move.Lunge or 0) * 0.4 + (move.Leap or 0) * 0.4
+	-- THE BLOW CONNECTS: the client slid all the way in during the windup, squared up on them, and
+	-- the server hasn't necessarily seen it yet: it counts what's in reach of the whole slide, in
+	-- a wide arc (the client's aim is what decides who it's thrown at; a dodge's i-frames, a guard
+	-- and the rest still apply in ApplyDamage)
+	local range = move.Range + (move.Lunge or 0) * 1.2 + (move.Leap or 0) * 0.4 + 1
+	local arc = math.max(move.Arc, 150)
 	-- the way the strike's force travels (MeleeDefinitions HitDir, in the striker's frame)
 	local hitDirection = move.HitDir and root.CFrame:VectorToWorldSpace(Vector3.new(move.HitDir[1], move.HitDir[2], -move.HitDir[3])).Unit
 	local hitSomething = false
-	for _, target in self:TargetsInArc(player, character, root, range, move.Arc) do
+	for _, target in self:TargetsInArc(player, character, root, range, arc) do
 		local dealt = self.Services.CombatService:ApplyDamage({
 			Attacker = character,
 			Target = target,

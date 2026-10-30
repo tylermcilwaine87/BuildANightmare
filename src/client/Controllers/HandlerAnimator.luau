@@ -30,6 +30,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 local studioKeyframes -- (defined with the API below)
 local POSES = require(script.Parent:WaitForChild("HandlerPoses"))
+local FightAim = require(script.Parent:WaitForChild("FightAim"))
 
 local HandlerAnimator = {}
 
@@ -339,6 +340,13 @@ local function applyRig(rig, now: number, dt: number, cameraPosition: Vector3?)
 		end
 	end
 	setWrist(rig, angleAt(def, "Wrist", t))
+	-- the punches go all the way out and connect (FightAim)
+	if def.Aim and not pose.Scrub then
+		rig.aimRig = rig.aimRig or FightAim.Rig(rig.model, rig.motors, true)
+		if rig.aimRig.Root then
+			FightAim.Apply(def, t, rig.aimRig)
+		end
+	end
 end
 
 local lastStep = os.clock()

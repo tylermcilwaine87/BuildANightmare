@@ -43,7 +43,7 @@ Config.Dev = {
 	-- editable KeyframeSequence in Shared/Animations (e.g. Overhand.rbxm) plays THAT through
 	-- the Animator (registered locally, nothing published). Live servers need the published
 	-- Id; until then they use the move's code pose (same keyframes).
-	PreviewKeyframesInStudio = true,
+	PreviewKeyframesInStudio = false,
 	-- Draws a translucent red box/sphere for every server-side hit query.
 	DebugHitboxes = false,
 	-- Draws each computed AI path as glowing dots (green = path found, red = no path).
@@ -376,6 +376,8 @@ Config.Nightmare = {
 		{ Action = "Gym_ComboB", Duration = 1.8, Weight = 3, Tags = { "Light" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.56, 0.8, 6 }, { 0.86, 1.05, 16 } } }, -- jab, cross, hook
 		{ Action = "Gym_ComboC", Duration = 2.1, Weight = 2, Tags = { "Heavy", "Finisher" }, Arms = true, Hits = { { 0.3, 0.55 }, { 0.58, 0.85, 8 }, { 1.04, 1.6, 32, true } } }, -- jab, hook, OVERHAND
 		{ Action = "Gym_BodyRip", Duration = 1.5, Weight = 2, Tags = { "Light", "GuardBreak" }, Arms = true, Hits = { { 0.46, 0.9, 6 }, { 0.74, 1.25, 20 } } }, -- body hook, uppercut
+		{ Action = "Gym_OneTwoLow", Duration = 1.7, Weight = 3, Tags = { "Light", "Kick" }, Arms = true, BothArms = true, Legs = true, Hits = { { 0.26, 0.55 }, { 0.5, 0.8, 6 }, { 0.88, 1.15, 10 } } }, -- jab, cross, low kick
+		{ Action = "Gym_LiverHead", Duration = 1.6, Weight = 2, Tags = { "Light", "GuardBreak" }, Arms = true, Hits = { { 0.4, 1.0, 4 }, { 0.72, 1.2, 16 } } }, -- left to the liver, left to the jaw
 		{ Action = "Gym_Power", Duration = 1.4, Weight = 1, Tags = { "Heavy", "GuardBreak" }, Arms = true, Hits = { { 0.5, 1.9, 34, true } } }, -- one huge overhand
 		{ Action = "Gym_Teep", Duration = 1.3, Weight = 2, Tags = { "Kick", "Space" }, Legs = true, ExtraReach = 1.5, Hits = { { 0.42, 1.0, 38 } } }, -- push kick: shoved away
 		{ Action = "Gym_Roundhouse", Duration = 1.5, Weight = 2, Tags = { "Kick", "Heavy" }, Legs = true, ExtraReach = 1.5, Hits = { { 0.5, 1.5, 24, true } } },
@@ -413,6 +415,39 @@ Config.Nightmare = {
 		{ Name = "Combo1", Damage = 12, Windup = 0.22, Recovery = 0.33, Knockback = 0 },
 		{ Name = "Combo2", Damage = 14, Windup = 0.25, Recovery = 0.38, Knockback = 10 },
 		{ Name = "Combo3", Damage = 20, Windup = 0.35, Recovery = 0.65, Knockback = 25 },
+	},
+	StanceRange = 24, -- studs from its target: hands up, in its fighting stance
+	-- WHERE each blow of a string lands, in order (NightmarePoses "Reactions": how the body it
+	-- hits takes it). Anything not listed rocks them along the blow's force instead.
+	Reactions = {
+		Combo1 = { "Jab" },
+		Combo2 = { "Cross" },
+		Combo3 = { "HookL" },
+		Gym_ComboA = { "Jab", "Jab", "Cross" },
+		Gym_ComboB = { "Jab", "Cross", "HookL" },
+		Gym_ComboC = { "Jab", "HookL", "Heavy" },
+		Gym_OneTwoLow = { "Jab", "Cross", "Leg" },
+		Gym_LiverHead = { "Body", "HookL" },
+		Gym_BodyRip = { "Body", "Upper" },
+		Gym_Power = { "Heavy" },
+		Gym_Teep = { "Body" },
+		Gym_Roundhouse = { "HookR" },
+		Gym_KneeClinch = { "Body", "Body", "Upper" },
+		Gym_SpinBackKick = { "Heavy" },
+		Beast_Headbutt = { "Cross" },
+		Beast_TailWhip = { "HookR" },
+		Combo_BrutalBoxer = { "Jab", "Cross", "HookL", "Upper", "Heavy" },
+		Combo_BrutalBoxerII = { "Jab", "Cross", "HookL", "Upper", "Body", "Heavy" },
+		Combo_PerfectCounter = { "HookL", "Upper", "Body" },
+		Combo_SavageExecution = { "Cross", "Cross", "Cross" },
+		Combo_CycloneDestroyer = { "Jab", "HookR" },
+		Combo_GroundBreaker = { "Leg", "Upper" },
+		Combo_TitanCombination = { "HookL", "Body" },
+		Combo_NightmareFrenzy = { "HookR", "HookL", "HookR", "HookL", "HookR", "HookL", "Heavy" },
+		Combo_PredatorRush = { "HookL", "Cross", "Cross" },
+		Combo_PredatorRushII = { "HookL", "Cross", "Cross" },
+		Combo_BeastlyAssault = { "Body", "HookL", "HookR" },
+		Combo_PredatorCounter = { "Cross", "Cross" },
 	},
 }
 

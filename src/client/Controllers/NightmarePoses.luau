@@ -128,50 +128,30 @@ local BITE = {
 	},
 }
 
--- THE NIGHTMARE GYM: bag work (GymService plays these on the heavy bag; GymController
--- swings the bag on the Bag* markers, scaled per strike in GymDefinitions.Strikes).
--- Nightmare arms are rigid, so every punch is thrown from the shoulder and the core:
--- the torso turns into the shot and the body steps in behind it. Every combo works from
--- one fighting GUARD (orthodox: left side forward, chin down, hands up) and returns to it
--- between punches instead of dropping the hands.
-local GUARD = {
-	Joint_CorePos = { 0, -0.28, 0 },
-	Joint_Core = { -6, -8, 0 },
-	Joint_Head = { -6, 8, 0 },
-	Joint_RightArm = { 64, 0, -20 },
-	Joint_LeftArm = { 72, 0, 16 },
-	Sub_Legs_L = { 14, 0, 0 },
-	Sub_Legs_R = { -10, 0, 0 },
+-- THE BOXER'S GUARD (every standard strike, the autonomous combos, the fighting stance):
+-- bladed, chin down, fists by the face, elbows bent (Sub_*Arm_Fore), the feet planted while
+-- the hips turn (Joint_Legs counter-turns the core). Keys are this with a few joints changed.
+local BOXER = {
+	Joint_CorePos = { 0, 0.12, 0 }, Joint_Core = { -6, -10, 0 }, Joint_Legs = { 6, 10, 0 }, Joint_Head = { -10, 10, 0 },
+	Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 },
+	Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 },
 }
--- each strike's pose = the guard with these joints changed
-local JAB = { Joint_LeftArm = { 92, 0, 6 }, Joint_Core = { -10, -14, 0 }, Joint_CorePos = { 0, -0.3, -0.45 }, Joint_Head = { -8, 12, 0 }, Joint_RightArm = { 64, 0, -22 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } }
-local CROSS = { Joint_RightArm = { 94, 0, -6 }, Joint_LeftArm = { 66, 0, 26 }, Joint_Core = { -14, 26, 0 }, Joint_CorePos = { 0, -0.36, -0.6 }, Joint_Head = { -8, -20, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } }
-local HOOK_WIND = { Joint_LeftArm = { 82, 0, -46 }, Joint_Core = { -8, 18, 0 }, Joint_CorePos = { 0, -0.36, -0.25 }, Joint_RightArm = { 64, 0, -24 }, Joint_Head = { -6, -12, 0 } }
-local HOOK = { Joint_LeftArm = { 86, 0, 16 }, Joint_Core = { -12, -32, 0 }, Joint_CorePos = { 0, -0.4, -0.45 }, Joint_Head = { -6, 26, 0 }, Joint_RightArm = { 66, 0, -24 }, Sub_Legs_L = { 16, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } }
-local HOOK_FOLLOW = { Joint_LeftArm = { 80, 0, 34 }, Joint_Core = { -10, -40, 0 }, Joint_CorePos = { 0, -0.38, -0.4 }, Joint_Head = { -6, 30, 0 } }
-local OVER_LOAD = { Joint_RightArm = { 150, 0, 22 }, Joint_LeftArm = { 62, 0, 22 }, Joint_Core = { 6, -26, 0 }, Joint_CorePos = { 0, -0.45, 0.25 }, Joint_Head = { -12, 22, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } }
-local OVERHAND = { Joint_RightArm = { 80, 0, -14 }, Joint_LeftArm = { 20, 0, 22 }, Joint_Core = { -24, 26, -6 }, Joint_CorePos = { 0, -0.55, -0.85 }, Joint_Head = { 4, -18, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } }
-local OVER_FOLLOW = { Joint_RightArm = { 40, 0, -34 }, Joint_LeftArm = { 16, 0, 20 }, Joint_Core = { -26, 34, -6 }, Joint_CorePos = { 0, -0.55, -0.95 }, Joint_Head = { 6, -22, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } }
-local BODY_WIND = { Joint_CorePos = { 0.2, -0.8, 0 }, Joint_Core = { -14, 12, 8 }, Joint_LeftArm = { 48, 0, -50 }, Joint_RightArm = { 60, 0, -22 }, Joint_Head = { -2, -8, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } }
-local BODY_HOOK = { Joint_LeftArm = { 62, 0, 10 }, Joint_Core = { -16, -26, 6 }, Joint_CorePos = { 0, -0.85, -0.6 }, Joint_RightArm = { 62, 0, -22 }, Joint_Head = { -2, 22, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } }
-local UPPER_LOAD = { Joint_RightArm = { 22, 0, -8 }, Joint_LeftArm = { 66, 0, 20 }, Joint_Core = { -12, -10, 0 }, Joint_CorePos = { 0, -0.8, -0.2 }, Joint_Head = { -4, 6, 0 } }
-local UPPER = { Joint_RightArm = { 118, 0, -12 }, Joint_LeftArm = { 64, 0, 22 }, Joint_Core = { 2, 22, 0 }, Joint_CorePos = { 0, -0.25, -0.75 }, Joint_Head = { 10, -14, 0 }, Sub_Legs_L = { 16, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
+-- (the Brutal Boxer's measured punches, reused: lead hook and rear uppercut contact frames)
+local B_HOOK_LOAD = { Joint_Core = { -8, 22, 2 }, Joint_Legs = { 8, -22, 0 }, Joint_Head = { -10, -6, 0 }, Joint_LeftArm = { 84, 0, -8 }, Sub_LeftArm_Fore = { 72, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
+local B_HOOK = { Joint_Core = { -8, -35, 4 }, Joint_Legs = { 8, 35, -4 }, Joint_Head = { -10, 14, 0 }, Joint_LeftArm = { 80, 0, 40 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 22, 0, 0 } }
+local B_DIP = { Joint_Core = { -14, -22, 0 }, Joint_Legs = { 14, 22, 0 }, Joint_Head = { -12, 8, 0 }, Joint_RightArm = { 38, 0, -42 }, Sub_RightArm_Fore = { 112, 0, 0 }, Joint_LeftArm = { 56, 0, 48 }, Sub_LeftArm_Fore = { 98, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
+local B_UPPER = { Joint_Core = { 2, 28, 0 }, Joint_Legs = { -2, -28, 0 }, Joint_Head = { -6, -10, 0 }, Joint_RightArm = { 60, 0, -45 }, Sub_RightArm_Fore = { 85, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
 
--- Kicks (two-legged bodies: Sub_Legs_L / Sub_Legs_R; +X swings a leg forward, +Z swings
--- the RIGHT leg out to its right). Contact poses measured on the gym bag in Studio (the
--- Tank, leg 3.09 studs): teep tip 2.8 studs out at mid-bag, roundhouse 3.65 (the side of
--- the bag), spinning back kick 3.95. GymService stands the body so each one lands.
--- (Joint_Core's lean is applied before its turn: with the back turned, +X lifts the leg
--- TOWARD the bag.)
-local TEEP = { Sub_Legs_R = { 95, 0, -18 }, Sub_Legs_L = { -6, 0, 0 }, Joint_Core = { 14, 0, 0 }, Joint_CorePos = { 0, 0.1, -0.3 }, Joint_Head = { -14, 0, 0 } }
-local ROUND_LOAD = { Joint_Core = { 0, -22, 0 }, Sub_Legs_R = { 35, 0, 50 }, Joint_Head = { -6, 22, 0 } }
-local ROUND = { Joint_Core = { 4, 50, 0 }, Sub_Legs_R = { 100, 0, 45 }, Sub_Legs_L = { -4, 0, 0 }, Joint_CorePos = { 0, 0.2, -0.2 }, Joint_Head = { -6, -40, 0 }, Joint_RightArm = { 20, 0, 40 }, Joint_LeftArm = { 70, 0, 20 } }
-local ROUND_FOLLOW = { Joint_Core = { 2, 70, 0 }, Sub_Legs_R = { 70, 0, 10 }, Joint_Head = { -6, -50, 0 }, Joint_RightArm = { 30, 0, 30 } }
-local CLINCH = { Joint_RightArm = { 135, 0, -18 }, Joint_LeftArm = { 135, 0, 18 }, Joint_Core = { -12, 0, 0 }, Joint_CorePos = { 0, -0.1, -0.4 }, Joint_Head = { -16, 0, 0 } }
-local KNEE_R = { Sub_Legs_R = { 100, 0, -12 }, Sub_Legs_L = { -6, 0, 0 }, Joint_Core = { -16, 6, 0 }, Joint_CorePos = { 0, 0.1, -0.5 } }
-local KNEE_L = { Sub_Legs_L = { 100, 0, 12 }, Sub_Legs_R = { -6, 0, 0 }, Joint_Core = { -16, -6, 0 }, Joint_CorePos = { 0, 0.1, -0.5 } }
-
--- A key at time t: `base` (usually GUARD) with `change`'s joints laid over it.
+local function with(...)
+	local out = {}
+	for _, part in { ... } do
+		for joint, v in part do
+			out[joint] = v
+		end
+	end
+	return out
+end
+-- A key at time t: `base` with `change`'s joints laid over it.
 local function at(t: number, base, change)
 	local key = { T = t }
 	for joint, v in base or {} do
@@ -182,177 +162,262 @@ local function at(t: number, base, change)
 	end
 	return key
 end
--- the guard, breathing: slightly lower / higher
-local SETTLE = { Joint_CorePos = { 0, -0.2, 0.05 } }
-local SINK = { Joint_CorePos = { 0, -0.36, 0 } }
+-- the guard with these joints changed; a blow landing (fast into it, stopped dead on it)
+local function pose(t: number, change)
+	return at(t, BOXER, change)
+end
+local function blow(t: number, change)
+	local key = at(t, BOXER, change)
+	key.Ease, key.Stop = "Snap", true
+	return key
+end
+-- the punches (contact frames from the Brutal Boxer's pose lab: fist on the centre line at the
+-- height of another Nightmare's head)
+local P_JAB = { Joint_CorePos = { 0, 0.08, -0.35 }, Joint_Core = { -10, -24, 0 }, Joint_Legs = { 10, 24, 0 }, Joint_Head = { -10, 16, 0 }, Joint_LeftArm = { 100, 0, 22 }, Sub_LeftArm_Fore = { 8, 0, 0 }, Sub_Legs_L = { 22, 0, 0 } }
+local P_JAB_BACK = { Joint_CorePos = { 0, 0.13, -0.15 }, Joint_Core = { -8, -4, 0 }, Joint_Legs = { 8, 4, 0 }, Joint_Head = { -10, 6, 0 } }
+local P_CROSS_LOAD = { Joint_CorePos = { 0, 0.13, -0.25 }, Joint_Core = { -10, 4, 0 }, Joint_Legs = { 10, -4, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 70, 0, -42 }, Sub_RightArm_Fore = { 70, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
+local P_CROSS = { Joint_CorePos = { 0, 0.22, -0.5 }, Joint_Core = { -12, 30, 0 }, Joint_Legs = { 12, -30, 0 }, Joint_Head = { -12, -12, 0 }, Joint_RightArm = { 100, 0, -22 }, Sub_RightArm_Fore = { 6, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } }
+local P_HOOK_LOAD = { Joint_CorePos = { 0, 0.15, -0.3 }, Joint_Core = B_HOOK_LOAD.Joint_Core, Joint_Legs = B_HOOK_LOAD.Joint_Legs, Joint_Head = B_HOOK_LOAD.Joint_Head, Joint_LeftArm = B_HOOK_LOAD.Joint_LeftArm, Sub_LeftArm_Fore = B_HOOK_LOAD.Sub_LeftArm_Fore, Sub_Legs_L = B_HOOK_LOAD.Sub_Legs_L, Sub_Legs_R = B_HOOK_LOAD.Sub_Legs_R }
+local P_HOOK = { Joint_CorePos = { 0, 0.08, -0.3 }, Joint_Core = B_HOOK.Joint_Core, Joint_Legs = B_HOOK.Joint_Legs, Joint_Head = B_HOOK.Joint_Head, Joint_LeftArm = B_HOOK.Joint_LeftArm, Sub_LeftArm_Fore = B_HOOK.Sub_LeftArm_Fore, Sub_Legs_L = B_HOOK.Sub_Legs_L }
+local P_HOOK_FOLLOW = { Joint_CorePos = { 0, 0.05, -0.2 }, Joint_Core = { -12, -42, 4 }, Joint_Legs = { 12, 42, -4 }, Joint_Head = { -10, 20, 0 }, Joint_LeftArm = { 72, 0, 56 }, Sub_LeftArm_Fore = { 80, 0, 0 } }
+local P_OVER_LOAD = { Joint_CorePos = { 0, 0.21, 0.1 }, Joint_Core = { 12, -30, 0 }, Joint_Legs = { -12, 30, 0 }, Joint_Head = { -6, 18, 0 }, Joint_RightArm = { 160, 0, 10 }, Sub_RightArm_Fore = { 70, 0, 0 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } }
+local P_OVERHAND = { Joint_CorePos = { 0, -0.01, -0.9 }, Joint_Core = { -24, 40, -6 }, Joint_Legs = { 24, -40, 6 }, Joint_Head = { -10, -15, 0 }, Joint_RightArm = { 118, 0, -24 }, Sub_RightArm_Fore = { 14, 0, 0 }, Sub_Legs_L = { 35, 0, 0 }, Sub_Legs_R = { -25, 0, 0 } }
+local P_OVER_FOLLOW = { Joint_CorePos = { 0, -0.29, -1.0 }, Joint_Core = { -32, 50, -6 }, Joint_Legs = { 32, -50, 6 }, Joint_Head = { -12, -22, 0 }, Joint_RightArm = { 62, 0, -40 }, Sub_RightArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } }
+local P_BODY_LOAD = { Joint_CorePos = { 0.15, -0.22, -0.1 }, Joint_Core = { -16, 18, 8 }, Joint_Legs = { 16, -18, -8 }, Joint_Head = { -6, -8, 0 }, Joint_LeftArm = { 40, 0, 6 }, Sub_LeftArm_Fore = { 95, 0, 0 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
+local P_BODY = { Joint_CorePos = { 0.05, -0.28, -0.45 }, Joint_Core = { -20, -32, 6 }, Joint_Legs = { 20, 32, -6 }, Joint_Head = { -6, 18, 0 }, Joint_LeftArm = { 64, 0, 36 }, Sub_LeftArm_Fore = { 72, 0, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } }
+local P_UPPER_LOAD = { Joint_CorePos = { 0, 0.02, -0.2 }, Joint_Core = B_DIP.Joint_Core, Joint_Legs = B_DIP.Joint_Legs, Joint_Head = B_DIP.Joint_Head, Joint_RightArm = B_DIP.Joint_RightArm, Sub_RightArm_Fore = B_DIP.Sub_RightArm_Fore, Sub_Legs_L = B_DIP.Sub_Legs_L, Sub_Legs_R = B_DIP.Sub_Legs_R }
+local P_UPPER = { Joint_CorePos = { 0, 0.13, -0.35 }, Joint_Core = B_UPPER.Joint_Core, Joint_Legs = B_UPPER.Joint_Legs, Joint_Head = B_UPPER.Joint_Head, Joint_RightArm = B_UPPER.Joint_RightArm, Sub_RightArm_Fore = B_UPPER.Sub_RightArm_Fore, Sub_Legs_L = B_UPPER.Sub_Legs_L, Sub_Legs_R = B_UPPER.Sub_Legs_R }
+-- the kicks (+X swings a leg forward, +Z swings the RIGHT leg out to its right): the rear
+-- leg, the hip turned over behind it, the hands kept up
+local K_TEEP_CHAMBER = { Joint_CorePos = { 0, -0.02, -0.1 }, Joint_Core = { 6, 0, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -12, 0, 0 }, Sub_Legs_R = { 70, 0, -10 }, Sub_Legs_L = { -2, 0, 0 } }
+local K_TEEP = { Joint_CorePos = { 0, -0.05, -0.35 }, Joint_Core = { 14, 0, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -16, 0, 0 }, Sub_Legs_R = { 95, 0, -18 }, Sub_Legs_L = { -6, 0, 0 } }
+local K_ROUND_LOAD = { Joint_CorePos = { 0.1, 0.02, -0.1 }, Joint_Core = { -4, -24, 0 }, Joint_Legs = { 4, 24, 0 }, Joint_Head = { -8, 22, 0 }, Sub_Legs_R = { 35, 0, 50 }, Sub_Legs_L = { 6, 0, 0 } }
+local K_ROUND = { Joint_CorePos = { 0, 0.2, -0.2 }, Joint_Core = { 6, 52, 0 }, Joint_Legs = { -6, -16, 0 }, Joint_Head = { -8, -40, 0 }, Joint_RightArm = { -25, 0, 32 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 70, 0, 30 }, Sub_LeftArm_Fore = { 90, 0, 0 }, Sub_Legs_R = { 100, 0, 45 }, Sub_Legs_L = { -4, 0, 0 } }
+local K_ROUND_FOLLOW = { Joint_CorePos = { 0, 0.1, -0.15 }, Joint_Core = { 2, 72, 0 }, Joint_Legs = { -2, -30, 0 }, Joint_Head = { -6, -52, 0 }, Joint_RightArm = { 10, 0, 30 }, Sub_RightArm_Fore = { 50, 0, 0 }, Sub_Legs_R = { 70, 0, 10 }, Sub_Legs_L = { 0, 0, 0 } }
+local K_LOW = { Joint_CorePos = { 0, 0.05, -0.25 }, Joint_Core = { 8, 44, 0 }, Joint_Legs = { -8, -14, 0 }, Joint_Head = { -14, -30, 0 }, Joint_RightArm = { -10, 0, 30 }, Sub_RightArm_Fore = { 40, 0, 0 }, Sub_Legs_R = { 58, 0, 40 }, Sub_Legs_L = { 2, 0, 0 } }
+local K_CLINCH = { Joint_CorePos = { 0, 0.05, -0.4 }, Joint_Core = { -14, 0, 0 }, Joint_Legs = { 8, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 135, 0, -18 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 135, 0, 18 }, Sub_LeftArm_Fore = { 40, 0, 0 } }
+local function knee(side: string)
+	local r = side == "R"
+	return { Joint_CorePos = { 0, 0.15, -0.55 }, Joint_Core = { -18, r and 8 or -8, 0 }, Joint_Legs = { 10, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 125, 0, -16 }, Sub_RightArm_Fore = { 55, 0, 0 }, Joint_LeftArm = { 125, 0, 16 }, Sub_LeftArm_Fore = { 55, 0, 0 },
+		Sub_Legs_R = r and { 105, 0, -12 } or { -8, 0, 0 }, Sub_Legs_L = r and { -8, 0, 0 } or { 105, 0, 12 } }
+end
+local GUARD_REST = { Joint_CorePos = { 0, 0.06, 0.02 } }
 
 local GYM = {
-	-- JAB, JAB, CROSS
+	-- JAB, JAB, CROSS: the double jab walks in behind the lead hand, the second one loads the
+	-- rear hip, and the cross comes down the middle with the whole body behind it
 	Gym_ComboA = {
 		Duration = 1.6,
+		Curve = "Spline",
 		Markers = { { 0.24, "Whoosh" }, { 0.3, "BagJab" }, { 0.48, "Whoosh" }, { 0.54, "BagJab" }, { 0.72, "Whoosh" }, { 0.8, "BagCross" }, { 0.8, "StepR" } },
 		Keys = {
-			{ T = 0 },
-			at(0.18, GUARD),
-			at(0.3, GUARD, JAB),
-			at(0.42, GUARD),
-			at(0.54, GUARD, JAB),
-			at(0.64, GUARD, { Joint_Core = { -6, -14, 0 } }),
-			at(0.8, GUARD, CROSS),
-			at(1.0, GUARD),
-			at(1.3, GUARD, SETTLE),
-			{ T = 1.6 },
+			pose(0),
+			pose(0.16),
+			blow(0.3, P_JAB),
+			pose(0.42, P_JAB_BACK),
+			blow(0.54, P_JAB),
+			pose(0.68, P_CROSS_LOAD),
+			blow(0.8, P_CROSS),
+			pose(0.98, { Joint_CorePos = { 0, 0.15, -0.3 }, Joint_Core = { -8, 14, 0 }, Joint_Legs = { 8, -14, 0 } }),
+			pose(1.25, GUARD_REST),
+			pose(1.6),
 		},
 	},
-	-- JAB, CROSS, LEFT HOOK
+	-- JAB, CROSS, LEFT HOOK: the cross turns the hips left, which is exactly what loads the hook
 	Gym_ComboB = {
 		Duration = 1.8,
+		Curve = "Spline",
 		Markers = { { 0.24, "Whoosh" }, { 0.3, "BagJab" }, { 0.5, "Whoosh" }, { 0.56, "BagCross" }, { 0.56, "StepR" }, { 0.78, "Whoosh" }, { 0.86, "BagHook" }, { 0.86, "StepL" } },
 		Keys = {
-			{ T = 0 },
-			at(0.18, GUARD),
-			at(0.3, GUARD, JAB),
-			at(0.42, GUARD),
-			at(0.56, GUARD, CROSS),
-			at(0.7, GUARD, HOOK_WIND),
-			at(0.86, GUARD, HOOK),
-			at(0.98, GUARD, HOOK_FOLLOW),
-			at(1.15, GUARD),
-			at(1.45, GUARD, SETTLE),
-			{ T = 1.8 },
+			pose(0),
+			pose(0.16),
+			blow(0.3, P_JAB),
+			pose(0.43, P_CROSS_LOAD),
+			blow(0.56, P_CROSS),
+			pose(0.72, P_HOOK_LOAD),
+			blow(0.86, P_HOOK),
+			pose(1.0, P_HOOK_FOLLOW),
+			pose(1.25, { Joint_CorePos = { 0, 0.1, -0.1 } }),
+			pose(1.5, GUARD_REST),
+			pose(1.8),
 		},
 	},
-	-- JAB, LEFT HOOK, RIGHT OVERHAND
+	-- JAB, LEFT HOOK, RIGHT OVERHAND: the hook's follow-through rises straight into the overhand
 	Gym_ComboC = {
 		Duration = 2.1,
+		Curve = "Spline",
 		Markers = { { 0.24, "Whoosh" }, { 0.3, "BagJab" }, { 0.5, "Whoosh" }, { 0.58, "BagHook" }, { 0.58, "StepL" }, { 0.94, "Whoosh" }, { 1.04, "BagOverhand" }, { 1.04, "StepL" } },
 		Keys = {
-			{ T = 0 },
-			at(0.18, GUARD),
-			at(0.3, GUARD, JAB),
-			at(0.44, GUARD, HOOK_WIND),
-			at(0.58, GUARD, HOOK),
-			at(0.68, GUARD, HOOK_FOLLOW),
-			at(0.84, GUARD, OVER_LOAD),
-			at(1.04, GUARD, OVERHAND),
-			at(1.2, GUARD, OVER_FOLLOW),
-			at(1.5, GUARD),
-			at(1.8, GUARD, SETTLE),
-			{ T = 2.1 },
+			pose(0),
+			pose(0.16),
+			blow(0.3, P_JAB),
+			pose(0.45, P_HOOK_LOAD),
+			blow(0.58, P_HOOK),
+			pose(0.68, P_HOOK_FOLLOW),
+			pose(0.88, P_OVER_LOAD),
+			blow(1.04, P_OVERHAND),
+			pose(1.22, P_OVER_FOLLOW),
+			pose(1.55, { Joint_CorePos = { 0, 0.1, -0.3 } }),
+			pose(1.85, GUARD_REST),
+			pose(2.1),
 		},
 	},
-	-- dip into a LEFT HOOK TO THE BODY, then rip a RIGHT UPPERCUT up the middle
+	-- level change: dip to the side, a LEFT HOOK INTO THE LIVER, then rip the RIGHT UPPERCUT up
+	-- the middle out of the same dip
 	Gym_BodyRip = {
 		Duration = 1.5,
+		Curve = "Spline",
 		Markers = { { 0.4, "Whoosh" }, { 0.46, "BagBody" }, { 0.46, "StepL" }, { 0.68, "Whoosh" }, { 0.74, "BagUpper" }, { 0.74, "StepR" } },
 		Keys = {
-			{ T = 0 },
-			at(0.18, GUARD),
-			at(0.32, GUARD, BODY_WIND),
-			at(0.46, GUARD, BODY_HOOK),
-			at(0.6, GUARD, UPPER_LOAD),
-			at(0.74, GUARD, UPPER),
-			at(0.9, GUARD),
-			at(1.2, GUARD, SETTLE),
-			{ T = 1.5 },
+			pose(0),
+			pose(0.14),
+			pose(0.32, P_BODY_LOAD),
+			blow(0.46, P_BODY),
+			pose(0.6, P_UPPER_LOAD),
+			blow(0.74, P_UPPER),
+			pose(0.92, { Joint_CorePos = { 0, 0.15, -0.25 }, Joint_Core = { 0, 16, 0 }, Joint_Legs = { 0, -16, 0 }, Joint_RightArm = { 62, 0, -45 } }),
+			pose(1.2, GUARD_REST),
+			pose(1.5),
 		},
 	},
-	-- one big RIGHT OVERHAND, everything behind it
+	-- one big RIGHT OVERHAND: a long load, over the top, and everything falls through it
 	Gym_Power = {
 		Duration = 1.4,
+		Curve = "Spline",
 		Markers = { { 0.4, "Whoosh" }, { 0.5, "BagOverhand" }, { 0.5, "StepL" } },
 		Keys = {
-			{ T = 0 },
-			at(0.12, GUARD),
-			at(0.3, GUARD, OVER_LOAD),
-			at(0.5, GUARD, OVERHAND),
-			at(0.66, GUARD, OVER_FOLLOW),
-			at(1.0, GUARD),
-			{ T = 1.4 },
+			pose(0),
+			pose(0.1),
+			pose(0.32, P_OVER_LOAD),
+			blow(0.5, P_OVERHAND),
+			pose(0.68, P_OVER_FOLLOW),
+			pose(1.0, { Joint_CorePos = { 0, 0.1, -0.35 } }),
+			pose(1.4),
 		},
 	},
-	-- TEEP: the rear leg driven straight up through the middle of the bag, leaning back off
-	-- it: a push kick that shoves the bag away
+	-- TEEP: chamber the knee and drive the sole straight through the middle, leaning back off
+	-- it, hands still up: a push kick that shoves them away
 	Gym_Teep = {
 		Duration = 1.3,
+		Curve = "Spline",
 		Markers = { { 0.3, "Whoosh" }, { 0.42, "BagTeep" }, { 0.56, "StepR" } },
 		Keys = {
-			{ T = 0 },
-			at(0.15, GUARD),
-			at(0.3, GUARD, { Sub_Legs_R = { 60, 0, -10 }, Joint_Core = { 8, 0, 0 } }),
-			at(0.42, GUARD, TEEP),
-			at(0.56, GUARD, { Sub_Legs_R = { 50, 0, -10 }, Joint_Core = { 6, 0, 0 } }),
-			at(0.8, GUARD),
-			at(1.05, GUARD, SETTLE),
-			{ T = 1.3 },
+			pose(0),
+			pose(0.14),
+			pose(0.3, K_TEEP_CHAMBER),
+			blow(0.42, K_TEEP),
+			pose(0.56, K_TEEP_CHAMBER),
+			pose(0.8, { Joint_CorePos = { 0, 0.1, -0.1 } }),
+			pose(1.05, GUARD_REST),
+			pose(1.3),
 		},
 	},
-	-- ROUNDHOUSE: turn the hip over and whip the right leg round into the side of the bag,
-	-- the right arm swinging down and back for balance
+	-- ROUNDHOUSE: step out, turn the hip right over and whip the shin through them, the rear arm
+	-- thrown down and back for balance, carrying on through
 	Gym_Roundhouse = {
 		Duration = 1.5,
+		Curve = "Spline",
 		Markers = { { 0.32, "StepL" }, { 0.42, "Whoosh" }, { 0.5, "BagRound" } },
 		Keys = {
-			{ T = 0 },
-			at(0.15, GUARD),
-			at(0.32, GUARD, ROUND_LOAD),
-			at(0.5, GUARD, ROUND),
-			at(0.64, GUARD, ROUND_FOLLOW),
-			at(0.9, GUARD),
-			at(1.2, GUARD, SETTLE),
-			{ T = 1.5 },
+			pose(0),
+			pose(0.14),
+			pose(0.32, K_ROUND_LOAD),
+			blow(0.5, K_ROUND),
+			pose(0.66, K_ROUND_FOLLOW),
+			pose(0.92, { Joint_CorePos = { 0, 0.1, -0.1 }, Joint_Core = { -4, 14, 0 }, Joint_Legs = { 4, -14, 0 } }),
+			pose(1.2, GUARD_REST),
+			pose(1.5),
 		},
 	},
-	-- CLINCH KNEES: grab the bag over the top and drive knees up into it, right, left, right
+	-- CLINCH KNEES: hands locked behind the neck, hauling down into each knee, right, left, right
 	Gym_KneeClinch = {
 		Duration = 1.8,
+		Curve = "Spline",
 		Markers = { { 0.2, "Clinch" }, { 0.5, "BagKnee" }, { 0.95, "BagKnee" }, { 1.35, "BagKnee" }, { 0.5, "StepL" }, { 0.95, "StepR" }, { 1.35, "StepL" } },
 		Keys = {
-			{ T = 0 },
-			at(0.2, CLINCH),
-			at(0.36, CLINCH, { Sub_Legs_R = { 40, 0, -8 } }),
-			at(0.5, CLINCH, KNEE_R),
-			at(0.65, CLINCH),
-			at(0.82, CLINCH, { Sub_Legs_L = { 40, 0, 8 } }),
-			at(0.95, CLINCH, KNEE_L),
-			at(1.1, CLINCH),
-			at(1.24, CLINCH, { Sub_Legs_R = { 40, 0, -8 } }),
-			at(1.35, CLINCH, KNEE_R),
-			at(1.5, CLINCH),
-			{ T = 1.8 },
+			pose(0),
+			pose(0.2, K_CLINCH),
+			pose(0.36, with(K_CLINCH, { Joint_Core = { -8, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } })),
+			blow(0.5, knee("R")),
+			pose(0.68, K_CLINCH),
+			pose(0.82, with(K_CLINCH, { Joint_Core = { -8, 0, 0 }, Sub_Legs_L = { -24, 0, 0 } })),
+			blow(0.95, knee("L")),
+			pose(1.1, K_CLINCH),
+			pose(1.24, with(K_CLINCH, { Joint_Core = { -8, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } })),
+			blow(1.35, knee("R")),
+			pose(1.52, K_CLINCH),
+			pose(1.8),
 		},
 	},
-	-- SPINNING BACK KICK: turn the back on the bag, eyes over the shoulder, then drive the
-	-- heel straight back through it and come round out of the spin
+	-- SPINNING BACK KICK: step across and turn the back on them, eyes over the shoulder, then drive
+	-- the heel straight back through them and come round out of the spin, hands up again
 	Gym_SpinBackKick = {
 		Duration = 1.6,
+		Curve = "Spline",
 		Markers = { { 0.15, "StepR" }, { 0.5, "Whoosh" }, { 0.56, "BagSpin" }, { 0.95, "StepL" } },
 		Keys = {
-			{ T = 0 },
-			at(0.12, GUARD),
-			at(0.3, GUARD, { Joint_Core = { 0, -90, 0 }, Joint_Head = { 0, 70, 0 }, Sub_Legs_R = { 30, 0, 0 }, Joint_CorePos = { 0, -0.2, 0 } }),
-			at(0.44, GUARD, { Joint_Core = { 15, -180, 0 }, Joint_Head = { 0, 80, 0 }, Sub_Legs_R = { 20, 0, 0 }, Joint_CorePos = { 0, 0.1, -0.2 } }),
-			at(0.56, GUARD, { Joint_Core = { 35, -180, 0 }, Sub_Legs_R = { -100, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Joint_CorePos = { 0, 0.3, -0.4 }, Joint_Head = { -10, 80, 0 }, Joint_RightArm = { 40, 0, 60 }, Joint_LeftArm = { 40, 0, -60 } }),
-			at(0.7, GUARD, { Joint_Core = { 15, -200, 0 }, Sub_Legs_R = { -30, 0, 0 }, Joint_CorePos = { 0, 0.1, -0.3 }, Joint_Head = { 0, 60, 0 } }),
-			at(0.95, GUARD, { Joint_Core = { 0, -300, 0 }, Sub_Legs_R = { 10, 0, 0 } }),
-			at(1.2, GUARD, { Joint_Core = { -6, -368, 0 } }),
-			{ T = 1.6, Joint_Core = { 0, -360, 0 } },
+			pose(0),
+			pose(0.12),
+			pose(0.3, { Joint_Core = { 0, -90, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { 0, 70, 0 }, Sub_Legs_R = { 30, 0, 0 }, Joint_CorePos = { 0, -0.05, 0 } }),
+			pose(0.44, { Joint_Core = { 15, -180, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { 0, 80, 0 }, Sub_Legs_R = { 20, 0, 0 }, Joint_CorePos = { 0, 0.15, -0.2 } }),
+			blow(0.56, { Joint_Core = { 35, -180, 0 }, Joint_Legs = { 0, 0, 0 }, Sub_Legs_R = { -100, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Joint_CorePos = { 0, 0.3, -0.4 }, Joint_Head = { -10, 80, 0 }, Joint_RightArm = { 40, 0, 60 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 40, 0, -60 }, Sub_LeftArm_Fore = { 30, 0, 0 } }),
+			pose(0.72, { Joint_Core = { 15, -200, 0 }, Joint_Legs = { 0, 0, 0 }, Sub_Legs_R = { -30, 0, 0 }, Joint_CorePos = { 0, 0.1, -0.3 }, Joint_Head = { 0, 60, 0 } }),
+			pose(0.98, { Joint_Core = { 0, -300, 0 }, Joint_Legs = { 0, 0, 0 }, Sub_Legs_R = { 10, 0, 0 } }),
+			pose(1.25, { Joint_Core = { -6, -368, 0 }, Joint_Legs = { 6, 8, 0 } }),
+			pose(1.6, { Joint_Core = { -6, -370, 0 } }),
 		},
 	},
-	-- footwork: bounce in the stance, a feint jab, a slip to each side, reset
+	-- JAB, CROSS, LOW KICK: the punches draw the hands up, then the rear shin chops the lead leg
+	Gym_OneTwoLow = {
+		Duration = 1.7,
+		Curve = "Spline",
+		Markers = { { 0.2, "Whoosh" }, { 0.26, "Strike" }, { 0.42, "Whoosh" }, { 0.5, "Strike" }, { 0.5, "StepR" }, { 0.72, "StepL" }, { 0.8, "Whoosh" }, { 0.88, "Strike" } },
+		Keys = {
+			pose(0),
+			pose(0.14),
+			blow(0.26, P_JAB),
+			pose(0.38, P_CROSS_LOAD),
+			blow(0.5, P_CROSS),
+			pose(0.72, K_ROUND_LOAD),
+			blow(0.88, K_LOW),
+			pose(1.06, { Joint_CorePos = { 0, 0.1, -0.1 }, Joint_Core = { 2, 34, 0 }, Joint_Legs = { -2, -18, 0 }, Sub_Legs_R = { 18, 0, 20 } }),
+			pose(1.38, GUARD_REST),
+			pose(1.7),
+		},
+	},
+	-- LIVER, THEN HEAD: the same left hand twice: dip and dig it in under the ribs, then up over
+	-- the top onto the jaw they just dropped their guard from
+	Gym_LiverHead = {
+		Duration = 1.6,
+		Curve = "Spline",
+		Markers = { { 0.32, "Whoosh" }, { 0.4, "Strike" }, { 0.4, "StepL" }, { 0.62, "Whoosh" }, { 0.72, "Strike" } },
+		Keys = {
+			pose(0),
+			pose(0.14),
+			pose(0.28, P_BODY_LOAD),
+			blow(0.4, P_BODY),
+			pose(0.56, P_HOOK_LOAD),
+			blow(0.72, P_HOOK),
+			pose(0.88, P_HOOK_FOLLOW),
+			pose(1.25, GUARD_REST),
+			pose(1.6),
+		},
+	},
+	-- FOOTWORK: bounce in the stance, a feint with the jab, a slip each way under a shot, reset
 	Gym_Bounce = {
 		Duration = 1.6,
+		Curve = "Spline",
 		Markers = { { 0.2, "StepL" }, { 0.6, "StepR" }, { 1.0, "StepL" } },
 		Keys = {
-			{ T = 0 },
-			at(0.2, GUARD, SINK),
-			at(0.4, GUARD, SETTLE),
-			at(0.55, GUARD, { Joint_LeftArm = { 82, 0, 10 }, Joint_Core = { -8, -12, 0 }, Joint_CorePos = { 0, -0.3, -0.15 } }), -- feint
-			at(0.75, GUARD, { Joint_Core = { -10, -4, 14 }, Joint_CorePos = { 0.45, -0.4, 0 }, Joint_Head = { -6, 8, 10 } }), -- slip right
-			at(0.95, GUARD, SETTLE),
-			at(1.15, GUARD, { Joint_Core = { -10, -12, -14 }, Joint_CorePos = { -0.45, -0.4, 0 }, Joint_Head = { -6, 8, -10 } }), -- slip left
-			at(1.35, GUARD, SINK),
-			{ T = 1.6 },
+			pose(0),
+			pose(0.2, { Joint_CorePos = { 0, 0, 0 } }),
+			pose(0.38, { Joint_CorePos = { 0, 0.18, 0.05 } }),
+			pose(0.55, { Joint_LeftArm = { 84, 0, 30 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Joint_Core = { -10, -18, 0 }, Joint_Legs = { 10, 18, 0 }, Joint_CorePos = { 0, 0.08, -0.2 } }), -- feint
+			pose(0.75, { Joint_Core = { -14, -6, 14 }, Joint_Legs = { 14, 6, -14 }, Joint_CorePos = { 0.5, -0.05, 0 }, Joint_Head = { -14, 10, 10 } }), -- slip right
+			pose(0.95, { Joint_CorePos = { 0, 0.15, 0.05 } }),
+			pose(1.15, { Joint_Core = { -14, -14, -14 }, Joint_Legs = { 14, 14, 14 }, Joint_CorePos = { -0.5, -0.05, 0 }, Joint_Head = { -14, 10, -10 } }), -- slip left
+			pose(1.35, { Joint_CorePos = { 0, 0.02, 0 } }),
+			pose(1.6),
 		},
 	},
 	-- REST: hands on the knees catching its breath, straighten up, shake the arms out
@@ -1245,28 +1310,6 @@ do
 	}
 end
 
--- THE BOXER'S GUARD (the autonomous combos): bladed, chin down, fists by the face, elbows
--- bent (Sub_*Arm_Fore), the feet planted while the hips turn (Joint_Legs counter-turns the
--- core). Combo keys are this with a few joints changed (at()).
-local BOXER = {
-	Joint_CorePos = { 0, 0.12, 0 }, Joint_Core = { -6, -10, 0 }, Joint_Legs = { 6, 10, 0 }, Joint_Head = { -10, 10, 0 },
-	Joint_RightArm = { 50, 0, -55 }, Sub_RightArm_Fore = { 105, 0, 0 }, Joint_LeftArm = { 55, 0, 50 }, Sub_LeftArm_Fore = { 100, 0, 0 },
-	Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 },
-}
--- (the Brutal Boxer's measured punches, reused: lead hook and rear uppercut contact frames)
-local B_HOOK_LOAD = { Joint_Core = { -8, 22, 2 }, Joint_Legs = { 8, -22, 0 }, Joint_Head = { -10, -6, 0 }, Joint_LeftArm = { 84, 0, -8 }, Sub_LeftArm_Fore = { 72, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
-local B_HOOK = { Joint_Core = { -8, -35, 4 }, Joint_Legs = { 8, 35, -4 }, Joint_Head = { -10, 14, 0 }, Joint_LeftArm = { 80, 0, 40 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 22, 0, 0 } }
-local B_DIP = { Joint_Core = { -14, -22, 0 }, Joint_Legs = { 14, 22, 0 }, Joint_Head = { -12, 8, 0 }, Joint_RightArm = { 38, 0, -42 }, Sub_RightArm_Fore = { 112, 0, 0 }, Joint_LeftArm = { 56, 0, 48 }, Sub_LeftArm_Fore = { 98, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
-local B_UPPER = { Joint_Core = { 2, 28, 0 }, Joint_Legs = { -2, -28, 0 }, Joint_Head = { -6, -10, 0 }, Joint_RightArm = { 60, 0, -45 }, Sub_RightArm_Fore = { 85, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
-local function with(...)
-	local out = {}
-	for _, part in { ... } do
-		for joint, v in part do
-			out[joint] = v
-		end
-	end
-	return out
-end
 
 -- A MASTERED version of a combo: the base clip's keys and markers up to `upTo`, then new
 -- beats (Combo Mastery unlocks it: NightmareCombatDefinitions / Config Moveset Unlock).
@@ -1776,6 +1819,250 @@ for name, def in POSES.Common do
 	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" then
 		POSES.Quadruped[name] = forQuadruped(def)
 	end
+end
+
+------------------------------------------------------------------------------------------
+-- THE BASIC THREE (Config.Nightmare.Combo: a body's plainest attack): jab, cross, hook
+------------------------------------------------------------------------------------------
+POSES.Common.Combo1 = {
+	Duration = 0.55,
+	Curve = "Spline",
+	Markers = { { 0.14, "Whoosh" }, { 0.22, "Hit" } },
+	Keys = { pose(0), pose(0.08), blow(0.22, P_JAB), pose(0.36, P_JAB_BACK), pose(0.55) },
+}
+POSES.Common.Combo2 = {
+	Duration = 0.63,
+	Curve = "Spline",
+	Markers = { { 0.16, "Whoosh" }, { 0.25, "Hit" }, { 0.25, "StepR" } },
+	Keys = { pose(0), pose(0.1, P_CROSS_LOAD), blow(0.25, P_CROSS), pose(0.42, { Joint_CorePos = { 0, 0.15, -0.25 }, Joint_Core = { -8, 14, 0 }, Joint_Legs = { 8, -14, 0 } }), pose(0.63) },
+}
+POSES.Common.Combo3 = {
+	Duration = 1.0,
+	Curve = "Spline",
+	Markers = { { 0.24, "Whoosh" }, { 0.35, "Hit" }, { 0.35, "StepL" } },
+	Keys = { pose(0), pose(0.18, P_HOOK_LOAD), blow(0.35, P_HOOK), pose(0.52, P_HOOK_FOLLOW), pose(0.78, GUARD_REST), pose(1.0) },
+}
+-- four legs: forepaw, other forepaw, and a lunge with the teeth
+local function rake(t: number, side: number, out: number, up: number, extra: boolean?)
+	local lead, other = side > 0 and "Sub_Legs_FR" or "Sub_Legs_FL", side > 0 and "Sub_Legs_FL" or "Sub_Legs_FR"
+	return { T = t, Ease = extra and "Snap" or nil, Stop = extra or nil, Joint_CorePos = { 0, up * 0.3, -0.5 * up }, Joint_Core = { 8 * up, 12 * side, 0 }, Joint_Head = { -8, -14 * side, 0 }, [lead] = { 80 * up, 0, out * side }, [other] = { 8, 0, 0 }, Sub_Legs_BL = { -6, 0, 0 }, Sub_Legs_BR = { -6, 0, 0 } }
+end
+POSES.Quadruped.Combo1 = {
+	Duration = 0.55,
+	Curve = "Spline",
+	Markers = { { 0.14, "Whoosh" }, { 0.22, "Hit" } },
+	Keys = { { T = 0 }, rake(0.12, 1, 30, 1), rake(0.22, 1, -30, 0.7, true), { T = 0.55 } },
+}
+POSES.Quadruped.Combo2 = {
+	Duration = 0.63,
+	Curve = "Spline",
+	Markers = { { 0.16, "Whoosh" }, { 0.25, "Hit" } },
+	Keys = { { T = 0 }, rake(0.14, -1, 30, 1), rake(0.25, -1, -30, 0.7, true), { T = 0.63 } },
+}
+POSES.Quadruped.Combo3 = {
+	Duration = 1.0,
+	Curve = "Spline",
+	Markers = { { 0.24, "Whoosh" }, { 0.35, "Hit" }, { 0.35, "JawSnap" } },
+	Keys = {
+		{ T = 0 },
+		{ T = 0.2, Joint_CorePos = { 0, -0.1, 0.45 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { -22, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Sub_Legs_FL = { -14, 0, 0 }, Sub_Legs_FR = { -14, 0, 0 }, Sub_Legs_BL = { 16, 0, 0 }, Sub_Legs_BR = { 16, 0, 0 } },
+		{ T = 0.35, Ease = "Snap", Stop = true, Joint_CorePos = { 0, 0.05, -1.0 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { 14, 0, 0 }, Sub_Head_Jaw = { 4, 0, 0 }, Sub_Legs_FL = { 34, 0, 0 }, Sub_Legs_FR = { 34, 0, 0 }, Sub_Legs_BL = { -24, 0, 0 }, Sub_Legs_BR = { -24, 0, 0 } },
+		{ T = 0.6, Joint_CorePos = { 0, 0, -0.4 }, Joint_Core = { -4, 0, 0 }, Joint_Head = { 4, 0, 0 } },
+		{ T = 1.0 },
+	},
+}
+
+------------------------------------------------------------------------------------------
+-- THE FIGHTING STANCE (attribute FightStance, while it has someone to fight): every strike
+-- starts from and comes back to this, so the hands never drop between exchanges.
+------------------------------------------------------------------------------------------
+POSES.Stance = {
+	Biped = BOXER,
+	Floating = { Joint_CorePos = { 0, 0, 0 }, Joint_Core = { -6, -10, 0 }, Joint_Head = { -8, 10, 0 }, Joint_RightArm = { 50, 0, -50 }, Sub_RightArm_Fore = { 95, 0, 0 }, Joint_LeftArm = { 55, 0, 45 }, Sub_LeftArm_Fore = { 95, 0, 0 } },
+	-- stalking: shoulders down, head level and pointed at them, tail up, ready to spring
+	Quadruped = { Joint_CorePos = { 0, -0.12, 0 }, Joint_Core = { -5, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Legs_FL = { 10, 0, 0 }, Sub_Legs_FR = { -4, 0, 0 }, Sub_Legs_BL = { -6, 0, 0 }, Sub_Legs_BR = { 8, 0, 0 }, Joint_Tail = { -16, 0, 0 } },
+}
+-- a clip that starts or ends on "rest" starts and ends in the stance instead (or the blend
+-- into it dips the hands at both ends)
+local function fromStance(library, stance)
+	for name, def in library do
+		if type(def) == "table" and def.Keys and (name:sub(1, 6) == "Combo_" or name:sub(1, 6) == "Beast_" or name == "Heavy" or name == "Guard_Hold") then
+			for index, key in def.Keys do
+				local empty = true
+				for _, value in key do
+					if type(value) == "table" then
+						empty = false
+						break
+					end
+				end
+				if empty and (index == 1 or index == #def.Keys) then
+					def.Keys[index] = at(key.T, stance)
+				end
+			end
+		end
+	end
+end
+fromStance(POSES.Biped, BOXER)
+fromStance(POSES.Quadruped, POSES.Stance.Quadruped)
+for _, name in { "Combo_NightmareFrenzy", "Combo_TentacleSlam" } do
+	fromStance({ [name] = POSES.Common[name] }, BOXER)
+end
+
+-- The punches go all the way out and connect (FightAim): each contact frame, which arm, where.
+local function aim(library, name: string, list)
+	local def = library[name]
+	if def then
+		def.Aim = {}
+		for _, strike in list do
+			local limb = strike[2] == "L" and "Left" or strike[2] == "R" and "Right" or strike[2]
+			table.insert(def.Aim, { T = strike[1], Arm = limb, At = strike[3] == "B" and "Body" or strike[3] == "F" and "Legs" or "Head" })
+		end
+	end
+end
+-- the kicks
+aim(POSES.Common, "Gym_Teep", { { 0.42, "RightLeg", "B" } })
+aim(POSES.Common, "Gym_Roundhouse", { { 0.5, "RightLeg" } })
+aim(POSES.Common, "Gym_SpinBackKick", { { 0.56, "RightLeg", "B" } })
+-- (paws: a four-legged body's rakes)
+aim(POSES.Quadruped, "Combo1", { { 0.22, "FrontRight", "B" } })
+aim(POSES.Quadruped, "Combo2", { { 0.25, "FrontLeft", "B" } })
+-- the arm abilities that land on their "Hit" frame, by the limb doing them
+for _, id in { "RustySlash", "DemonRend", "MeteorFist" } do
+	local name = "Ability_" .. id
+	for _, marker in POSES.Common[name].Markers do
+		if marker[2] == "Hit" then
+			aim(POSES.Common, name, { { marker[1], "R", "B" } })
+			aim(POSES.Common, name .. "_Left", { { marker[1], "L", "B" } })
+			if POSES.Quadruped[name] then
+				aim(POSES.Quadruped, name, { { marker[1], "R", "B" } })
+			end
+		end
+	end
+end
+aim(POSES.Common, "Combo1", { { 0.22, "L" } })
+aim(POSES.Common, "Combo2", { { 0.25, "R" } })
+aim(POSES.Common, "Combo3", { { 0.35, "L" } })
+aim(POSES.Common, "Gym_ComboA", { { 0.3, "L" }, { 0.54, "L" }, { 0.8, "R" } })
+aim(POSES.Common, "Gym_ComboB", { { 0.3, "L" }, { 0.56, "R" }, { 0.86, "L" } })
+aim(POSES.Common, "Gym_ComboC", { { 0.3, "L" }, { 0.58, "L" }, { 1.04, "R" } })
+aim(POSES.Common, "Gym_BodyRip", { { 0.46, "L", "B" }, { 0.74, "R" } })
+aim(POSES.Common, "Gym_Power", { { 0.5, "R" } })
+aim(POSES.Common, "Gym_OneTwoLow", { { 0.26, "L" }, { 0.5, "R" }, { 0.88, "RightLeg", "F" } })
+aim(POSES.Common, "Gym_LiverHead", { { 0.4, "L", "B" }, { 0.72, "L" } })
+aim(POSES.Common, "Combo_NightmareFrenzy", { { 0.3, "R" }, { 0.48, "L" }, { 0.66, "R" }, { 0.84, "L" }, { 1.02, "R" }, { 1.2, "L" }, { 1.72, "R", "B" }, { 1.72, "L", "B" } })
+aim(POSES.Biped, "Combo_BrutalBoxer", { { 0.3, "L" }, { 0.55, "R" }, { 0.82, "L" }, { 1.1, "R" }, { 1.62, "R" } })
+aim(POSES.Biped, "Combo_BrutalBoxerII", { { 0.3, "L" }, { 0.55, "R" }, { 0.82, "L" }, { 1.1, "R" }, { 1.32, "L", "B" }, { 1.84, "R" } })
+aim(POSES.Biped, "Combo_PerfectCounter", { { 0.46, "L" }, { 0.7, "R" }, { 1.0, "RightLeg", "B" } })
+aim(POSES.Biped, "Combo_CycloneDestroyer", { { 0.3, "L" }, { 0.72, "R" } })
+aim(POSES.Biped, "Combo_TitanCombination", { { 0.72, "R" }, { 1.1, "L", "B" } })
+aim(POSES.Biped, "Combo_AerialCrusher", { { 0.36, "R" } })
+aim(POSES.Biped, "Heavy", { { 0.45, "R" } })
+
+-- every combination lands: flows through its keys, fast into each contact, stopped dead on it
+local PoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))
+for _, library in { POSES.Common, POSES.Biped, POSES.Quadruped } do
+	for name, def in library do
+		if name:sub(1, 6) == "Combo_" or name:sub(1, 6) == "Beast_" or name == "Heavy" then
+			PoseTools.Punch(def)
+		end
+	end
+end
+
+------------------------------------------------------------------------------------------
+-- HOW A BLOW LANDS (Config.Nightmare.Reactions; NightmareAnimator:React): added on top of
+-- whatever the body is doing, so it can happen mid-punch; zero at both ends. Authored facing
+-- the attacker: +X leans / tips back, +Y turns to its left, +Z leans to its left, CorePos in
+-- studs (+Z back). The attacker's left hook comes from the victim's right, so it whips the
+-- head to the victim's left.
+------------------------------------------------------------------------------------------
+local REACTIONS = {
+	Jab = {
+		Duration = 0.34,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.06, Ease = "Out", Joint_CorePos = { 0, 0, 0.12 }, Joint_Core = { 5, 0, 0 }, Joint_Head = { 16, 0, 0 } },
+			{ T = 0.34 },
+		},
+	},
+	Cross = {
+		Duration = 0.46,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.07, Ease = "Out", Joint_CorePos = { 0, -0.03, 0.26 }, Joint_Core = { 10, -4, 0 }, Joint_Head = { 26, -6, 0 }, Joint_RightArm = { -14, 0, 10 }, Joint_LeftArm = { -14, 0, -10 }, Sub_Legs_R = { -8, 0, 0 } },
+			{ T = 0.22, Joint_CorePos = { 0, -0.04, 0.14 }, Joint_Core = { 4, -2, 0 }, Joint_Head = { 10, -3, 0 } },
+			{ T = 0.46 },
+		},
+	},
+	HookL = {
+		Duration = 0.5,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.08, Ease = "Out", Joint_CorePos = { -0.22, -0.06, 0.08 }, Joint_Core = { 4, 12, 6 }, Joint_Head = { 6, 34, 14 }, Joint_RightArm = { -10, 0, -8 }, Joint_LeftArm = { -18, 0, -14 } },
+			{ T = 0.26, Joint_CorePos = { -0.12, -0.06, 0.04 }, Joint_Core = { 2, 6, 3 }, Joint_Head = { 2, 12, 6 } },
+			{ T = 0.5 },
+		},
+	},
+	Upper = {
+		Duration = 0.55,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.09, Ease = "Out", Joint_CorePos = { 0, 0.2, 0.12 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 36, 0, 0 }, Joint_RightArm = { -22, 0, 14 }, Joint_LeftArm = { -22, 0, -14 }, Sub_Legs_L = { -8, 0, 0 }, Sub_Legs_R = { 6, 0, 0 } },
+			{ T = 0.28, Joint_CorePos = { 0, 0.02, 0.08 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 12, 0, 0 } },
+			{ T = 0.55 },
+		},
+	},
+	-- doubled over it: the guard comes down, the elbows clamp in, the knees give
+	Body = {
+		Duration = 0.6,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.1, Ease = "Out", Joint_CorePos = { 0, -0.28, 0.2 }, Joint_Core = { -22, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { -24, 0, 6 }, Sub_RightArm_Fore = { 18, 0, 0 }, Joint_LeftArm = { -24, 0, -6 }, Sub_LeftArm_Fore = { 18, 0, 0 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { 6, 0, 0 } },
+			{ T = 0.32, Joint_CorePos = { 0, -0.2, 0.1 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { -10, 0, 0 }, Joint_LeftArm = { -10, 0, 0 }, Sub_Legs_L = { 6, 0, 0 } },
+			{ T = 0.6 },
+		},
+	},
+	-- the lead leg chopped out from under it
+	Leg = {
+		Duration = 0.5,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.08, Ease = "Out", Joint_CorePos = { -0.12, -0.24, 0 }, Joint_Core = { -6, -8, -8 }, Joint_Head = { 8, 6, 4 }, Sub_Legs_L = { -24, 0, -14 }, Joint_LeftArm = { -14, 0, -18 } },
+			{ T = 0.28, Joint_CorePos = { -0.04, -0.12, 0 }, Joint_Core = { -2, -3, -3 }, Sub_Legs_L = { -8, 0, -4 } },
+			{ T = 0.5 },
+		},
+	},
+	-- rocked: thrown back with the arms gone, then the legs nearly go under it
+	Heavy = {
+		Duration = 0.85,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.09, Ease = "Out", Joint_CorePos = { 0, -0.1, 0.42 }, Joint_Core = { 22, -6, 6 }, Joint_Head = { 38, 8, 0 }, Joint_RightArm = { -28, 0, 26 }, Sub_RightArm_Fore = { -30, 0, 0 }, Joint_LeftArm = { -28, 0, -26 }, Sub_LeftArm_Fore = { -30, 0, 0 } },
+			{ T = 0.36, Joint_CorePos = { 0, -0.42, 0.3 }, Joint_Core = { -14, 4, -4 }, Joint_Head = { -12, -4, 0 }, Joint_RightArm = { -22, 0, 8 }, Joint_LeftArm = { -22, 0, -8 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { 10, 0, 0 } },
+			{ T = 0.85 },
+		},
+	},
+	-- it took it on the arms
+	Block = {
+		Duration = 0.3,
+		Curve = "Spline",
+		Keys = {
+			{ T = 0 },
+			{ T = 0.05, Ease = "Out", Joint_CorePos = { 0, -0.04, 0.2 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { -3, 0, 0 }, Joint_RightArm = { -14, 0, 0 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { -14, 0, 0 }, Sub_LeftArm_Fore = { 10, 0, 0 } },
+			{ T = 0.3 },
+		},
+	},
+}
+REACTIONS.HookR = mirrored(REACTIONS.HookL)
+POSES.Reactions = { Biped = REACTIONS, Quadruped = {} }
+for kind, def in REACTIONS do
+	POSES.Reactions.Quadruped[kind] = forQuadruped(def)
 end
 
 return POSES

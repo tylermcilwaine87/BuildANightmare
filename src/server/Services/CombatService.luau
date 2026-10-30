@@ -471,6 +471,7 @@ function CombatService:ApplyDamage(params): number
 		Attacker = attacker,
 		Dir = params.HitDirection or (attacker and Util.FlatUnit(position - attacker:GetPivot().Position)) or nil,
 		Heavy = params.Heavy == true,
+		React = params.React, -- (which way the body takes it: Config.Nightmare.Reactions)
 		KnockedDown = knockedDown,
 		Exposed = exposed or nil, -- (punished an exposed boss)
 		Broken = broken or nil, -- (hit a broken boss)

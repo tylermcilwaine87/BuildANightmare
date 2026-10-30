@@ -308,6 +308,7 @@ local function damage(self, targets, amount: number, opts)
 			AttackPower = 100,
 			Knockback = opts.Knockback,
 			Heavy = opts.Heavy,
+			React = opts.Heavy and "Heavy" or "Cross", -- (a Nightmare takes it: NightmarePoses Reactions)
 			HitDirection = hitDirection,
 			Unblockable = opts.Unblockable,
 			Status = opts.Status, -- e.g. "Shock" (Storm Beast), "Weaken" (Abyssal Maw)

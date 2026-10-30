@@ -1042,7 +1042,15 @@ function EffectsController:Start()
 				self:PopText(data.Position + Vector3.new(0, 2, 0), "GUARD BREAK!", C.Bad, 28)
 			end
 			local dir = typeof(data.Dir) == "Vector3" and data.Dir or nil
-			controllers.NightmareAnimator:Flinch(target, dir, data.Heavy)
+			-- a blow of a known kind shows where it landed; anything else rocks them along its force
+			local reaction = data.Guarded and "Block" or data.React
+			if not (type(reaction) == "string" and not data.KnockedDown and controllers.NightmareAnimator:React(target, reaction)) then
+				controllers.NightmareAnimator:Flinch(target, dir, data.Heavy)
+			end
+			-- the blow has weight: the striker's clip hangs on the contact for a moment
+			if typeof(data.Attacker) == "Instance" and data.Amount and data.Amount > 0 then
+				controllers.NightmareAnimator:HitStop(data.Attacker, data.Heavy and 0.075 or 0.04)
+			end
 			-- a Handler takes it: head snaps, body driven the way of the blow, a heavy one
 			-- staggers you out of your strike
 			if target and Players:GetPlayerFromCharacter(target) and not data.KnockedDown then

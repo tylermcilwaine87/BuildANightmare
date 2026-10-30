@@ -35,6 +35,8 @@ local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local POSES = require(script.Parent:WaitForChild("NightmarePoses"))
 local PoseCurve = require(script.Parent:WaitForChild("PoseCurve"))
 local BOSS_POSES = require(script.Parent:WaitForChild("BossPoses"))
+local BossMotion = require(script.Parent:WaitForChild("BossMotion"))
+local FightAim = require(script.Parent:WaitForChild("FightAim"))
 
 -- The keyframed-attack library for a model, and the asset name prefix:
 -- bosses by BossId (BossPoses), Nightmares by body plan (NightmarePoses).
@@ -250,8 +252,40 @@ local function assetId(prefix: string, action: string): string?
 	return assetIds[key] or nil
 end
 
+-- Every change of clip blends over from wherever the body is right now (a clip's rest key
+-- would otherwise snap the guard's hands down for a frame).
+local function startFade(state, time: number)
+	local from = {}
+	for name, motor in state.motors do
+		from[name] = motor.Transform
+	end
+	state.fade = { From = from, Start = os.clock(), Time = time }
+end
+
+local function applyFade(state, now: number)
+	local fade = state.fade
+	if not fade then
+		return
+	end
+	local k = (now - fade.Start) / fade.Time
+	if k >= 1 then
+		state.fade = nil
+		return
+	end
+	k = k * k * (3 - 2 * k)
+	for name, from in fade.From do
+		local motor = state.motors[name]
+		if motor and not (currentSkip and currentSkip[name]) then
+			motor.Transform = from:Lerp(motor.Transform, k)
+		end
+	end
+end
+
+local ARM_COMBOS = { Combo1 = true, Combo2 = true, Combo3 = true }
+
 function NightmareAnimator:PlayKeyframed(state)
 	local model = state.model
+	startFade(state, 0.09)
 	if state.track then
 		state.track:Stop(0.1)
 		state.track = nil
@@ -275,6 +309,10 @@ function NightmareAnimator:PlayKeyframed(state)
 	end
 	local def
 	def, prefix = find(action)
+	-- (the basic punches need a fist: an armless biped keeps its procedural headbutt)
+	if ARM_COMBOS[action] and model:GetAttribute("Archetype") ~= "Quadruped" and not state.motors.Joint_RightArm and not state.motors.Joint_LeftArm then
+		def = nil
+	end
 	if not def then
 		return
 	end
@@ -313,9 +351,13 @@ function NightmareAnimator:PlayKeyframed(state)
 end
 
 -- Applies a code-evaluated keyframed attack over the procedural pose (after it).
-local function applyPose(state, now: number)
+local function applyPose(state, now: number, dt: number)
 	local pose = state.pose
 	local def = pose.Def
+	-- HIT-STOP: the attacker's clip holds on the contact frame for a moment
+	if state.hitStopUntil and now < state.hitStopUntil then
+		pose.Start += dt
+	end
 	local t = (now - pose.Start) * pose.Speed
 	for _, marker in def.Markers or {} do
 		if marker[1] > pose.LastT and marker[1] <= t then
@@ -325,6 +367,7 @@ local function applyPose(state, now: number)
 	pose.LastT = t
 	if t > def.Duration then
 		state.pose = nil
+		startFade(state, 0.14)
 		return
 	end
 	for joint in jointsOf(def) do
@@ -345,6 +388,63 @@ local function applyPose(state, now: number)
 			end
 			motor.Transform = cframe
 		end
+	end
+	-- the punches go all the way out and connect
+	if def.Aim then
+		state.aimRig = state.aimRig or FightAim.Rig(state.model, state.motors)
+		if state.aimRig.Root then
+			FightAim.Apply(def, t, state.aimRig)
+		end
+	end
+end
+
+-- The fighting stance (server: attribute FightStance), laid over the procedural pose by its
+-- weight: hands up, bladed, knees bent, and a light bounce in the feet.
+local function applyStance(state, weight: number, now: number)
+	local stance = POSES.Stance and POSES.Stance[state.model:GetAttribute("Archetype") or "Biped"]
+	if not stance or weight <= 0.001 then
+		return
+	end
+	for joint, value in stance do
+		if joint ~= "Joint_CorePos" then
+			local motor = state.motors[joint]
+			if motor and not (currentSkip and currentSkip[joint]) then
+				motor.Transform = motor.Transform * CFrame.Angles(math.rad(value[1]) * weight, math.rad(value[2]) * weight, math.rad(value[3]) * weight)
+			end
+		end
+	end
+	local core = state.motors.Joint_Core
+	if core and not (currentSkip and currentSkip.Joint_Core) then
+		local lift = stance.Joint_CorePos or { 0, 0, 0 }
+		local bounce = math.sin(now * 6.4 + state.seed) * 0.05
+		local shift = math.sin(now * 3.2 + state.seed) * 0.04
+		core.Transform = CFrame.new(lift[1] * weight + shift * weight, (lift[2] + bounce) * weight, lift[3] * weight) * core.Transform
+	end
+end
+
+-- A hit reaction (POSES.Reactions) on top of everything else the body is doing.
+local function applyReaction(state, now: number)
+	local react = state.react
+	if not react then
+		return
+	end
+	local def = react.Def
+	local t = (now - react.Start) / react.Scale
+	if t >= def.Duration then
+		state.react = nil
+		return
+	end
+	for joint in jointsOf(def) do
+		local motor = state.motors[joint]
+		if motor and not (currentSkip and currentSkip[joint]) then
+			local x, y, z = angleAt(def, joint, t)
+			motor.Transform = motor.Transform * CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+		end
+	end
+	local core = state.motors.Joint_Core
+	if core and not (currentSkip and currentSkip.Joint_Core) then
+		local px, py, pz = angleAt(def, "Joint_CorePos", t)
+		core.Transform = CFrame.new(px, py, pz) * core.Transform
 	end
 end
 
@@ -475,16 +575,37 @@ local function animate(state, root: BasePart, dt: number, now: number)
 	-- Head (whips further than the body on a hit)
 	setTransform(motors.Joint_Head, CFrame.Angles(headPitch + hitPitch * 1.4 + math.sin(now * 0.9 + state.seed) * 0.04, headYaw + math.sin(now * 0.5 + state.seed) * 0.08, hitRoll * 1.6))
 
-	-- Arms
-	local idleSway = math.sin(now * 1.6 + state.seed) * 0.06
-	local walkSwing = math.sin(state.walkPhase) * 0.5 * move
+	-- the fighting stance: how far into it the body is (it comes up fast, and drops slowly)
+	local bossId = model:GetAttribute("BossId")
+	local bossMotion = bossId and BossMotion[bossId]
+	local wantStance = model:GetAttribute("FightStance") == true and not defeated
+	state.stance = (state.stance or 0) + ((wantStance and 1 or 0) - (state.stance or 0)) * math.min(1, dt * (wantStance and 9 or 4))
+	local stance = state.stance
+
+	-- Arms (a boss's own motion drives its limbs: BossMotion)
+	local idleSway = math.sin(now * 1.6 + state.seed) * 0.06 * (1 - stance * 0.6)
+	local walkSwing = math.sin(state.walkPhase) * 0.5 * move * (1 - stance * 0.85)
+	if bossMotion then
+		idleSway, walkSwing = 0, 0
+	end
 	setTransform(motors.Joint_RightArm, CFrame.Angles(rightSwing + idleSway + walkSwing, 0, 0))
 	setTransform(motors.Joint_LeftArm, CFrame.Angles(leftSwing + idleSway - walkSwing, 0, 0))
 
-	-- Legs
-	local stride = math.sin(state.walkPhase) * 0.6 * move
-	setTransform(motors.Sub_Legs_L, CFrame.Angles(stride, 0, 0))
-	setTransform(motors.Sub_Legs_R, CFrame.Angles(-stride, 0, 0))
+	-- Legs (in the stance it's footwork: the feet step the way the body is really going, a
+	-- shuffle to the side when it circles, not a walk)
+	local stride = math.sin(state.walkPhase) * 0.6 * move * (1 - stance * 0.3)
+	local forward, side = stride, 0
+	if stance > 0.01 and speed > 0.5 then
+		local localVelocity = root.CFrame:VectorToObjectSpace(velocity)
+		local along, across = -localVelocity.Z / speed, localVelocity.X / speed
+		forward = stride * (1 + (along - 1) * stance)
+		side = stride * across * stance * 0.7
+	end
+	if bossMotion then
+		forward, side, stride = 0, 0, 0
+	end
+	setTransform(motors.Sub_Legs_L, CFrame.Angles(forward, 0, side))
+	setTransform(motors.Sub_Legs_R, CFrame.Angles(-forward, 0, -side))
 	-- Quadruped trot: diagonal pairs move together.
 	setTransform(motors.Sub_Legs_FL, CFrame.Angles(stride, 0, 0))
 	setTransform(motors.Sub_Legs_BR, CFrame.Angles(stride, 0, 0))
@@ -503,11 +624,31 @@ local function animate(state, root: BasePart, dt: number, now: number)
 	-- Tail
 	setTransform(motors.Joint_Tail, CFrame.Angles(0, math.sin(now * 2.2 + state.seed) * 0.25 + math.sin(state.walkPhase) * 0.2 * move, 0))
 
+	-- (joints only clips and the layers below move: back to rest, so those layers add to a clean
+	-- pose each frame rather than to their own last frame)
+	setTransform(motors.Sub_RightArm_Fore, CFrame.identity)
+	setTransform(motors.Sub_LeftArm_Fore, CFrame.identity)
+	setTransform(motors.Sub_Head_Jaw, CFrame.identity)
+	setTransform(motors.Knee_L, CFrame.identity)
+	setTransform(motors.Knee_R, CFrame.identity)
+	if not floating then
+		setTransform(motors.Joint_Legs, CFrame.identity)
+	end
+	if bossMotion then
+		bossMotion(state, motors, root, dt, now, speed, markerEvent)
+	end
+	applyStance(state, stance, now)
+
 	-- a keyframed attack overrides the joints it keys (the rest keep their procedural motion)
+	local skipping = currentSkip
 	currentSkip = nil
 	if state.pose then
-		applyPose(state, now)
+		applyPose(state, now, dt)
 	end
+	currentSkip = skipping
+	applyFade(state, now)
+	applyReaction(state, now)
+	currentSkip = nil
 end
 
 ------------------------------------------------------------------------------------------
@@ -528,6 +669,32 @@ function NightmareAnimator:Flinch(model: Model?, direction: Vector3?, heavy: boo
 		state.flinchDir = root.CFrame:VectorToObjectSpace(direction.Unit)
 	else
 		state.flinchDir = Vector3.new(0, 0, 1) -- pushed straight back
+	end
+end
+
+-- A blow of a known kind lands (Config.Nightmare.Reactions): the body reacts to WHERE it was
+-- hit: a jab rocks the head back, a hook whips it round, a body shot folds it up...
+function NightmareAnimator:React(model: Model?, kind: string): boolean
+	local state = model and tracked[model]
+	if not state or not POSES.Reactions then
+		return false
+	end
+	local set = model:GetAttribute("Archetype") == "Quadruped" and POSES.Reactions.Quadruped or POSES.Reactions.Biped
+	local def = set[kind]
+	if not def then
+		return false
+	end
+	-- (a bigger body takes the same blow slower)
+	local scale = model:GetAttribute("BossId") and 1.25 or 1
+	state.react = { Def = def, Start = os.clock(), Scale = scale }
+	return true
+end
+
+-- The attacker's clip holds on its contact frame for a moment: the blow has weight.
+function NightmareAnimator:HitStop(model: Model?, time: number)
+	local state = model and tracked[model]
+	if state then
+		state.hitStopUntil = os.clock() + time
 	end
 end
 

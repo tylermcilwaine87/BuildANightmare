@@ -355,7 +355,8 @@ function MeleeController:Fire(input: string)
 			-- step in until the strike lands ON them (fist / shin right at their body),
 			-- never through them
 			local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
-			distance = math.clamp(Util.FlatDistance(targetRoot.Position, root.Position) - radius - (move.Contact or CONTACT), 0, move.Lunge)
+			-- (with something to hit, it commits: up to twice as far, so the blow really lands)
+			distance = math.clamp(Util.FlatDistance(targetRoot.Position, root.Position) - radius - (move.Contact or CONTACT), 0, move.Lunge * 2)
 		end
 		slide(root, direction, distance, math.max(move.HitTime, 0.08))
 	end

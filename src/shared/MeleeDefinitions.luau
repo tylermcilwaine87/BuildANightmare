@@ -162,7 +162,8 @@ local CONTACT = {
 	-- out in front of you), stopping ~0.3 short so it lands ON them: jab 3.37, cross 3.73,
 	-- hook 2.81, uppercut 1.13 (rising under the chin), overhand 2.69, Superman punch 4.54,
 	-- leg kick 1.05 (mid-shin at thigh height), knee 1.12, teep 1.81 (the sole)
-	Jab = 3.0, Cross = 3.4, Hook = 2.5, Uppercut = 1.0, Overhand = 2.4, CounterPunch = 4.2,
+	-- (every punch now ends with the arm fully out and on target, FightAim: the same stand-off)
+	Jab = 3.0, Cross = 3.4, Hook = 3.0, Uppercut = 2.8, Overhand = 3.0, CounterPunch = 4.2,
 	Knee = 0.8, LegKick = 0.9, HeadKick = 1.7, HeadKickFinisher = 1.7, Teep = 1.5, SpinKick = 2.2, CounterKick = 1.7,
 	-- Blades: the swings carry the blade straight out through them at the hit frame (Wrist
 	-- keys), the tip ~6.8 out for slashes and 7.2 for the thrust: stop so the blade cuts

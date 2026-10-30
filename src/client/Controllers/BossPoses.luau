@@ -684,7 +684,7 @@ AbyssalMaw.InkTide = {
 	},
 }
 
-return {
+local LIBRARY = {
 	AbyssalMaw = AbyssalMaw,
 	StormBeast = StormBeast,
 	MirrorWarden = MirrorWarden,
@@ -723,3 +723,41 @@ return {
 		},
 	},
 }
+
+-- Every boss attack lands with its whole mass: flows through its keys, fast into each contact,
+-- stopped on it, and the body carries on past it a little before it comes back.
+local PoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))
+for _, boss in LIBRARY do
+	for _, def in boss do
+		PoseTools.Punch(def, 0.1)
+	end
+end
+
+-- The limb that lands each blow goes out at what it's hitting (FightAim): the ball, the blade,
+-- the paw, the tentacle really reach whoever is standing there.
+local function aim(boss, name: string, list)
+	local def = LIBRARY[boss][name]
+	if def then
+		def.Aim = {}
+		for _, strike in list do
+			table.insert(def.Aim, { T = strike[1], Arm = strike[2], At = "Body", Lead = 0.14 })
+		end
+	end
+end
+aim("ScrapTitan", "Swipe", { { 0.85, "Right" } })
+aim("ScrapTitan", "WreckingCombo", { { 0.85, "Right" }, { 1.45, "Right" } })
+aim("ScrapTitan", "MagnetUppercut", { { 1.5, "Right" } })
+aim("ScrapTitan", "ReactorRush", { { 1.6, "Right" } })
+aim("MirrorWarden", "Combo1", { { 0.75, "Right" } })
+aim("MirrorWarden", "Combo2", { { 0.6, "Right" } })
+aim("MirrorWarden", "Combo3", { { 0.9, "Right" } })
+aim("MirrorWarden", "MirroredStrike", { { 0.75, "Right" }, { 1.25, "Left" }, { 1.75, "Right" } })
+aim("MirrorWarden", "ShardLance", { { 0.8, "Right" }, { 1.3, "Right" }, { 1.8, "Right" } })
+aim("MirrorWarden", "ShieldRiposte", { { 1.1, "Left" } })
+aim("MirrorWarden", "Kaleidoscope", { { 0.7, "Right" }, { 1.15, "Right" }, { 1.6, "Right" }, { 2.2, "Right" } })
+aim("StormBeast", "Swipe", { { 0.8, "FrontRight" } })
+aim("StormBeast", "ThunderMaul", { { 0.6, "FrontLeft" }, { 1.0, "FrontRight" } })
+aim("AbyssalMaw", "TentacleSlam", { { 1.1, "Right" }, { 1.1, "Left" } })
+aim("AbyssalMaw", "AbyssalLash", { { 0.7, "Right" }, { 1.1, "Left" }, { 1.7, "Right" }, { 1.7, "Left" } })
+
+return LIBRARY
