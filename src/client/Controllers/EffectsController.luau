@@ -80,10 +80,13 @@ function EffectsController:PopText(position: Vector3, text: string, color: Color
 		Text = text,
 		TextColor3 = color,
 		TextStrokeTransparency = 0.3,
-		Font = UIKit.FontHeavy,
+		Font = UIKit.FontPunch,
 		TextSize = size or 28,
 		Parent = billboard,
 	})
+	-- (it punches out of the hit, then floats off)
+	local punch = UIKit.New("UIScale", { Scale = 1.7, Parent = label })
+	TweenService:Create(punch, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 
 	local info = TweenInfo.new(0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	TweenService:Create(anchor, info, { CFrame = CFrame.new(start + Vector3.new(0, 2.5, 0)) }):Play()

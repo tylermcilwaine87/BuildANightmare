@@ -28,7 +28,9 @@ local StatusDefinitions = require(Shared:WaitForChild("StatusDefinitions"))
 local LevelUnlocks = require(Shared:WaitForChild("LevelUnlocks"))
 local NightmareCombat = require(Shared:WaitForChild("NightmareCombatDefinitions"))
 local BossDefinitions = require(Shared:WaitForChild("BossDefinitions"))
+local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
 local UIKit = require(script.Parent:WaitForChild("UIKit"))
+local TweenService = game:GetService("TweenService")
 
 local HUDController = {}
 
@@ -55,10 +57,11 @@ function HUDController:Toast(text: string, color: Color3?, duration: number?)
 	local token = toastToken
 	ui.Toast.Text = text
 	ui.Toast.TextColor3 = color or C.Text
-	ui.Toast.Visible = true
+	ui.ToastLine.BackgroundColor3 = color or C.Accent
+	ui.ToastStrip.Visible = true
 	task.delay(duration or 2.5, function()
 		if toastToken == token then
-			ui.Toast.Visible = false
+			ui.ToastStrip.Visible = false
 		end
 	end)
 end
@@ -76,33 +79,137 @@ function HUDController:SetVisible(visible: boolean)
 	end
 end
 
+-- The status: no box, a brand on the screen. Your Nightmare's own head (the real sculpted parts,
+-- in 3D) in an iron medallion with its level stamped on, its name in scratched lettering, its life, and yours
+-- under it. It fades out to nothing behind the bars.
 local function buildStatusPanel(gui: ScreenGui)
 	local panel = UIKit.New("Frame", {
 		Name = "Status",
-		Position = UDim2.fromOffset(12, 12),
-		Size = UDim2.fromOffset(300, 196),
-		BackgroundColor3 = C.Panel,
-		BackgroundTransparency = 0.12,
+		Position = UDim2.fromOffset(10, 10),
+		Size = UDim2.fromOffset(384, 176),
+		BackgroundTransparency = 1,
 		Parent = gui,
-	}, { UIKit.Corner(10), UIKit.Stroke(C.Accent, 1, 0.5) })
+	})
 	UIKit.AutoScale(panel)
+	-- the smoked backing, burning out to the right
+	UIKit.New("Frame", {
+		Name = "Backing",
+		Position = UDim2.fromOffset(46, 4),
+		Size = UDim2.new(1, -46, 0, 120),
+		BackgroundColor3 = C.Background,
+		BorderSizePixel = 0,
+		ZIndex = 0,
+		Parent = panel,
+	}, {
+		UIKit.New("UIGradient", {
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(0.7, 0.3), NumberSequenceKeypoint.new(1, 1) }),
+		}),
+	})
 
-	ui.LevelLabel = UIKit.Label({ Text = "LV 1", Position = UDim2.fromOffset(12, 6), Size = UDim2.new(0.5, -12, 0, 16), TextColor3 = C.Warn, MaxTextSize = 14, Parent = panel })
-	ui.CoinsLabel = UIKit.Label({ Text = "0 coins", Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.new(0.5, -12, 0, 16), TextColor3 = C.Warn, TextXAlignment = Enum.TextXAlignment.Right, MaxTextSize = 14, Parent = panel })
-	ui.XPBar = UIKit.Bar({ Position = UDim2.fromOffset(12, 24), Size = UDim2.new(1, -24, 0, 6), Color = C.Warn, Parent = panel })
-	ui.XPBar.Label.Visible = false
-
-	UIKit.Label({ Text = "HANDLER", Position = UDim2.fromOffset(12, 36), Size = UDim2.new(1, -24, 0, 14), TextColor3 = C.SubText, MaxTextSize = 12, Parent = panel })
-	ui.HandlerBar = UIKit.Bar({ Position = UDim2.fromOffset(12, 52), Size = UDim2.new(1, -24, 0, 16), Color = C.HandlerHP, Parent = panel })
-	ui.StaminaBar = UIKit.Bar({ Position = UDim2.fromOffset(12, 71), Size = UDim2.new(1, -24, 0, 8), Color = Color3.fromRGB(240, 210, 90), Parent = panel })
+	-- bars (everything sits to the right of the medallion)
+	local x = 112
+	ui.NightmareName = UIKit.Label({ Text = "NIGHTMARE", Position = UDim2.fromOffset(x, 2), Size = UDim2.new(1, -x, 0, 30), Font = UIKit.FontDisplay, TextStrokeTransparency = 0.1, TextStrokeColor3 = Color3.fromRGB(60, 10, 90), MaxTextSize = 28, Parent = panel })
+	ui.NightmareBar = UIKit.Bar({ Position = UDim2.fromOffset(x, 34), Size = UDim2.new(1, -x - 8, 0, 20), Color = C.NightmareHP, MaxTextSize = 14, Parent = panel })
+	ui.NightmareInfo = UIKit.Label({ Text = "", Position = UDim2.fromOffset(x, 56), Size = UDim2.new(1, -x - 8, 0, 15), TextColor3 = C.SubText, MaxTextSize = 13, Font = UIKit.FontBody, Parent = panel })
+	ui.Command = UIKit.Label({ Text = "", Position = UDim2.fromOffset(x, 71), Size = UDim2.new(1, -x - 8, 0, 15), TextColor3 = C.Accent2, MaxTextSize = 13, Parent = panel })
+	UIKit.Label({ Text = "YOU", Position = UDim2.fromOffset(x, 90), Size = UDim2.fromOffset(30, 14), TextColor3 = C.SubText, MaxTextSize = 13, Parent = panel })
+	ui.HandlerBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 32, 89), Size = UDim2.new(1, -x - 74, 0, 15), Color = C.HandlerHP, MaxTextSize = 11, Parent = panel })
+	ui.StaminaBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 32, 106), Size = UDim2.new(1, -x - 74, 0, 6), Color = Color3.fromRGB(240, 205, 85), Parent = panel })
 	ui.StaminaBar.Label.Visible = false
 
-	ui.NightmareName = UIKit.Label({ Text = "NIGHTMARE", Position = UDim2.fromOffset(12, 86), Size = UDim2.new(1, -24, 0, 18), MaxTextSize = 15, Parent = panel })
-	ui.NightmareBar = UIKit.Bar({ Position = UDim2.fromOffset(12, 106), Size = UDim2.new(1, -24, 0, 16), Color = C.NightmareHP, Parent = panel })
-	ui.NightmareInfo = UIKit.Label({ Text = "", Position = UDim2.fromOffset(12, 127), Size = UDim2.new(1, -24, 0, 16), TextColor3 = C.SubText, MaxTextSize = 13, Font = UIKit.FontBody, Parent = panel })
-	ui.Command = UIKit.Label({ Text = "", Position = UDim2.fromOffset(12, 146), Size = UDim2.new(1, -24, 0, 18), TextColor3 = C.Accent2, MaxTextSize = 14, Parent = panel })
-	ui.StatusLine = UIKit.Label({ Text = "", Position = UDim2.fromOffset(12, 166), Size = UDim2.new(1, -24, 0, 14), RichText = true, MaxTextSize = 12, Parent = panel })
-	ui.SaveStatus = UIKit.Label({ Text = "", Position = UDim2.fromOffset(12, 182), Size = UDim2.new(1, -24, 0, 12), TextColor3 = C.SubText, MaxTextSize = 11, Font = UIKit.FontBody, Parent = panel })
+	-- the medallion: iron ring, the head turning slowly in the dark inside it
+	local medallion = UIKit.New("Frame", {
+		Name = "Medallion",
+		Position = UDim2.fromOffset(4, 6),
+		Size = UDim2.fromOffset(100, 100),
+		BackgroundColor3 = Color3.fromRGB(10, 6, 9),
+		BorderSizePixel = 0,
+		ZIndex = 2,
+		Parent = panel,
+	})
+	UIKit.New("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = medallion })
+	ui.MedallionRing = UIKit.New("UIStroke", { Color = C.Iron, Thickness = 4, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = medallion })
+	UIKit.New("UIGradient", { Color = ColorSequence.new(C.Text, Color3.fromRGB(60, 40, 40)), Rotation = 60, Parent = ui.MedallionRing })
+	ui.Portrait = UIKit.New("ViewportFrame", {
+		Position = UDim2.fromOffset(2, 2),
+		Size = UDim2.new(1, -4, 1, -4),
+		BackgroundColor3 = Color3.fromRGB(24, 12, 30),
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Parent = medallion,
+	})
+	UIKit.New("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = ui.Portrait })
+	UIKit.New("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(130, 100, 150)), Rotation = 90, Parent = ui.Portrait })
+	-- the level, a stamped plate across the bottom of the ring
+	local plate = UIKit.New("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 1, -4),
+		Size = UDim2.fromOffset(58, 24),
+		BackgroundColor3 = Color3.fromRGB(150, 56, 28),
+		BorderSizePixel = 0,
+		ZIndex = 5,
+		Parent = medallion,
+	}, { UIKit.Corner(3), UIKit.Stroke(Color3.fromRGB(20, 10, 8), 2) })
+	ui.LevelLabel = UIKit.Label({ Text = "LV 1", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextStrokeTransparency = 0.2, MaxTextSize = 18, ZIndex = 6, Parent = plate })
+
+	-- the purse, and how far to the next level, along the bottom
+	ui.XPBar = UIKit.Bar({ Position = UDim2.fromOffset(6, 124), Size = UDim2.new(1, -46, 0, 5), Color = C.Warn, Parent = panel })
+	ui.XPBar.Label.Visible = false
+	ui.CoinsLabel = UIKit.Label({ Text = "0 coins", Position = UDim2.fromOffset(6, 130), Size = UDim2.new(1, -46, 0, 16), TextColor3 = C.Warn, MaxTextSize = 14, Parent = panel })
+	ui.StatusLine = UIKit.Label({ Text = "", Position = UDim2.fromOffset(6, 146), Size = UDim2.new(1, -46, 0, 15), RichText = true, MaxTextSize = 13, Parent = panel })
+	ui.SaveStatus = UIKit.Label({ Text = "", Position = UDim2.fromOffset(6, 161), Size = UDim2.new(1, -46, 0, 12), TextColor3 = C.SubText, MaxTextSize = 11, Font = UIKit.FontBody, Parent = panel })
+end
+
+-- Which parts of a body gave it an ability, for its icon.
+local function partsOfSlot(model: Model, slot: string)
+	local list = {}
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") and part.Name:match("^" .. slot .. "_%d+$") and part.Transparency < 0.95 then
+			table.insert(list, part)
+		end
+	end
+	return list
+end
+
+local ABILITY_SLOT = {}
+for id, def in PartDefinitions.ById do
+	if def.AbilityId then
+		ABILITY_SLOT[def.AbilityId] = def.Slot
+	end
+end
+
+local function refreshPortrait(nightmare: Model?)
+	if ui.PortraitOf == nightmare then
+		return
+	end
+	local parts = nightmare and partsOfSlot(nightmare, "Head") or {}
+	if nightmare and #parts == 0 then
+		parts = partsOfSlot(nightmare, "Core")
+	end
+	if nightmare and #parts == 0 then
+		return -- (still loading in: try again next refresh)
+	end
+	ui.PortraitOf = nightmare
+	ui.PortraitCamera = UIKit.ShowParts(ui.Portrait, parts, 22)
+	ui.PortraitBase = ui.PortraitCamera and ui.PortraitCamera.CFrame or nil
+end
+
+-- the head turns a little, as if it's looking about; the ring burns when it's hurt
+local function animatePortrait(nightmare: Model?, health: number?)
+	local camera = ui.PortraitCamera
+	if camera and ui.PortraitBase then
+		local t = os.clock()
+		local focus = ui.PortraitBase.Position + ui.PortraitBase.LookVector * 10
+		camera.CFrame = CFrame.lookAt(focus + CFrame.Angles(math.sin(t * 0.4) * 0.1, math.sin(t * 0.7) * 0.28, 0):VectorToWorldSpace(ui.PortraitBase.Position - focus), focus)
+	end
+	if health and ui.LastPortraitHealth and health < ui.LastPortraitHealth - 0.5 then
+		ui.MedallionRing.Color = C.Bad
+		TweenService:Create(ui.MedallionRing, TweenInfo.new(0.5), { Color = C.Iron }):Play()
+		ui.Portrait.ImageColor3 = Color3.fromRGB(255, 90, 80)
+		TweenService:Create(ui.Portrait, TweenInfo.new(0.45), { ImageColor3 = Color3.new(1, 1, 1) }):Play()
+	end
+	ui.LastPortraitHealth = health
+	local _ = nightmare
 end
 
 local function buildAbilityBar(gui: ScreenGui)
@@ -121,27 +228,41 @@ local function buildAbilityBar(gui: ScreenGui)
 	for slot, key in { "Q", "E" } do
 		local button = UIKit.Button({
 			Size = UDim2.fromOffset(160, 64),
-			BackgroundColor3 = C.Panel,
-			BackgroundTransparency = 0.1,
+			BackgroundColor3 = C.PanelLight,
 			LayoutOrder = slot,
 			Parent = bar,
 		}, function()
 			controllers.CombatController:UseAbility(slot)
 		end)
-		UIKit.Stroke(C.Accent, 1, 0.4).Parent = button
+		local ring = UIKit.Stroke(C.Iron, 2, 0.1)
+		ring.Parent = button
+		-- the part behind the ability, in 3D, in the left of the plate
+		local icon = UIKit.New("ViewportFrame", {
+			Position = UDim2.fromOffset(-6, -3),
+			Size = UDim2.new(0, 58, 1, 6),
+			BackgroundColor3 = Color3.fromRGB(14, 9, 12),
+			BorderSizePixel = 0,
+			ZIndex = 2,
+			Parent = button,
+		})
 		local cooldown = UIKit.New("Frame", {
 			Name = "Cooldown",
 			AnchorPoint = Vector2.new(0, 1),
-			Position = UDim2.fromScale(0, 1),
+			Position = UDim2.new(0, -6, 1, 3),
 			Size = UDim2.fromScale(1, 0),
 			BackgroundColor3 = Color3.new(0, 0, 0),
-			BackgroundTransparency = 0.45,
-			ZIndex = 2,
+			BackgroundTransparency = 0.35,
+			ZIndex = 3,
 			Parent = button,
-		}, { UIKit.Corner(8) })
-		local name = UIKit.Label({ Text = "", Position = UDim2.fromOffset(4, 4), Size = UDim2.new(1, -8, 0.55, -4), TextXAlignment = Enum.TextXAlignment.Center, MaxTextSize = 15, ZIndex = 3, Parent = button })
-		local sub = UIKit.Label({ Text = "", Position = UDim2.new(0, 4, 0.55, 0), Size = UDim2.new(1, -8, 0.45, -4), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 13, ZIndex = 3, Parent = button })
-		ui.AbilitySlots[slot] = { Button = button, Cooldown = cooldown, Name = name, Sub = sub, Key = key }
+		})
+		-- the key, stamped on the icon's corner
+		local badge = UIKit.New("Frame", { Position = UDim2.fromOffset(-6, -3), Size = UDim2.fromOffset(20, 20), BackgroundColor3 = Color3.fromRGB(150, 56, 28), BorderSizePixel = 0, ZIndex = 5, Parent = button })
+		UIKit.Label({ Text = key, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, TextStrokeTransparency = 0.2, MaxTextSize = 15, ZIndex = 6, Parent = badge })
+		local name = UIKit.Label({ Text = "", Position = UDim2.fromOffset(56, 2), Size = UDim2.new(1, -60, 0.58, -2), MaxTextSize = 15, ZIndex = 4, Parent = button })
+		local sub = UIKit.Label({ Text = "", Position = UDim2.new(0, 56, 0.58, 0), Size = UDim2.new(1, -60, 0.42, -2), TextColor3 = C.SubText, MaxTextSize = 14, ZIndex = 4, Parent = button })
+		-- the time left, big over the icon
+		local count = UIKit.Label({ Text = "", Position = UDim2.fromOffset(-6, -3), Size = UDim2.new(0, 58, 1, 6), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextStrokeTransparency = 0, MaxTextSize = 26, ZIndex = 5, Parent = button })
+		ui.AbilitySlots[slot] = { Button = button, Cooldown = cooldown, Name = name, Sub = sub, Key = key, Icon = icon, Ring = ring, Count = count }
 	end
 end
 
@@ -383,39 +504,51 @@ local function buildTopButtons(gui: ScreenGui)
 	UIKit.AutoScale(frame)
 	frame:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Right
 
-	ui.SettingsButton = UIKit.Button({ Text = "⚙", Size = UDim2.fromOffset(44, 44), BackgroundColor3 = C.PanelLighter, MaxTextSize = 24, LayoutOrder = 0, Parent = frame }, function()
+	-- A row of iron tabs instead of a rainbow: each carries its colour as a hot strip along the
+	-- bottom, and a stamped key letter on the corner.
+	local function tab(text: string, width: number, color: Color3, order: number, key: string?, onClick)
+		local button = UIKit.Button({ Text = text, Size = UDim2.fromOffset(width, 40), BackgroundColor3 = C.PanelLight, MaxTextSize = 17, LayoutOrder = order, Parent = frame }, onClick)
+		UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, -6, 1, 3), Size = UDim2.new(1, 12, 0, 4), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 2, Parent = button })
+		if key and UserInputService.KeyboardEnabled then
+			UIKit.Label({ Text = key, Position = UDim2.fromOffset(-3, -2), Size = UDim2.fromOffset(12, 11), TextColor3 = C.SubText, MaxTextSize = 10, Font = UIKit.FontBody, ZIndex = 2, Parent = button })
+		end
+		return button
+	end
+	ui.SettingsButton = tab("⚙", 40, C.Iron, 0, "K", function()
 		controllers.SettingsController:Toggle()
 	end)
-	ui.BuildButton = UIKit.Button({ Text = "BUILD", Size = UDim2.fromOffset(110, 44), BackgroundColor3 = C.Accent, LayoutOrder = 1, Parent = frame }, function()
+	ui.SettingsButton.TextSize = 22
+	ui.BuildButton = tab("BUILD", 92, C.Accent, 1, "B", function()
 		controllers.WorkshopController:Toggle()
 	end)
-	ui.SummonButton = UIKit.Button({ Text = "RECALL", Size = UDim2.fromOffset(120, 44), LayoutOrder = 2, Parent = frame }, function()
+	ui.SummonButton = tab("RECALL", 92, C.Accent2, 2, "H", function()
 		controllers.CombatController:ToggleSummon()
 	end)
-	ui.FighterButton = UIKit.Button({ Text = "FIGHTER", Size = UDim2.fromOffset(110, 44), BackgroundColor3 = Color3.fromRGB(255, 120, 70), LayoutOrder = 7, Parent = frame }, function()
-		controllers.FighterController:Toggle()
-	end)
-	ui.PvPButton = UIKit.Button({ Text = "PVP", Size = UDim2.fromOffset(90, 44), BackgroundColor3 = Color3.fromRGB(255, 80, 100), LayoutOrder = 3, Parent = frame }, function()
+	ui.PvPButton = tab("PVP", 72, Color3.fromRGB(255, 70, 90), 3, "P", function()
 		controllers.PvPController:TogglePanel()
 	end)
-	ui.CodexButton = UIKit.Button({ Text = "CODEX", Size = UDim2.fromOffset(100, 44), BackgroundColor3 = Color3.fromRGB(190, 90, 175), LayoutOrder = 4, Parent = frame }, function()
+	ui.CodexButton = tab("CODEX", 84, Color3.fromRGB(190, 90, 175), 4, "M", function()
 		controllers.CodexController:Toggle()
 	end)
-	ui.GoalsButton = UIKit.Button({ Text = "GOALS", Size = UDim2.fromOffset(100, 44), BackgroundColor3 = Color3.fromRGB(70, 160, 110), LayoutOrder = 5, Parent = frame }, function()
+	ui.GoalsButton = tab("GOALS", 84, C.Good, 5, "J", function()
 		controllers.GoalsController:Toggle()
 	end)
-	ui.PartyButton = UIKit.Button({ Text = "PARTY", Size = UDim2.fromOffset(100, 44), BackgroundColor3 = Color3.fromRGB(60, 140, 220), LayoutOrder = 6, Parent = frame }, function()
+	ui.PartyButton = tab("PARTY", 84, Color3.fromRGB(70, 160, 240), 6, "L", function()
 		controllers.PartyController:Toggle()
 	end)
-	ui.ShopButton = UIKit.Button({ Text = "🛒 SHOP", Size = UDim2.fromOffset(110, 44), BackgroundColor3 = Color3.fromRGB(220, 165, 40), LayoutOrder = 8, Parent = frame }, function()
+	ui.FighterButton = tab("FIGHTER", 92, Color3.fromRGB(255, 130, 60), 7, "U", function()
+		controllers.FighterController:Toggle()
+	end)
+	ui.ShopButton = tab("SHOP", 84, C.Warn, 8, nil, function()
 		controllers.ShopController:Toggle()
 	end)
 
 	-- Phones / tablets: a compact bar (MENU · BUILD · RECALL); the MENU hub has the rest.
 	-- Seven buttons would run into the status panel on a small screen.
-	ui.MenuButton = UIKit.Button({ Text = "☰ MENU", Size = UDim2.fromOffset(120, 44), BackgroundColor3 = Color3.fromRGB(70, 66, 92), LayoutOrder = -1, Visible = false, Parent = frame }, function()
+	ui.MenuButton = tab("☰ MENU", 120, C.Iron, -1, nil, function()
 		controllers.MenuController:Toggle()
 	end)
+	ui.MenuButton.Visible = false
 	if UIKit.IsTouchOnly() then
 		ui.MenuButton.Visible = true
 		for _, button in { ui.SettingsButton, ui.FighterButton, ui.PvPButton, ui.CodexButton, ui.GoalsButton, ui.PartyButton } do
@@ -448,6 +581,8 @@ local function buildMobileControls(gui: ScreenGui)
 			Parent = cluster,
 		}, callback)
 		button:FindFirstChildOfClass("UICorner").CornerRadius = UDim.new(0.5, 0)
+		button.Skin:Destroy() -- (its square edges don't belong on a round button)
+		UIKit.Stroke(C.IronDark, 3).Parent = button
 		return button
 	end
 
@@ -529,6 +664,10 @@ local function buildHints(gui: ScreenGui)
 		hint.Visible = controllers.SettingsController:Get("ControlHints") ~= false
 	end
 	apply()
+	-- (it has done its job after a while: it fades back so it isn't a wall of text in the corner)
+	task.delay(25, function()
+		TweenService:Create(hint, TweenInfo.new(3), { TextTransparency = 0.72, TextStrokeTransparency = 1 }):Play()
+	end)
 	controllers.SettingsController.Changed:Connect(apply)
 	controllers.ClientState.Changed:Connect(apply)
 end
@@ -555,34 +694,71 @@ function HUDController:Start()
 	end
 	buildHints(gui)
 
-	ui.Toast = UIKit.Label({
-		Name = "Toast",
+	-- A toast: a strip of smoke across the screen, burning out at both ends, a hot line under it.
+	ui.ToastStrip = UIKit.New("Frame", {
+		Name = "ToastStrip",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 64),
-		Size = UDim2.fromOffset(560, 34),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextStrokeTransparency = 0.4,
-		MaxTextSize = 22,
-		Font = UIKit.FontHeavy,
+		Position = UDim2.new(0.5, 0, 0, 62),
+		Size = UDim2.fromOffset(620, 38),
+		BackgroundColor3 = C.Background,
+		BorderSizePixel = 0,
 		Visible = false,
 		ZIndex = 5,
 		Parent = gui,
+	}, {
+		UIKit.New("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.18, 0.15), NumberSequenceKeypoint.new(0.82, 0.15), NumberSequenceKeypoint.new(1, 1) }) }),
 	})
-	UIKit.AutoScale(ui.Toast)
+	UIKit.AutoScale(ui.ToastStrip)
+	ui.ToastLine = UIKit.New("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.new(1, 0, 0, 2),
+		BackgroundColor3 = C.Accent,
+		BorderSizePixel = 0,
+		ZIndex = 6,
+		Parent = ui.ToastStrip,
+	}, {
+		UIKit.New("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0), NumberSequenceKeypoint.new(0.75, 0), NumberSequenceKeypoint.new(1, 1) }) }),
+	})
+	ui.Toast = UIKit.Label({
+		Name = "Toast",
+		Position = UDim2.fromScale(0.08, 0),
+		Size = UDim2.fromScale(0.84, 1),
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextStrokeTransparency = 0.2,
+		MaxTextSize = 24,
+		Font = UIKit.FontHeavy,
+		ZIndex = 7,
+		Parent = ui.ToastStrip,
+	})
 
-	ui.Target = UIKit.Label({
+	-- What you're fighting: its name and its life, under the toast.
+	ui.TargetFrame = UIKit.New("Frame", {
 		Name = "Target",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 100),
-		Size = UDim2.fromOffset(360, 24),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextColor3 = Color3.fromRGB(255, 200, 200),
-		TextStrokeTransparency = 0.5,
-		MaxTextSize = 16,
+		Position = UDim2.new(0.5, 0, 0, 104),
+		Size = UDim2.fromOffset(300, 34),
+		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
 	})
-	UIKit.AutoScale(ui.Target)
+	UIKit.AutoScale(ui.TargetFrame)
+	ui.Target = UIKit.Label({ Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextColor3 = Color3.fromRGB(255, 205, 190), TextStrokeTransparency = 0.15, MaxTextSize = 20, Parent = ui.TargetFrame })
+	ui.TargetBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 21), Size = UDim2.new(1, 0, 0, 11), Color = C.EnemyHP, MaxTextSize = 10, Parent = ui.TargetFrame })
+
+	-- HURT: the edges of the screen go dark and red, and pulse as it gets worse.
+	ui.Hurt = {}
+	local hurtLayer = UIKit.New("ScreenGui", { Name = "HurtEdges", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 1, Parent = playerGui })
+	for _, edge in {
+		{ Vector2.new(0, 0), UDim2.fromScale(0, 0), UDim2.new(1, 0, 0.22, 0), 90 },
+		{ Vector2.new(0, 1), UDim2.fromScale(0, 1), UDim2.new(1, 0, 0.22, 0), 270 },
+		{ Vector2.new(0, 0), UDim2.fromScale(0, 0), UDim2.new(0.16, 0, 1, 0), 0 },
+		{ Vector2.new(1, 0), UDim2.fromScale(1, 0), UDim2.new(0.16, 0, 1, 0), 180 },
+	} do
+		local frame = UIKit.New("Frame", { AnchorPoint = edge[1], Position = edge[2], Size = edge[3], BackgroundColor3 = Color3.fromRGB(110, 8, 8), BorderSizePixel = 0, BackgroundTransparency = 1, Parent = hurtLayer })
+		UIKit.New("UIGradient", { Rotation = edge[4], Transparency = NumberSequence.new(0, 1), Parent = frame })
+		table.insert(ui.Hurt, frame)
+	end
 
 	controllers.ClientState.ServerEvent:Connect(function(kind, data)
 		if kind == "NightmareDefeated" then
@@ -617,18 +793,47 @@ function HUDController:RefreshAbilities(nightmare: Model?)
 	for slot, entry in ui.AbilitySlots do
 		local abilityId = nightmare and nightmare:GetAttribute(("Ability%dId"):format(slot)) or ""
 		local def = AbilityDefinitions.Get(abilityId)
+		-- the icon: the real part that gives it
+		local iconKey = def and nightmare and (tostring(nightmare) .. abilityId) or ""
+		if entry.IconKey ~= iconKey then
+			local parts = {}
+			if def and nightmare then
+				local partSlot = ABILITY_SLOT[abilityId] or "Head"
+				if partSlot == "RightArm" or partSlot == "LeftArm" then
+					parts = partsOfSlot(nightmare, "RightArm")
+					if #parts == 0 then
+						parts = partsOfSlot(nightmare, "LeftArm")
+					end
+				else
+					parts = partsOfSlot(nightmare, partSlot)
+				end
+			end
+			if #parts > 0 or iconKey == "" then
+				entry.IconKey = iconKey
+				UIKit.ShowParts(entry.Icon, parts, 35)
+			end
+		end
 		if not def then
-			entry.Name.Text = ("[%s] —"):format(entry.Key)
-			entry.Sub.Text = nightmare and "no ability equipped" or ""
+			entry.Name.Text = "—"
+			entry.Sub.Text = nightmare and "no ability" or ""
+			entry.Count.Text = ""
 			entry.Cooldown.Size = UDim2.fromScale(1, 0)
-			entry.Button.BackgroundTransparency = 0.5
+			entry.Ring.Color = C.IronDark
 		else
 			local remaining = math.max(0, (nightmare:GetAttribute(("Ability%dReadyAt"):format(slot)) or 0) - serverNow)
-			entry.Name.Text = ("[%s] %s"):format(entry.Key, def.DisplayName)
-			entry.Sub.Text = remaining > 0 and ("%.1fs"):format(remaining) or "READY"
+			entry.Name.Text = def.DisplayName
+			entry.Sub.Text = remaining > 0 and "RECHARGING" or "READY"
 			entry.Sub.TextColor3 = remaining > 0 and C.SubText or C.Good
-			entry.Cooldown.Size = UDim2.fromScale(1, math.clamp(remaining / def.Cooldown, 0, 1))
-			entry.Button.BackgroundTransparency = 0.1
+			entry.Count.Text = remaining > 0 and (remaining >= 10 and ("%d"):format(remaining) or ("%.1f"):format(remaining)) or ""
+			-- (the dark drains off the icon as it comes back)
+			entry.Cooldown.Size = UDim2.new(0, 58, math.clamp(remaining / def.Cooldown, 0, 1), remaining > 0 and 6 or 0)
+			entry.Ring.Color = remaining > 0 and C.IronDark or C.Accent
+			-- the moment it's back: a flash round the plate
+			if entry.WasCooling and remaining <= 0 then
+				entry.Ring.Color = C.Text
+				TweenService:Create(entry.Ring, TweenInfo.new(0.5), { Color = C.Accent }):Play()
+			end
+			entry.WasCooling = remaining > 0
 		end
 	end
 end
@@ -704,7 +909,13 @@ function HUDController:RefreshMeters(character: Model?, nightmare: Model?)
 	if ultimateDef then
 		local energy = nightmare:GetAttribute("UltimateEnergy") or 0
 		UIKit.SetBar(ui.UltimateBar, energy, Config.Ultimate.EnergyMax)
-		ui.UltimateBar.Label.Text = energy >= Config.Ultimate.EnergyMax and ("%s READY  ·  press G"):format(ultimateDef.DisplayName) or ("%s  %d%%"):format(ultimateDef.DisplayName, energy)
+		local ready = energy >= Config.Ultimate.EnergyMax
+		ui.UltimateBar.Label.Text = ready and ("%s READY  ·  press G"):format(ultimateDef.DisplayName) or ("%s  %d%%"):format(ultimateDef.DisplayName, energy)
+		-- full: the whole bar burns, a light running along it
+		local stroke = ui.UltimateBar.Frame:FindFirstChildOfClass("UIStroke")
+		local burn = ready and (0.5 + 0.5 * math.sin(os.clock() * 7)) or 0
+		stroke.Color = ready and C.Warn:Lerp(C.Text, burn) or C.IronDark
+		ui.UltimateBar.Fill.BackgroundColor3 = ready and Color3.fromRGB(255, 165, 40):Lerp(Color3.fromRGB(255, 235, 170), burn) or Color3.fromRGB(255, 165, 40)
 	else
 		UIKit.SetBar(ui.UltimateBar, 0, 1)
 		ui.UltimateBar.Label.Text = nightmare and "No Ultimate on this build" or ""
@@ -787,10 +998,26 @@ function HUDController:Refresh()
 	local target = controllers.CombatController:GetTarget()
 	local targetHumanoid = target and target:FindFirstChildOfClass("Humanoid")
 	if targetHumanoid and targetHumanoid.Health > 0 then
-		ui.Target.Text = ("TARGET: %s  %d / %d"):format(target:GetAttribute("DisplayName") or target.Name, math.ceil(targetHumanoid.Health), targetHumanoid.MaxHealth)
-		ui.Target.Visible = true
+		ui.Target.Text = target:GetAttribute("DisplayName") or target.Name
+		if ui.TargetOf ~= target then
+			ui.TargetOf = target
+			ui.TargetBar.Ratio = nil -- (a new body: no chip from the last one)
+			ui.TargetBar.Chip.Size = UDim2.fromScale(0, 1)
+		end
+		UIKit.SetBar(ui.TargetBar, targetHumanoid.Health, targetHumanoid.MaxHealth)
+		ui.TargetFrame.Visible = true
 	else
-		ui.Target.Visible = false
+		ui.TargetFrame.Visible = false
+	end
+
+	refreshPortrait(nightmare)
+	animatePortrait(nightmare, nightmareHumanoid and nightmareHumanoid.Health or nil)
+	-- the edges of the screen when you're close to going down
+	local lowest = humanoid and humanoid.MaxHealth > 0 and humanoid.Health / humanoid.MaxHealth or 1
+	local pain = lowest < 0.35 and (1 - lowest / 0.35) or 0
+	local pulse = pain > 0 and (0.55 + 0.45 * math.sin(os.clock() * (3 + pain * 5))) or 0
+	for _, frame in ui.Hurt do
+		frame.BackgroundTransparency = 1 - math.clamp(pain * (0.45 + 0.4 * pulse), 0, 0.8)
 	end
 end
 

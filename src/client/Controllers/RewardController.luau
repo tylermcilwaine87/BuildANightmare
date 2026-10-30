@@ -19,8 +19,10 @@ local TweenService = game:GetService("TweenService")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local PartMeshes = require(Shared:WaitForChild("PartMeshes"))
 local Net = require(Shared:WaitForChild("Net"))
 local Config = require(Shared:WaitForChild("Config"))
 local MutationDefinitions = require(Shared:WaitForChild("MutationDefinitions"))
@@ -122,11 +124,19 @@ function RewardController:BuildGui()
 	ui.CardScale = UIKit.New("UIScale", { Scale = 1, Parent = card })
 	ui.CardRarity = UIKit.Label({ Size = UDim2.fromScale(0.7, 0.12), Font = UIKit.FontHeavy, MaxTextSize = 18, Parent = card })
 	ui.CardNew = UIKit.Label({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.3, 0.12), TextXAlignment = Enum.TextXAlignment.Right, Font = UIKit.FontHeavy, TextColor3 = C.Warn, MaxTextSize = 18, Parent = card })
-	ui.CardName = UIKit.Label({ Position = UDim2.fromScale(0, 0.13), Size = UDim2.fromScale(1, 0.2), Font = UIKit.FontHeavy, MaxTextSize = 34, Parent = card })
-	ui.CardMeta = UIKit.Label({ Position = UDim2.fromScale(0, 0.34), Size = UDim2.fromScale(1, 0.1), TextColor3 = C.SubText, MaxTextSize = 15, Parent = card })
-	ui.CardDesc = UIKit.Label({ Position = UDim2.fromScale(0, 0.46), Size = UDim2.fromScale(1, 0.18), Font = UIKit.FontBody, TextYAlignment = Enum.TextYAlignment.Top, MaxTextSize = 15, Parent = card })
+	ui.CardName = UIKit.Label({ Position = UDim2.fromScale(0, 0.13), Size = UDim2.fromScale(0.62, 0.2), Font = UIKit.FontHeavy, MaxTextSize = 34, Parent = card })
+	ui.CardMeta = UIKit.Label({ Position = UDim2.fromScale(0, 0.34), Size = UDim2.fromScale(0.62, 0.1), TextColor3 = C.SubText, MaxTextSize = 15, Parent = card })
+	ui.CardDesc = UIKit.Label({ Position = UDim2.fromScale(0, 0.46), Size = UDim2.fromScale(0.62, 0.18), Font = UIKit.FontBody, TextYAlignment = Enum.TextYAlignment.Top, MaxTextSize = 15, Parent = card })
 	ui.CardStats = UIKit.Label({ Position = UDim2.fromScale(0, 0.66), Size = UDim2.fromScale(1, 0.14), TextColor3 = C.Accent2, MaxTextSize = 15, Parent = card })
 	ui.CardAbility = UIKit.Label({ Position = UDim2.fromScale(0, 0.82), Size = UDim2.fromScale(1, 0.18), TextColor3 = C.Accent, MaxTextSize = 15, Parent = card })
+	-- what you won, in 3D, turning slowly on the right of the card
+	ui.CardPart = UIKit.New("ViewportFrame", { Position = UDim2.fromScale(0.62, 0.12), Size = UDim2.fromScale(0.38, 0.54), BackgroundTransparency = 1, Parent = card })
+	RunService.RenderStepped:Connect(function(dt)
+		local camera = ui.CardCamera
+		if camera and ui.Screen and ui.Screen.Enabled and ui.Card.Visible then
+			camera.CFrame = CFrame.new(ui.CardFocus) * CFrame.Angles(0, dt * 0.9, 0) * CFrame.new(-ui.CardFocus) * camera.CFrame
+		end
+	end)
 
 	ui.Pity = UIKit.Label({ Position = UDim2.fromScale(0, 0.76), Size = UDim2.fromScale(1, 0.05), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.SubText, MaxTextSize = 15, Parent = body })
 
@@ -165,6 +175,27 @@ function RewardController:FillCard(entry)
 	ui.CardMeta.Text = ("%s part  ·  Power Cost %d%s"):format(slotName, def and def.PowerCost or 0, def and def.Movement and ("  ·  " .. def.Movement .. " movement") or "")
 	ui.CardDesc.Text = def and def.Description or ""
 	ui.CardStats.Text = def and statText(def.Stats) or ""
+	-- the part itself: its own sculpted meshes (the templates are imported turned about Y)
+	local templates = Shared:FindFirstChild("Meshes") and Shared.Meshes:FindFirstChild("PartMeshes")
+	local parts = {}
+	for _, mesh in (templates and PartMeshes[entry.Id]) or {} do
+		local template = templates:FindFirstChild(mesh.Mesh)
+		if template then
+			local part = template:Clone()
+			part.Size, part.Color, part.Material = mesh.Size, mesh.Color, mesh.Material
+			part.CFrame = CFrame.new(mesh.Pos) * CFrame.Angles(0, math.pi, 0)
+			table.insert(parts, part)
+		end
+	end
+	ui.CardCamera = UIKit.ShowParts(ui.CardPart, parts, 30)
+	if ui.CardCamera then
+		local low, high = Vector3.new(math.huge, math.huge, math.huge), Vector3.new(-math.huge, -math.huge, -math.huge)
+		for _, part in parts do
+			low = low:Min(part.Position - part.Size / 2)
+			high = high:Max(part.Position + part.Size / 2)
+		end
+		ui.CardFocus = (low + high) / 2
+	end
 	local ability = def and AbilityDefinitions.Get(def.AbilityId)
 	ui.CardAbility.Text = ability and ("Ability: %s (%s) — %s"):format(ability.DisplayName, ability.Type, ability.Description) or ("Passive: " .. (def and def.PlannedAbility or "—"))
 	if entry.Pity then

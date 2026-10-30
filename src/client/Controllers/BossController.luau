@@ -326,7 +326,7 @@ function BossController:BuildGui()
 	-- LEAVE button never sits on top of them.
 	local bossBar = UIKit.New("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 108),
+		Position = UDim2.new(0.6, 0, 0, 108), -- (clear of the status, whatever the screen)
 		Size = UDim2.fromOffset(620, 58),
 		BackgroundTransparency = 1,
 		Visible = false,
@@ -334,6 +334,10 @@ function BossController:BuildGui()
 	})
 	UIKit.AutoScale(bossBar)
 	ui.BossBar = bossBar
+	-- (smoked backing behind it, burning out at the ends, and iron along the top and bottom)
+	UIKit.New("Frame", { Position = UDim2.fromOffset(-40, -6), Size = UDim2.new(1, -40, 1, 14), BackgroundColor3 = C.Background, BorderSizePixel = 0, ZIndex = 0, Parent = bossBar }, {
+		UIKit.New("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.2), NumberSequenceKeypoint.new(0.88, 0.2), NumberSequenceKeypoint.new(1, 1) }) }),
+	})
 	ui.BossName = UIKit.Label({ Size = UDim2.new(1, -120, 0, 24), Font = UIKit.FontHeavy, TextColor3 = Color3.fromRGB(255, 170, 80), TextStrokeTransparency = 0.4, MaxTextSize = 22, Parent = bossBar })
 	ui.BossPhase = UIKit.Label({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -120, 0, 0), Size = UDim2.fromOffset(200, 24), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C.Bad, TextStrokeTransparency = 0.4, MaxTextSize = 16, Parent = bossBar })
 	ui.BossHealth = UIKit.Bar({ Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, -120, 0, 22), Color = Color3.fromRGB(230, 80, 50), MaxTextSize = 15, Parent = bossBar })
