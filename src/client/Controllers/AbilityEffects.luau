@@ -94,8 +94,8 @@ end
 ------------------------------------------------------------------------------------------
 -- Building blocks
 ------------------------------------------------------------------------------------------
-local function newPart(props): BasePart
-	local p = Instance.new("Part")
+local function newPart(props, class: string?): BasePart
+	local p = Instance.new(class or "Part")
 	p.Anchored = true
 	p.CanCollide = false
 	p.CanQuery = false
@@ -1722,6 +1722,8 @@ function AbilityEffects:Start()
 				magnetLock(data)
 			elseif data.Kind == "Lash" then
 				lash(data)
+			elseif AbilityEffects.Kinds[data.Kind] then
+				AbilityEffects.Kinds[data.Kind](data)
 			end
 		end)
 		if not ok then
@@ -1770,5 +1772,16 @@ function AbilityEffects:Start()
 	end
 	CollectionService:GetInstanceAddedSignal("Nightmare"):Connect(watchShield)
 end
+
+-- For UltimateEffects: the same building blocks, and the same three ways in.
+AbilityEffects.Effects = EFFECTS -- "FX_<Name>" markers
+AbilityEffects.Kinds = {} -- WorldFX "AbilityFX" kinds
+AbilityEffects.Contact = CONTACT -- landed hits, by damage Source
+AbilityEffects.Kit = {
+	TEX = TEX, COLORS = COLORS, amount = amount, isMine = isMine, newPart = newPart, particles = particles,
+	emitterOn = emitterOn, pieces = pieces, ring = ring, flash = flash, bolt = bolt, rope = rope,
+	floorBelow = floorBelow, floorMark = floorMark, rootOf = rootOf, slotParts = slotParts, limbTip = limbTip,
+	groundUnder = groundUnder, play = play, shake = shake,
+}
 
 return AbilityEffects

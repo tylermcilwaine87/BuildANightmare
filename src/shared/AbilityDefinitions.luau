@@ -275,49 +275,50 @@ AbilityDefinitions.ById = {
 	Types:
 	  Nova      pulses around the Nightmare           Radius, Pulses, Interval
 	  Barrage   impacts around enemies in an area     Count, Radius, Area
-	  Beam      long line in front, several ticks     Length, Width, Ticks, Interval
-	  Collapse  pull enemies to a point, then burst   PullRadius, Radius, Offset
+	  Beam      long line in front, several ticks     Reach, Width, Ticks, Interval
+	  Collapse  pull enemies to a point, then burst   PullRadius, Radius, Offset, OpenAt
+	Startup is the first moment it deals damage; Length is the whole move (its clip's Duration).
 ]]
 AbilityDefinitions.Ultimates = {
 	SplinterStorm = {
 		DisplayName = "SPLINTER STORM",
 		Type = "Nova",
 		Description = "The crate bursts apart and reassembles, three times.",
-		Startup = 1.0, Damage = 22, Radius = 12, Pulses = 3, Interval = 0.6, Stagger = 30,
+		Startup = 1.0, Length = 2.9, Damage = 22, Radius = 12, Pulses = 3, Interval = 0.6, Stagger = 30,
 	},
 	ThousandEyeGlare = {
 		DisplayName = "THOUSAND-EYE GLARE",
 		Type = "Beam",
 		Element = "Shadow",
 		Description = "An unblinking beam of pure dread.",
-		Startup = 1.2, Damage = 24, Length = 40, Width = 6, Ticks = 3, Interval = 0.35, Stagger = 20,
+		Startup = 1.2, Length = 2.8, Damage = 24, Reach = 40, Width = 6, Ticks = 3, Interval = 0.4, Stagger = 20,
 	},
 	BastionQuake = {
 		DisplayName = "BASTION QUAKE",
 		Type = "Nova",
 		Description = "Armour plates slam the ground in two massive shockwaves.",
-		Startup = 1.1, Damage = 34, Radius = 14, Pulses = 2, Interval = 0.8, Stagger = 60,
+		Startup = 1.1, Length = 2.7, Damage = 34, Radius = 14, Pulses = 2, Interval = 0.8, Stagger = 60,
 	},
 	CrystalCataclysm = {
 		DisplayName = "CRYSTAL CATACLYSM",
 		Type = "Barrage",
 		Element = "Ice",
 		Description = "Crystals erupt beneath every nearby enemy.",
-		Startup = 1.2, Damage = 30, Count = 6, Radius = 6, Area = 30, Stagger = 25,
+		Startup = 1.2, Length = 3.0, Damage = 30, Count = 6, Interval = 0.12, ShatterAt = 2.4, Radius = 6, Area = 30, Stagger = 25,
 	},
 	ScrapApocalypse = {
 		DisplayName = "SCRAP APOCALYPSE",
 		Type = "Barrage",
 		Element = "Fire",
 		Description = "The reactor hurls a storm of burning scrap across the battlefield.",
-		Startup = 1.4, Damage = 34, Count = 10, Radius = 6, Area = 35, Stagger = 30,
+		Startup = 1.4, Length = 3.5, Damage = 34, Count = 10, Interval = 0.35, Flight = 0.45, Radius = 6, Area = 35, Stagger = 30,
 	},
 	VoidCollapse = {
 		DisplayName = "VOID COLLAPSE",
 		Type = "Collapse",
 		Element = "Shadow",
 		Description = "A gravity well drags enemies together, then detonates.",
-		Startup = 1.2, Damage = 70, PullRadius = 22, Radius = 10, Offset = 8, Stagger = 70,
+		Startup = 1.7, Length = 2.7, Damage = 70, OpenAt = 0.3, PullRadius = 22, Radius = 10, Offset = 8, Stagger = 70,
 	},
 	-- SHOP exclusives
 	Supernova = {
@@ -325,14 +326,14 @@ AbilityDefinitions.Ultimates = {
 		Type = "Nova",
 		Element = "Fire",
 		Description = "The phoenix flares three times, each wave of fire wider than the last.",
-		Startup = 1.2, Damage = 24, Radius = 13, Pulses = 3, Interval = 0.5, Stagger = 35,
+		Startup = 1.2, Length = 3.3, Damage = 24, Radius = 13, Pulses = 3, Interval = 0.6, Rise = 6, Stagger = 35,
 	},
 	Eruption = {
 		DisplayName = "ERUPTION",
 		Type = "Barrage",
 		Element = "Fire",
 		Description = "The heart splits open and lava rains down across the battlefield.",
-		Startup = 1.3, Damage = 32, Count = 8, Radius = 6, Area = 32, Stagger = 30,
+		Startup = 1.3, Length = 3.4, Damage = 32, Count = 8, Interval = 0.14, Flight = 0.7, Radius = 6, Area = 32, Stagger = 30,
 	},
 }
 

@@ -409,8 +409,8 @@ function CombatService:ApplyDamage(params): number
 				local launch = params.Launch
 				if launch then
 					-- thrown UP and rotated heels over head (a small body flies higher, a big
-					-- one barely leaves the floor)
-					local scale = sizeFactor(RAG.SizeThrow, attacker, target)
+					-- one barely leaves the floor; MinScale: an Ultimate's last blow still throws)
+					local scale = math.max(sizeFactor(RAG.SizeThrow, attacker, target), launch.MinScale or 0)
 					throw = direction * launch.Push * scale + Vector3.new(0, launch.Lift * scale, 0)
 					options.Flip = launch.Spin
 				elseif params.Crumple then

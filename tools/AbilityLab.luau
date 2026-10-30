@@ -2,7 +2,7 @@
 	AbilityLab  (ModuleScript, DEV TOOL)
 	Location: ServerStorage/DevTools/AbilityLab   (Rojo: tools/, never shipped to players)
 
-	Fires Nightmare abilities for real in a Studio playtest and measures what they did. From
+	Fires Nightmare abilities and Ultimates for real in a Studio playtest and measures what they did. From
 	the command bar in the SERVER view:
 
 	  local Lab = require(game.ServerStorage.DevTools.AbilityLab:Clone())
@@ -56,6 +56,15 @@ Lab.Tests = {
 	{ "CrystalBarrier", { Core = "CrystalShell" }, 2, 6 },
 	{ "EnergyOverload", { Core = "ReactorHeart" }, 2, 6 },
 	{ "MagmaShell", { Core = "ObsidianHeart" }, 2, 6 },
+	-- Ultimates (slot "U": fired through UltimateService:DevFire, on a full bar)
+	{ "SplinterStorm", { Core = "WoodenBody" }, "U", 8 },
+	{ "ThousandEyeGlare", {}, "U", 14 },
+	{ "BastionQuake", { Core = "ReinforcedCore" }, "U", 8 },
+	{ "CrystalCataclysm", { Core = "CrystalShell" }, "U", 12 },
+	{ "ScrapApocalypse", { Core = "ReactorHeart" }, "U", 14 },
+	{ "VoidCollapse", { Back = "VoidWings" }, "U", 16 },
+	{ "Supernova", { Back = "PhoenixWings" }, "U", 8 },
+	{ "Eruption", { Core = "ObsidianHeart" }, "U", 14 },
 }
 
 local function invoke(service: string, method: string, ...)
@@ -132,14 +141,19 @@ function Lab.Run(id: string, extra, seconds: number?)
 	local stage = spot - Vector3.xAxis * test[4]
 	model:PivotTo(CFrame.lookAt(Vector3.new(stage.X, root.Position.Y, stage.Z), Vector3.new(spot.X, root.Position.Y, spot.Z)))
 	task.wait(0.15)
-	invoke("AbilityService", "DevCast", player, test[3], victim)
+	local ultimate = test[3] == "U"
+	if ultimate then
+		invoke("UltimateService", "DevFire", player)
+	else
+		invoke("AbilityService", "DevCast", player, test[3], victim)
+	end
 
 	local start, standY = root.Position, victimRoot.Position.Y
 	local began = os.clock()
 	local acted, moved, gap, top = nil, 0, math.huge, 0
 	local heldFrom, heldTo = nil, nil
 	local hits, health = {}, humanoid.Health
-	local action = "Ability_" .. id
+	local action = (ultimate and "Ultimate_" or "Ability_") .. id
 	local c1 = humanoid.HealthChanged:Connect(function(now)
 		if now < health and (acted or false) then
 			table.insert(hits, ("%.2f:%d"):format(os.clock() - began, health - now + 0.5))
@@ -162,7 +176,7 @@ function Lab.Run(id: string, extra, seconds: number?)
 			heldTo = t
 		end
 	end)
-	task.wait(seconds or 3.4)
+	task.wait(seconds or (ultimate and 5 or 3.4))
 	c1:Disconnect()
 	c2:Disconnect()
 	local line = ("[Lab] %-15s acted=%s moved=%.1f gap=%.1f vy=%.1f held=%s dmg=%s"):format(
@@ -188,7 +202,7 @@ function Lab.Loop(id: string?, extra)
 	end
 	task.spawn(function()
 		while Lab.LoopId do
-			local ok, err = pcall(Lab.Run, Lab.LoopId, Lab.LoopExtra, 3)
+			local ok, err = pcall(Lab.Run, Lab.LoopId, Lab.LoopExtra, 4.5)
 			if not ok then
 				warn("[Lab] " .. tostring(Lab.LoopId) .. " FAILED: " .. tostring(err))
 				task.wait(1)

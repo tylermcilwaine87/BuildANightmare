@@ -284,6 +284,10 @@ end
 -- (t = seconds into the hold), anchored, helpless; the holder is planted unless something
 -- else is driving it. After `duration` - or as soon as the cast is cut short, the holder
 -- goes down or the victim dies - it's let go and `finish(completed)` runs.
+function AbilityService:CanHold(brain, target: Model): boolean
+	return canHold(brain, target)
+end
+
 function AbilityService:Hold(brain, castToken: number, victim: Model, duration: number, place, finish, planted: boolean?)
 	local root = brain.root
 	local victimRoot = victim:FindFirstChild("HumanoidRootPart")
@@ -572,6 +576,10 @@ local function drive(brain, castToken: number, from: CFrame, to: CFrame, duratio
 	return function()
 		finish(true)
 	end
+end
+
+function AbilityService:Drive(brain, castToken: number, from: CFrame, to: CFrame, duration: number, ease, arc: number, onStep, onDone)
+	return drive(brain, castToken, from, to, duration, ease, arc, onStep, onDone)
 end
 
 -- THE CHARGE (Frost Ram, Bat Dive, Blink Dash, Phoenix Dive): the body is driven Distance

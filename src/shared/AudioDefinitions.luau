@@ -93,6 +93,8 @@ AudioDefinitions.Sounds = {
 	BeastInhale = { Id = "rbxassetid://9116299987", Volume = 0.7, Pitch = { 0.95, 1.05 }, Spatial = true, Cooldown = 0.3, MaxLength = 1.0 }, -- "Lion Roar Gargle Low Inhale Beast 2"
 	BeastRoar = { Id = "rbxassetid://9125629454", Volume = 0.8, Pitch = { 0.9, 1.05 }, Spatial = true, Cooldown = 0.3, MaxLength = 1.6 }, -- "Lion Roar Short Attack Lunge Jumping Fighting"
 	BigWhoosh = { Id = "rbxassetid://9126229255", Volume = 0.7, Pitch = { 0.9, 1.1 }, Spatial = true, Cooldown = 0.06 }, -- "Whoosh By Fast Airy Swooshing Whipping Thuds"
+	WoodBreak = { Id = "rbxassetid://9126242477", Volume = 0.8, Pitch = { 0.95, 1.1 }, Spatial = true, Cooldown = 0.2, MaxLength = 1.2 }, -- Wood Crate Smash Crunching Cracking Splinter (SFX)
+	WoodCreak = { Id = "rbxassetid://9126263691", Volume = 0.6, Pitch = { 0.9, 1.1 }, Spatial = true, Cooldown = 0.2, MaxLength = 0.9 }, -- Wood Groan Creak Opening Wood Chest Coffin 1 (SFX)
 	-- a boss's full-weight slam / landing: deep ground boom + rubble
 	BossSlam = { Id = "rbxassetid://9125404320", Volume = 1, Pitch = { 0.9, 1.0 }, Spatial = true, Cooldown = 0.2 }, -- "Boom Impact Deep Distant Thumping Hits"
 	Block = { Id = "rbxassetid://9113520892", Volume = 0.6, Pitch = { 0.95, 1.05 }, Spatial = true, Cooldown = 0.1 }, -- "Body Hit With Rubber Glove 6"

@@ -444,7 +444,8 @@ local STYLE_COLORS = {
 -- players can read exactly when it lands.
 function EffectsController:TelegraphCircle(data)
 	local color = STYLE_COLORS[data.Style] or STYLE_COLORS.Hostile
-	local base = CFrame.new(data.Position + Vector3.new(0, 0.08, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	-- (clear of the bumps in a rough floor, which would otherwise break it up)
+	local base = CFrame.new(data.Position + Vector3.new(0, 0.4, 0)) * CFrame.Angles(0, 0, math.rad(90))
 	local diameter = data.Radius * 2
 	local outer = newEffectPart({
 		Shape = Enum.PartType.Cylinder,

@@ -960,131 +960,290 @@ do
 	}
 end
 
--- ULTIMATES ("Ultimate_<Id>"): "Hit" = the Startup (when it goes off), then the body keeps
--- performing it for the pulses / ticks that follow.
-local function burst(t: number, size: number)
-	return { T = t, Joint_CorePos = { 0, 0.3 * size, 0 }, Joint_Core = { 16 * size, 0, 0 }, Joint_Head = { 24 * size, 0, 0 }, Joint_RightArm = { 100, 0, 70 * size }, Joint_LeftArm = { 100, 0, -70 * size } }
+-- ULTIMATES ("Ultimate_<Id>"), each in step with its move (UltimateService) and its effects
+-- (UltimateEffects): "Hit" = def.Startup, Duration = def.Length, so they play at speed 1.
+-- `pose` + a time + changes = a key.
+local function keyAt(pose, t: number, changes)
+	local key = table.clone(pose)
+	key.T = t
+	for name, value in changes or {} do
+		key[name] = value
+	end
+	return key
 end
-local function curl(t: number)
-	return { T = t, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { 50, 0, -40 }, Joint_LeftArm = { 50, 0, 40 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } }
-end
-local ULTIMATE = {
-	-- SPLINTER STORM: curl in tight, then burst apart three times (each pulse at 1.0, 1.6, 2.2)
-	Ultimate_SplinterStorm = {
-		Duration = 2.8,
-		Markers = { { 1.0, "Hit" }, { 1.0, "Land" }, { 1.6, "Land" }, { 2.2, "Land" } },
-		Keys = { { T = 0 }, curl(0.7), curl(0.92), burst(1.0, 1), curl(1.45), burst(1.6, 1), curl(2.05), burst(2.2, 1.2), burst(2.5, 0.8), { T = 2.8 } },
-	},
-	-- THOUSAND-EYE GLARE: rear back with the head thrown up, gathering, then lean in and GLARE
-	-- straight down the beam, braced and shaking while it burns (three ticks)
-	Ultimate_ThousandEyeGlare = {
-		Duration = 2.25,
-		Markers = { { 1.0, "Whoosh" }, { 1.2, "Hit" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.8, Joint_CorePos = { 0, 0.1, 0.3 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 60, 0, 50 }, Joint_LeftArm = { 60, 0, -50 } },
-			{ T = 1.2, Joint_CorePos = { 0, -0.2, -0.3 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 1.55, Joint_CorePos = { 0, -0.2, -0.25 }, Joint_Core = { -12, 0, 3 }, Joint_Head = { -8, 2, 0 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 1.9, Joint_CorePos = { 0, -0.2, -0.25 }, Joint_Core = { -12, 0, -3 }, Joint_Head = { -8, -2, 0 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 2.25 },
+local CURLED = { Joint_CorePos = { 0, -0.45, 0.1 }, Joint_Core = { -26, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 55, 0, -42 }, Sub_RightArm_Fore = { 70, 0, 0 }, Joint_LeftArm = { 55, 0, 42 }, Sub_LeftArm_Fore = { 70, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 }, Joint_Tail = { 20, 0, 0 } }
+local THROWN_OPEN = { Joint_CorePos = { 0, 0.35, 0.1 }, Joint_Core = { 18, 0, 0 }, Joint_Head = { 26, 0, 0 }, Joint_RightArm = { 105, 0, 75 }, Sub_RightArm_Fore = { 5, 0, 0 }, Joint_LeftArm = { 105, 0, -75 }, Sub_LeftArm_Fore = { 5, 0, 0 }, Sub_Legs_L = { -14, 0, 0 }, Sub_Legs_R = { 14, 0, 0 }, Joint_Tail = { -24, 0, 0 } }
+local ULTIMATE = {}
+do
+	-- SPLINTER STORM (Wooden Body): it hunches in, the crate groaning and shaking itself loose,
+	-- and BURSTS (1.0): the planks of its own body flung out, the stakes flying. It hauls itself
+	-- back together (1.27 - 1.6), bursts again (1.6), again, then the last one spins it right
+	-- round (2.2 - 2.58) with the storm going round it, and it's whole again by 2.9.
+	local keys = { { T = 0 }, keyAt(CURLED, 0.35) }
+	strain(keys, CURLED, 0.42, 0.88, 0.06, 0.6, 3.5)
+	table.insert(keys, keyAt(CURLED, 0.94, { Joint_CorePos = { 0, -0.55, 0.1 } }))
+	table.insert(keys, keyAt(THROWN_OPEN, 1.0, { Ease = "Snap", Stop = true }))
+	table.insert(keys, keyAt(THROWN_OPEN, 1.25))
+	table.insert(keys, keyAt(CURLED, 1.54))
+	table.insert(keys, keyAt(THROWN_OPEN, 1.6, { Ease = "Snap", Stop = true, Joint_Core = { 22, 0, 0 } }))
+	table.insert(keys, keyAt(THROWN_OPEN, 1.85))
+	table.insert(keys, keyAt(CURLED, 2.14, { Joint_CorePos = { 0, -0.55, 0.1 } }))
+	table.insert(keys, keyAt(THROWN_OPEN, 2.2, { Ease = "Snap", Stop = true, Joint_Core = { 24, 0, 0 }, Joint_RightArm = { 100, 0, 88 }, Joint_LeftArm = { 100, 0, -88 } }))
+	table.insert(keys, keyAt(THROWN_OPEN, 2.4, { Ease = "Linear", Joint_Core = { 16, 190, 0 }, Joint_Legs = { 0, -190, 0 }, Joint_RightArm = { 100, 0, 88 }, Joint_LeftArm = { 100, 0, -88 } }))
+	table.insert(keys, keyAt(CURLED, 2.62, { Stop = true, Joint_Core = { -14, 360, 0 }, Joint_Legs = { 0, -360, 0 } }))
+	table.insert(keys, { T = 2.9, Joint_Core = { 0, 360, 0 }, Joint_Legs = { 0, -360, 0 } })
+	ULTIMATE.Ultimate_SplinterStorm = {
+		Duration = 2.9,
+		Curve = "Spline",
+		Markers = {
+			{ 0.1, "FX_CrateStrain" }, { 0.1, "SFX_WoodCreak" }, { 0.5, "FX_CrateStrain" }, { 0.75, "SFX_WoodCreak" },
+			{ 1.0, "Hit" }, { 1.0, "FX_CrateBurst" }, { 1.0, "Land" }, { 1.27, "FX_CrateGather" },
+			{ 1.6, "FX_CrateBurst" }, { 1.6, "Land" }, { 1.87, "FX_CrateGather" },
+			{ 2.2, "FX_CrateBurst" }, { 2.2, "Land" }, { 2.25, "Whoosh" }, { 2.3, "SFX_BigWhoosh" }, { 2.5, "FX_CrateGather" }, { 2.72, "StepL" }, { 2.8, "StepR" },
 		},
-	},
-	-- BASTION QUAKE: rise up with both arms high, SLAM the ground (1.1), heave back up, SLAM
-	-- again (1.9)
-	Ultimate_BastionQuake = {
+		Keys = keys,
+	}
+end
+do
+	-- THOUSAND-EYE GLARE (Peeper Orb): it snaps round on them and every eye opens (0.3), floating
+	-- up around it; it rears back, shaking, gathering it all (0.8 - 1.1), then throws its whole
+	-- body behind the GLARE (1.2): braced, leaning into the beam, juddering under it until it
+	-- gives out (2.35), and it sags.
+	local reared = { Joint_CorePos = { 0, 0.3, 0.3 }, Joint_Core = { 24, 0, 0 }, Joint_Head = { 30, 0, 0 }, Sub_Head_Jaw = { -14, 0, 0 }, Joint_RightArm = { 70, 0, 62 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 70, 0, -62 }, Sub_LeftArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { 8, 0, 0 }, Sub_Legs_R = { -12, 0, 0 }, Joint_Tail = { -14, 0, 0 } }
+	local glaring = { Joint_CorePos = { 0, -0.3, -0.45 }, Joint_Core = { -24, 0, 0 }, Joint_Head = { -4, 0, 0 }, Sub_Head_Jaw = { -18, 0, 0 }, Joint_RightArm = { -24, 0, 42 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { -24, 0, -42 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -30, 0, 0 }, Joint_Tail = { 10, 0, 0 } }
+	local keys = {
+		{ T = 0 },
+		{ T = 0.3, Ease = "Out", Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 40, 0, -20 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 40, 0, 20 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+		keyAt(reared, 0.72),
+	}
+	strain(keys, reared, 0.76, 1.08, 0.05, 0.8, 3)
+	table.insert(keys, keyAt(reared, 1.13, { Joint_Core = { 28, 0, 0 } }))
+	table.insert(keys, keyAt(glaring, 1.2, { Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.4, -0.6 } }))
+	strain(keys, glaring, 1.26, 2.3, 0.06, 2.4, 1.4)
+	table.insert(keys, keyAt(glaring, 2.36, { Joint_CorePos = { 0, -0.2, -0.2 } }))
+	table.insert(keys, { T = 2.58, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -22, 0, 0 }, Joint_RightArm = { 8, 0, 8 }, Joint_LeftArm = { 8, 0, -8 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } })
+	table.insert(keys, { T = 2.8 })
+	ULTIMATE.Ultimate_ThousandEyeGlare = {
+		Duration = 2.8,
+		Curve = "Spline",
+		Markers = {
+			{ 0.05, "StepL" }, { 0.2, "StepR" }, { 0.3, "FX_EyesOpen" }, { 0.3, "SFX_LaserCharge" }, { 0.75, "SFX_EnergyCharge" },
+			{ 1.2, "Hit" }, { 1.2, "FX_GlareFire" }, { 1.2, "SFX_Laser" }, { 1.2, "Land" }, { 1.7, "SFX_Laser" }, { 2.35, "FX_EyesClose" }, { 2.4, "SFX_SteamHiss" },
+		},
+		Keys = keys,
+	}
+end
+do
+	-- BASTION QUAKE (Reinforced Core): its plates lift off and swing out round it; it sinks and
+	-- JUMPS (the server flies it, 0.62 - 0.94), arms overhead, and comes down with everything on
+	-- the floor (1.1): plates, fists, the lot. It heaves up and does it again, harder (1.9).
+	local sunk = { Joint_CorePos = { 0, -0.6, 0.1 }, Joint_Core = { -24, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { -35, 0, 20 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { -35, 0, -20 }, Sub_LeftArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } }
+	local apex = { Joint_CorePos = { 0, 0.25, 0.25 }, Joint_Core = { 18, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 185, 0, 8 }, Sub_RightArm_Fore = { 18, 0, 0 }, Joint_LeftArm = { 185, 0, -8 }, Sub_LeftArm_Fore = { 18, 0, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { 24, 0, 0 }, Joint_Tail = { -30, 0, 0 } }
+	local slammed = { Joint_CorePos = { 0, -0.7, -0.6 }, Joint_Core = { -40, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 32, 0, 10 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 32, 0, -10 }, Sub_LeftArm_Fore = { 0, 0, 0 }, Sub_Legs_L = { 42, 0, 0 }, Sub_Legs_R = { -34, 0, 0 }, Joint_Tail = { 24, 0, 0 } }
+	ULTIMATE.Ultimate_BastionQuake = {
 		Duration = 2.7,
-		Markers = { { 1.1, "Hit" }, { 1.1, "Land" }, { 1.9, "Land" } },
+		Curve = "Spline",
+		Markers = {
+			{ 0.1, "SFX_ArmorClank" }, { 0.25, "FX_PlatesRise" }, { 0.25, "SFX_Hydraulic" }, { 0.62, "Whoosh" }, { 0.62, "StepL" }, { 0.62, "StepR" },
+			{ 1.0, "SFX_BigWhoosh" }, { 1.1, "Hit" }, { 1.1, "Land" }, { 1.1, "FX_PlatesSlam" }, { 1.1, "SFX_HammerClang" }, { 1.12, "SFX_RockDebris" },
+			{ 1.42, "FX_PlatesRise" }, { 1.42, "SFX_Servo" }, { 1.5, "Whoosh" }, { 1.82, "SFX_BigWhoosh" },
+			{ 1.9, "Land" }, { 1.9, "FX_PlatesSlam" }, { 1.9, "SFX_HammerClang" }, { 1.92, "SFX_RockDebris" }, { 2.3, "SFX_ArmorClank" }, { 2.45, "StepR" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.8, Joint_CorePos = { 0, 0.3, 0.2 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 175, 0, 10 }, Joint_LeftArm = { 175, 0, -10 } },
-			{ T = 1.1, Joint_CorePos = { 0, -0.4, -0.3 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 40, 0, 10 }, Joint_LeftArm = { 40, 0, -10 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
-			{ T = 1.6, Joint_CorePos = { 0, 0.3, 0.2 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 175, 0, 10 }, Joint_LeftArm = { 175, 0, -10 } },
-			{ T = 1.9, Joint_CorePos = { 0, -0.4, -0.3 }, Joint_Core = { -32, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 36, 0, 10 }, Joint_LeftArm = { 36, 0, -10 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
-			{ T = 2.3, Joint_CorePos = { 0, -0.2, -0.1 }, Joint_Core = { -10, 0, 0 }, Joint_RightArm = { 30, 0, 14 }, Joint_LeftArm = { 30, 0, -14 } },
+			{ T = 0.25, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { 6, 0, 0 }, Joint_RightArm = { 40, 0, 40 }, Joint_LeftArm = { 40, 0, -40 } },
+			keyAt(sunk, 0.6, { Stop = true }),
+			keyAt(apex, 0.86, { Ease = "Out" }),
+			keyAt(apex, 0.97, { Joint_Core = { 22, 0, 0 } }),
+			keyAt(slammed, 1.1, { Ease = "Snap", Stop = true }),
+			keyAt(slammed, 1.18, { Ease = "Linear", Joint_Core = { -38, 0, 2 } }),
+			keyAt(slammed, 1.26, { Ease = "Linear", Joint_Core = { -39, 0, -2 } }),
+			keyAt(sunk, 1.46, { Joint_RightArm = { 10, 0, 14 }, Joint_LeftArm = { 10, 0, -14 }, Stop = true }),
+			keyAt(apex, 1.68, { Ease = "Out" }),
+			keyAt(apex, 1.78, { Joint_Core = { 26, 0, 0 }, Joint_RightArm = { 195, 0, 6 }, Joint_LeftArm = { 195, 0, -6 } }),
+			keyAt(slammed, 1.9, { Ease = "Snap", Stop = true, Joint_Core = { -46, 0, 0 }, Joint_CorePos = { 0, -0.8, -0.7 } }),
+			keyAt(slammed, 1.98, { Ease = "Linear", Joint_Core = { -44, 0, 2 }, Joint_CorePos = { 0, -0.8, -0.7 } }),
+			keyAt(slammed, 2.06, { Ease = "Linear", Joint_Core = { -45, 0, -2 }, Joint_CorePos = { 0, -0.8, -0.7 } }),
+			{ T = 2.4, Joint_CorePos = { 0, -0.2, -0.1 }, Joint_Core = { -8, 0, 0 }, Joint_RightArm = { 25, 0, 14 }, Joint_LeftArm = { 25, 0, -14 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
 			{ T = 2.7 },
 		},
-	},
-	-- CRYSTAL CATACLYSM: arms rise, drawing the crystals up, then drive both down at the ground
-	-- as they erupt under every enemy
-	Ultimate_CrystalCataclysm = {
-		Duration = 2.2,
-		Markers = { { 1.2, "Hit" }, { 1.2, "Land" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.9, Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 20, 0, 0 }, Joint_RightArm = { 150, 0, 50 }, Joint_LeftArm = { 150, 0, -50 } },
-			{ T = 1.2, Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -20, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 20, 0, -30 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 1.8, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 24, 0, 30 }, Joint_LeftArm = { 24, 0, -30 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 2.2 },
+	}
+end
+do
+	-- CRYSTAL CATACLYSM (Crystal Shell): it spreads its hands and crystal grows up the arms as
+	-- they rise (0.2 - 1.05); it drives both down into the floor (1.2) and stays down, straining,
+	-- feeding the crystals out under them while they erupt; then it rips the hands up and out
+	-- (2.4) and everything it made SHATTERS.
+	local drawn = { Joint_CorePos = { 0, 0.3, 0.1 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 165, 0, 34 }, Sub_RightArm_Fore = { 12, 0, 0 }, Joint_LeftArm = { 165, 0, -34 }, Sub_LeftArm_Fore = { 12, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } }
+	local driven = { Joint_CorePos = { 0, -0.75, -0.3 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 42, 0, 18 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 42, 0, -18 }, Sub_LeftArm_Fore = { 0, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -30, 0, 0 }, Joint_Tail = { 18, 0, 0 } }
+	local keys = {
+		{ T = 0 },
+		{ T = 0.25, Joint_CorePos = { 0, -0.2, 0 }, Joint_Core = { -8, 0, 0 }, Joint_RightArm = { 25, 0, 50 }, Joint_LeftArm = { 25, 0, -50 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
+		keyAt(drawn, 0.95),
+		keyAt(drawn, 1.1, { Joint_Core = { 22, 0, 0 }, Joint_Head = { 28, 0, 0 } }),
+		keyAt(driven, 1.2, { Ease = "Snap", Stop = true }),
+	}
+	strain(keys, driven, 1.28, 2.2, 0.07, 1, 3.2)
+	table.insert(keys, keyAt(driven, 2.28, { Joint_CorePos = { 0, -0.85, -0.3 }, Joint_Core = { -44, 0, 0 } }))
+	table.insert(keys, keyAt(THROWN_OPEN, 2.4, { Ease = "Snap", Stop = true, Joint_RightArm = { 150, 0, 62 }, Joint_LeftArm = { 150, 0, -62 } }))
+	table.insert(keys, keyAt(THROWN_OPEN, 2.65, { Joint_RightArm = { 140, 0, 62 }, Joint_LeftArm = { 140, 0, -62 } }))
+	table.insert(keys, { T = 3.0 })
+	ULTIMATE.Ultimate_CrystalCataclysm = {
+		Duration = 3.0,
+		Curve = "Spline",
+		Markers = {
+			{ 0.2, "FX_CrystalGather" }, { 0.2, "SFX_CrystalHum" }, { 0.75, "SFX_CrystalChime" }, { 1.05, "Whoosh" },
+			{ 1.2, "Hit" }, { 1.2, "Land" }, { 1.2, "FX_CrystalDrive" }, { 1.2, "SFX_IceCrack" }, { 1.22, "SFX_Shockwave" },
+			{ 2.4, "FX_CrystalRelease" }, { 2.4, "SFX_GlassShatter" }, { 2.42, "SFX_IceShatter" },
 		},
-	},
-	-- SCRAP APOCALYPSE: the reactor shudders, then it hurls burning scrap: three big
-	-- overhead throws (1.4, 1.7, 2.0), alternating arms
-	Ultimate_ScrapApocalypse = {
-		Duration = 2.4,
-		Markers = { { 1.4, "Hit" }, { 1.3, "Whoosh" }, { 1.6, "Whoosh" }, { 1.9, "Whoosh" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.6, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -14, 0, 4 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 40, 0, -30 }, Joint_LeftArm = { 40, 0, 30 } },
-			{ T = 0.9, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -14, 0, -4 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 40, 0, -30 }, Joint_LeftArm = { 40, 0, 30 } },
-			{ T = 1.25, Joint_CorePos = { 0, 0.1, 0.2 }, Joint_Core = { 10, -20, 0 }, Joint_RightArm = { 170, 0, 20 }, Joint_LeftArm = { 60, 0, -20 } },
-			{ T = 1.4, Joint_CorePos = { 0, -0.2, -0.3 }, Joint_Core = { -16, 20, 0 }, Joint_RightArm = { 70, 0, -10 }, Joint_LeftArm = { 160, 0, -20 } },
-			{ T = 1.7, Joint_CorePos = { 0, -0.2, -0.3 }, Joint_Core = { -16, -20, 0 }, Joint_RightArm = { 160, 0, 20 }, Joint_LeftArm = { 70, 0, 10 } },
-			{ T = 2.0, Joint_CorePos = { 0, -0.2, -0.3 }, Joint_Core = { -16, 20, 0 }, Joint_RightArm = { 70, 0, -10 }, Joint_LeftArm = { 160, 0, -20 } },
-			{ T = 2.4 },
-		},
-	},
-	-- VOID COLLAPSE: reach out and claw the gravity well toward you, dragging them in, then
-	-- clench and throw the arms apart as it detonates
-	Ultimate_VoidCollapse = {
-		Duration = 2.2,
-		Markers = { { 1.2, "Hit" }, { 1.2, "Land" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.4, Joint_CorePos = { 0, -0.15, -0.2 }, Joint_Core = { -8, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 100, 0, 20 }, Joint_LeftArm = { 100, 0, -20 } },
-			{ T = 0.9, Joint_CorePos = { 0, -0.2, 0.25 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 4, 0, 0 }, Joint_RightArm = { 80, 0, -20 }, Joint_LeftArm = { 80, 0, 20 }, Sub_Legs_L = { -10, 0, 0 }, Sub_Legs_R = { 14, 0, 0 } },
-			{ T = 1.1, Joint_CorePos = { 0, -0.3, 0.1 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 60, 0, -40 }, Joint_LeftArm = { 60, 0, 40 } },
-			burst(1.2, 1.1),
-			burst(1.6, 0.8),
-			{ T = 2.2 },
-		},
-	},
-	-- SUPERNOVA (Phoenix Wings): fold in, wings wrapped round, then FLARE: wings and arms
-	-- thrown wide, three times (1.2, 1.7, 2.2), each bigger
-	Ultimate_Supernova = (function()
-		local function fold(t)
-			local k = curl(t)
-			k.Sub_Back_R, k.Sub_Back_L = { 0, 0, -30 }, { 0, 0, 30 }
-			return k
+		Keys = keys,
+	}
+end
+do
+	-- SCRAP APOCALYPSE (Reactor Heart): the reactor shudders and vents, ripping scrap up out of
+	-- the ground to circle it, red-hot. Then it goes to work: a full-body overhand throw with one
+	-- arm (1.4), the other (1.75), again (2.1, 2.45), and both together over the head (2.8).
+	local hunched = { Joint_CorePos = { 0, -0.4, 0 }, Joint_Core = { -22, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { 45, 0, 32 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 45, 0, -32 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }
+	local function windup(side: number)
+		-- (side 1: the right arm is about to throw)
+		return { Joint_CorePos = { 0, 0.15, 0.25 }, Joint_Core = { 12, -28 * side, 0 }, Joint_Legs = { 0, 22 * side, 0 }, Joint_Head = { 8, 18 * side, 0 },
+			Joint_RightArm = side == 1 and { 180, 0, 26 } or { 40, 0, 26 }, Sub_RightArm_Fore = side == 1 and { 60, 0, 0 } or { 30, 0, 0 },
+			Joint_LeftArm = side == 1 and { 40, 0, -26 } or { 180, 0, -26 }, Sub_LeftArm_Fore = side == 1 and { 30, 0, 0 } or { 60, 0, 0 },
+			Sub_Legs_L = { -6 * side + 8, 0, 0 }, Sub_Legs_R = { 6 * side - 8, 0, 0 } }
+	end
+	local function release(side: number)
+		return { Joint_CorePos = { 0, -0.3, -0.45 }, Joint_Core = { -22, 26 * side, 0 }, Joint_Legs = { 0, -20 * side, 0 }, Joint_Head = { -6, -14 * side, 0 },
+			Joint_RightArm = side == 1 and { 62, 0, -14 } or { 130, 0, 26 }, Sub_RightArm_Fore = side == 1 and { 8, 0, 0 } or { 40, 0, 0 },
+			Joint_LeftArm = side == 1 and { 130, 0, -26 } or { 62, 0, 14 }, Sub_LeftArm_Fore = side == 1 and { 40, 0, 0 } or { 8, 0, 0 },
+			Sub_Legs_L = { 26 * side + 4, 0, 0 }, Sub_Legs_R = { -26 * side - 4, 0, 0 } }
+	end
+	local keys = { { T = 0 }, keyAt(hunched, 0.25) }
+	strain(keys, hunched, 0.3, 0.98, 0.06, 1, 4)
+	table.insert(keys, keyAt(windup(1), 1.22))
+	table.insert(keys, keyAt(windup(1), 1.31, { Joint_Core = { 16, -32, 0 } }))
+	for i, t in { 1.4, 1.75, 2.1, 2.45 } do
+		local side = i % 2 == 1 and 1 or -1
+		table.insert(keys, keyAt(release(side), t, { Ease = "Snap", Stop = true }))
+		if i < 4 then
+			table.insert(keys, keyAt(windup(-side), t + 0.24, { Ease = "Out" }))
 		end
-		local function flare(t, size)
-			local k = burst(t, size)
-			k.Sub_Back_R, k.Sub_Back_L = { 0, 0, 50 * size }, { 0, 0, -50 * size }
-			return k
-		end
-		return {
-			Duration = 2.8,
-			Markers = { { 1.2, "Hit" }, { 1.2, "Land" }, { 1.7, "Land" }, { 2.2, "Land" } },
-			Keys = { { T = 0 }, fold(0.9), fold(1.12), flare(1.2, 0.9), fold(1.55), flare(1.7, 1.05), fold(2.05), flare(2.2, 1.2), flare(2.5, 0.8), { T = 2.8 } },
-		}
-	end)(),
-	-- ERUPTION (Obsidian Heart): the heart shudders and swells, then it SPLITS: thrown back
-	-- arched, arms up, head back (1.3) and held, shaking, while the lava rains down
-	Ultimate_Eruption = {
-		Duration = 2.4,
-		Markers = { { 1.15, "Whoosh" }, { 1.3, "Hit" }, { 1.3, "Land" } },
-		Keys = {
-			{ T = 0 },
-			curl(0.5),
-			{ T = 0.7, Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -18, 0, 5 }, Joint_Head = { -20, 4, 0 }, Joint_RightArm = { 50, 0, -40 }, Joint_LeftArm = { 50, 0, 40 } },
-			{ T = 0.9, Joint_CorePos = { 0, -0.38, 0 }, Joint_Core = { -20, 0, -5 }, Joint_Head = { -22, -4, 0 }, Joint_RightArm = { 52, 0, -42 }, Joint_LeftArm = { 52, 0, 42 } },
-			curl(1.1),
-			{ T = 1.3, Joint_CorePos = { 0, 0.35, 0.15 }, Joint_Core = { 22, 0, 0 }, Joint_Head = { 32, 0, 0 }, Joint_RightArm = { 165, 0, 30 }, Joint_LeftArm = { 165, 0, -30 } },
-			{ T = 1.6, Joint_CorePos = { 0, 0.3, 0.15 }, Joint_Core = { 20, 0, 3 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 160, 0, 34 }, Joint_LeftArm = { 160, 0, -26 } },
-			{ T = 1.9, Joint_CorePos = { 0, 0.3, 0.15 }, Joint_Core = { 20, 0, -3 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 160, 0, 26 }, Joint_LeftArm = { 160, 0, -34 } },
-			{ T = 2.4 },
+	end
+	table.insert(keys, { T = 2.68, Ease = "Out", Joint_CorePos = { 0, 0.35, 0.3 }, Joint_Core = { 24, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 190, 0, 8 }, Sub_RightArm_Fore = { 50, 0, 0 }, Joint_LeftArm = { 190, 0, -8 }, Sub_LeftArm_Fore = { 50, 0, 0 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } })
+	table.insert(keys, { T = 2.8, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.6, -0.6 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 50, 0, 8 }, Sub_RightArm_Fore = { 4, 0, 0 }, Joint_LeftArm = { 50, 0, -8 }, Sub_LeftArm_Fore = { 4, 0, 0 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } })
+	table.insert(keys, { T = 3.05, Joint_CorePos = { 0, -0.5, -0.45 }, Joint_Core = { -32, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 30, 0, 8 }, Joint_LeftArm = { 30, 0, -8 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } })
+	table.insert(keys, { T = 3.5 })
+	ULTIMATE.Ultimate_ScrapApocalypse = {
+		Duration = 3.5,
+		Curve = "Spline",
+		Markers = {
+			{ 0.1, "FX_ReactorVent" }, { 0.1, "SFX_SteamHiss" }, { 0.3, "SFX_EnergyCharge" }, { 0.35, "FX_ScrapRise" }, { 0.4, "SFX_RockDebris" }, { 0.7, "SFX_MetalClang" }, { 0.8, "FX_ReactorVent" },
+			{ 1.3, "Whoosh" }, { 1.4, "Hit" }, { 1.4, "StepR" }, { 1.65, "Whoosh" }, { 1.75, "StepL" }, { 2.0, "Whoosh" }, { 2.1, "StepR" }, { 2.35, "Whoosh" }, { 2.45, "StepL" },
+			{ 2.7, "SFX_BigWhoosh" }, { 2.8, "Land" }, { 3.05, "SFX_SteamHiss" },
 		},
-	},
-}
+		Keys = keys,
+	}
+end
+do
+	-- VOID COLLAPSE (Void Wings): wings wide, it tears the air open with both claws (0.3) and
+	-- starts HAULING on it, hand over hand, leaning back against the weight, the bodies coming
+	-- with it. It clenches (1.5): fists to the chest, wings snapping shut, everything crushed to
+	-- a point, a held moment, and it throws itself open as it goes off (1.7).
+	local function haul(t: number, side: number)
+		return { T = t, Joint_CorePos = { 0, -0.15, 0.3 }, Joint_Core = { 12, 8 * side, 0 }, Joint_Legs = { 0, -6 * side, 0 }, Joint_Head = { -6, -5 * side, 0 },
+			Joint_RightArm = side == 1 and { 105, 0, -6 } or { 55, 0, 10 }, Sub_RightArm_Fore = side == 1 and { 10, 0, 0 } or { 95, 0, 0 },
+			Joint_LeftArm = side == 1 and { 55, 0, -10 } or { 105, 0, 6 }, Sub_LeftArm_Fore = side == 1 and { 95, 0, 0 } or { 10, 0, 0 },
+			Sub_Back_R = { 0, -12, 40 }, Sub_Back_L = { 0, 12, -40 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -34, 0, 0 }, Joint_Tail = { 14, 0, 0 } }
+	end
+	local clenched = { Joint_CorePos = { 0, -0.55, 0 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { -22, 0, 0 }, Joint_RightArm = { 45, 0, -48 }, Sub_RightArm_Fore = { 115, 0, 0 }, Joint_LeftArm = { 45, 0, 48 }, Sub_LeftArm_Fore = { 115, 0, 0 }, Sub_Back_R = { 0, 40, -24 }, Sub_Back_L = { 0, -40, 24 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 }, Joint_Tail = { 26, 0, 0 } }
+	local keys = {
+		{ T = 0 },
+		{ T = 0.18, Joint_CorePos = { 0, 0.1, 0.15 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 110, 0, 40 }, Joint_LeftArm = { 110, 0, -40 }, Sub_Back_R = { 0, 0, 60 }, Sub_Back_L = { 0, 0, -60 } },
+		{ T = 0.3, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.25, -0.4 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 112, 0, -8 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 112, 0, 8 }, Sub_LeftArm_Fore = { 0, 0, 0 }, Sub_Back_R = { 0, -10, 72 }, Sub_Back_L = { 0, 10, -72 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+		haul(0.56, 1), haul(0.82, -1), haul(1.08, 1), haul(1.32, -1),
+		keyAt(clenched, 1.5, { Ease = "Snap", Stop = true }),
+		keyAt(clenched, 1.56, { Ease = "Linear", Joint_Core = { -32, 0, 2 } }),
+		keyAt(clenched, 1.62, { Ease = "Linear", Joint_Core = { -31, 0, -2 } }),
+		keyAt(clenched, 1.66, { Ease = "Linear", Joint_CorePos = { 0, -0.62, 0 } }),
+		keyAt(THROWN_OPEN, 1.7, { Ease = "Snap", Stop = true, Joint_Core = { 26, 0, 0 }, Joint_Head = { 32, 0, 0 }, Sub_Back_R = { 0, -6, 78 }, Sub_Back_L = { 0, 6, -78 } }),
+		keyAt(THROWN_OPEN, 2.05, { Joint_Core = { 16, 0, 0 }, Sub_Back_R = { 0, -6, 62 }, Sub_Back_L = { 0, 6, -62 } }),
+		{ T = 2.4, Joint_CorePos = { 0, -0.1, 0 }, Joint_Core = { -6, 0, 0 }, Joint_RightArm = { 25, 0, 16 }, Joint_LeftArm = { 25, 0, -16 }, Sub_Back_R = { 0, 0, 16 }, Sub_Back_L = { 0, 0, -16 } },
+		{ T = 2.7 },
+	}
+	ULTIMATE.Ultimate_VoidCollapse = {
+		Duration = 2.7,
+		Curve = "Spline",
+		Markers = {
+			{ 0.05, "SFX_WingFlap" }, { 0.2, "Whoosh" }, { 0.3, "SFX_VoidWhoosh" }, { 0.56, "StepR" }, { 0.82, "StepL" }, { 1.08, "StepR" }, { 1.32, "StepL" },
+			{ 1.7, "Hit" }, { 1.7, "SFX_WingFlap" },
+		},
+		Keys = keys,
+	}
+end
+do
+	-- SUPERNOVA (Phoenix Wings): the wings wrap right round it and it lifts off the ground in a
+	-- cocoon of fire (the server flies it), shaking, burning brighter; the wings burst open (1.2),
+	-- fold back to the half (1.72), burst wider (1.8), fold, and the last takes everything it has
+	-- (2.4), head thrown back, until it gives out (2.75) and drops, landing hard (3.05).
+	local cocoon = { Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -24, 0, 0 }, Joint_Head = { -22, 0, 0 }, Joint_RightArm = { 50, 0, -40 }, Sub_RightArm_Fore = { 80, 0, 0 }, Joint_LeftArm = { 50, 0, 40 }, Sub_LeftArm_Fore = { 80, 0, 0 }, Sub_Back_R = { 0, 52, -34 }, Sub_Back_L = { 0, -52, 34 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { 22, 0, 0 }, Joint_Tail = { 24, 0, 0 } }
+	local function flare(t: number, size: number)
+		return { T = t, Ease = "Snap", Stop = true, Joint_CorePos = { 0, 0.3, 0.1 }, Joint_Core = { 16 + 10 * size, 0, 0 }, Joint_Head = { 22 + 10 * size, 0, 0 }, Joint_RightArm = { 110, 0, 58 + 22 * size }, Sub_RightArm_Fore = { 6, 0, 0 }, Joint_LeftArm = { 110, 0, -58 - 22 * size }, Sub_LeftArm_Fore = { 6, 0, 0 }, Sub_Back_R = { 0, -6, 52 + 28 * size }, Sub_Back_L = { 0, 6, -52 - 28 * size }, Sub_Legs_L = { -10, 0, 0 }, Sub_Legs_R = { -18, 0, 0 }, Joint_Tail = { -30, 0, 0 } }
+	end
+	local function hold(t: number, size: number)
+		local key = flare(t, size)
+		key.Ease, key.Stop = nil, nil
+		return key
+	end
+	local function half(t: number)
+		return { T = t, Joint_CorePos = { 0, -0.1, 0 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 70, 0, -10 }, Sub_RightArm_Fore = { 50, 0, 0 }, Joint_LeftArm = { 70, 0, 10 }, Sub_LeftArm_Fore = { 50, 0, 0 }, Sub_Back_R = { 0, 30, -8 }, Sub_Back_L = { 0, -30, 8 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { 10, 0, 0 } }
+	end
+	local keys = { { T = 0 }, keyAt(cocoon, 0.5) }
+	strain(keys, cocoon, 0.55, 1.08, 0.06, 0.6, 3.5)
+	table.insert(keys, keyAt(cocoon, 1.14, { Joint_CorePos = { 0, -0.4, 0 } }))
+	table.insert(keys, flare(1.2, 0.5))
+	table.insert(keys, hold(1.42, 0.45))
+	table.insert(keys, half(1.74))
+	table.insert(keys, flare(1.8, 0.75))
+	table.insert(keys, hold(2.02, 0.7))
+	table.insert(keys, half(2.34))
+	table.insert(keys, flare(2.4, 1))
+	table.insert(keys, hold(2.72, 0.95))
+	table.insert(keys, { T = 2.92, Joint_CorePos = { 0, 0.4, 0.2 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 150, 0, 40 }, Joint_LeftArm = { 150, 0, -40 }, Sub_Back_R = { 0, -20, 72 }, Sub_Back_L = { 0, 20, -72 }, Sub_Legs_L = { -6, 0, 0 }, Sub_Legs_R = { 8, 0, 0 } })
+	table.insert(keys, { T = 3.05, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.8, -0.2 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 25, 0, 26 }, Joint_LeftArm = { 25, 0, -26 }, Sub_Back_R = { 0, -8, 30 }, Sub_Back_L = { 0, 8, -30 }, Sub_Legs_L = { 44, 0, 0 }, Sub_Legs_R = { -32, 0, 0 } })
+	table.insert(keys, { T = 3.3 })
+	ULTIMATE.Ultimate_Supernova = {
+		Duration = 3.3,
+		Curve = "Spline",
+		Markers = {
+			{ 0.1, "FX_WingsCocoon" }, { 0.1, "SFX_FireIgnite" }, { 0.2, "SFX_WingFlap" }, { 0.5, "SFX_PowerUp" }, { 1.05, "SFX_HawkScreech" },
+			{ 1.2, "Hit" }, { 1.72, "SFX_FireWhoosh" }, { 2.32, "SFX_FireWhoosh" }, { 2.3, "SFX_HawkScreech" }, { 2.75, "Whoosh" }, { 3.05, "Land" }, { 3.05, "FX_PhoenixLand" }, { 3.05, "SFX_BodySlam" },
+		},
+		Keys = keys,
+	}
+end
+do
+	-- ERUPTION (Obsidian Heart): it curls round the heart as the floor cracks glowing beneath it,
+	-- shaking harder and harder (0.25 - 1.2), then the heart SPLITS (1.3): thrown back arched,
+	-- arms up, a column of lava going up out of its chest, the whole body juddering while the
+	-- bombs pour out of it; at the end it sags, spent and steaming, and the heart seals.
+	local arched = { Joint_CorePos = { 0, 0.45, 0.25 }, Joint_Core = { 30, 0, 0 }, Joint_Head = { 36, 0, 0 }, Sub_Head_Jaw = { -18, 0, 0 }, Joint_RightArm = { 160, 0, 40 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 160, 0, -40 }, Sub_LeftArm_Fore = { 10, 0, 0 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -22, 0, 0 }, Joint_Tail = { -26, 0, 0 } }
+	local keys = { { T = 0 }, keyAt(CURLED, 0.22) }
+	strain(keys, CURLED, 0.26, 1.16, 0.06, 0.8, 5)
+	table.insert(keys, keyAt(CURLED, 1.22, { Joint_CorePos = { 0, -0.65, 0.1 }, Joint_Core = { -34, 0, 0 } }))
+	table.insert(keys, keyAt(arched, 1.3, { Ease = "Snap", Stop = true }))
+	strain(keys, arched, 1.36, 2.72, 0.07, 3, 1.2)
+	table.insert(keys, { T = 2.92, Joint_CorePos = { 0, -0.45, -0.1 }, Joint_Core = { -26, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { 14, 0, 10 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 14, 0, -10 }, Sub_LeftArm_Fore = { 20, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } })
+	table.insert(keys, { T = 3.15, Joint_CorePos = { 0, -0.35, -0.05 }, Joint_Core = { -18, 0, 2 }, Joint_Head = { -24, 0, 0 }, Joint_RightArm = { 12, 0, 8 }, Joint_LeftArm = { 12, 0, -8 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } })
+	table.insert(keys, { T = 3.4 })
+	ULTIMATE.Ultimate_Eruption = {
+		Duration = 3.4,
+		Curve = "Spline",
+		Markers = {
+			{ 0.2, "SFX_LavaRumble" }, { 0.25, "FX_HeartCrack" }, { 0.55, "SFX_Sizzle" }, { 0.65, "FX_HeartCrack" }, { 1.0, "FX_HeartCrack" }, { 1.1, "SFX_PowerUp" },
+			{ 1.3, "Hit" }, { 1.3, "FX_HeartSplit" }, { 1.3, "SFX_Explosion" }, { 1.32, "SFX_FireWhoosh" }, { 1.8, "SFX_LavaRumble" }, { 2.85, "FX_HeartSeal" }, { 2.9, "SFX_SteamHiss" }, { 3.0, "StepL" },
+		},
+		Keys = keys,
+	}
+end
 
 -- THE BOXER'S GUARD (the autonomous combos): bladed, chin down, fists by the face, elbows
 -- bent (Sub_*Arm_Fore), the feet planted while the hips turn (Joint_Legs counter-turns the
@@ -1609,14 +1768,14 @@ end
 for _, id in { "RustySlash", "TentacleLash", "DemonRend", "MagnetPull", "HammerSlam", "MeteorFist" } do
 	POSES.Common["Ability_" .. id .. "_Left"] = mirrored(ABILITY["Ability_" .. id])
 end
--- (every ability on a four-legged body: its quadruped variant, found before Common)
-for name, def in POSES.Common do
-	if name:sub(1, 8) == "Ability_" then
-		POSES.Quadruped[name] = forQuadruped(def)
-	end
-end
 for name, def in ULTIMATE do
 	POSES.Common[name] = def
+end
+-- (every ability and Ultimate on a four-legged body: its quadruped variant, found before Common)
+for name, def in POSES.Common do
+	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" then
+		POSES.Quadruped[name] = forQuadruped(def)
+	end
 end
 
 return POSES
