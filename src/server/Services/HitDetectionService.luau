@@ -50,6 +50,13 @@ function HitDetectionService:HasLineOfSight(from: Vector3, to: Vector3, target: 
 	return hit == nil or (target ~= nil and hit.Instance:IsDescendantOf(target))
 end
 
+-- How far from `from` along `direction` (its length = the most) before solid world
+-- geometry: how far a charging body can go before it would run into a wall.
+function HitDetectionService:ClearDistance(from: Vector3, direction: Vector3): number
+	local hit = Workspace:Raycast(from, direction, sightParams())
+	return hit and (hit.Position - from).Magnitude or direction.Magnitude
+end
+
 -- Drops models hidden behind walls from `origin` (so melee can't hit through pillars).
 function HitDetectionService:FilterVisible(models: { Model }, origin: Vector3?): { Model }
 	if not origin or #models == 0 then

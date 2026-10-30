@@ -37,11 +37,11 @@ local function mirrorJoint(name: string): string
 	return name
 end
 local function mirrored(def)
-	local out = { Duration = def.Duration, Keys = {}, Markers = {} }
+	local out = { Duration = def.Duration, Curve = def.Curve, Keys = {}, Markers = {} }
 	for _, key in def.Keys do
-		local k = { T = key.T }
+		local k = { T = key.T, Ease = key.Ease, Stop = key.Stop }
 		for name, v in key do
-			if name ~= "T" then
+			if type(v) == "table" then
 				k[mirrorJoint(name)] = name:match("Pos$") and { -v[1], v[2], v[3] } or { v[1], -v[2], -v[3] }
 			end
 		end
@@ -53,20 +53,30 @@ local function mirrored(def)
 	end
 	return out
 end
--- The same move stretched in time (a slower, heavier variant).
-local function scaled(def, factor: number)
-	local out = { Duration = def.Duration * factor, Keys = {}, Markers = {} }
+-- A move for a FOUR-LEGGED body (a Common clip is authored on a biped): on a quadruped the
+-- head hangs off the front of the body, so its pitch runs the other way (+X tips the snout
+-- down); the front legs do what a biped's legs do, the hind legs brace against them.
+local function forQuadruped(def)
+	local out = { Duration = def.Duration, Curve = def.Curve, Keys = {}, Markers = def.Markers }
 	for _, key in def.Keys do
-		local k = table.clone(key)
-		k.T = key.T * factor
+		local k = { T = key.T, Ease = key.Ease, Stop = key.Stop }
+		for name, v in key do
+			if type(v) ~= "table" then
+				continue
+			elseif name == "Joint_Head" then
+				k[name] = { -v[1], v[2], v[3] }
+			elseif name == "Sub_Legs_L" or name == "Sub_Legs_R" then
+				local side = name:sub(-1)
+				k["Sub_Legs_F" .. side] = v
+				k["Sub_Legs_B" .. side] = { -v[1] * 0.5, 0, 0 }
+			else
+				k[name] = v
+			end
+		end
 		table.insert(out.Keys, k)
-	end
-	for _, marker in def.Markers or {} do
-		table.insert(out.Markers, { marker[1] * factor, marker[2] })
 	end
 	return out
 end
-
 -- BITE (any Nightmare with a head; jaw-equipped heads open and snap their Sub_Head_Jaw).
 -- Ability windup 0.3 s = the Hit frame; the body also physically lunges ~3 studs at the
 -- target during the windup (AbilityService), so the jaws really reach them.
@@ -115,27 +125,6 @@ local BITE = {
 		{ T = 1.88, Joint_CorePos = { 0, -0.12, 0.15 }, Joint_Core = { 4, 20, 0 }, Joint_Head = { 6, 30, 0 }, Sub_Head_Jaw = { -34, 0, 0 }, Joint_RightArm = { 26, 0, 20 }, Joint_LeftArm = { 26, 0, -20 } },
 		{ T = 2.05, Joint_Core = { 0, 6, 0 }, Joint_Head = { 0, 8, 0 }, Sub_Head_Jaw = { -8, 0, 0 }, Joint_RightArm = { 10, 0, 8 }, Joint_LeftArm = { 10, 0, -8 } },
 		{ T = 2.3 },
-	},
-}
-
--- RUSTY SLASH (authored for the RIGHT arm; the left-arm claw plays the mirror): coil the
--- body away with the claw arm drawn back out to the side, then the hips and shoulders
--- unwind and the claw rips across through the space in front at chest height, carries on
--- across, and the body resets. Windup 0.3 s = the Hit frame (mid-sweep, in front).
-local RUSTY_SLASH = {
-	Duration = 0.7,
-	Markers = { { 0.14, "StepR" }, { 0.14, "Whoosh" }, { 0.3, "Hit" } }, -- whoosh starts with the swing so it peaks mid-arc
-	Keys = {
-		{ T = 0 },
-		-- wind up: torso turned right and low, claw drawn back out wide, eyes on them
-		{ T = 0.14, Joint_CorePos = { 0.15, -0.22, 0.15 }, Joint_Core = { 4, -32, 0 }, Joint_Head = { 0, 26, 0 }, Joint_RightArm = { 40, 0, 72 }, Joint_LeftArm = { 42, 0, -12 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
-		-- contact: unwinding hard, the claw sweeping through in front at chest height
-		{ T = 0.3, Joint_CorePos = { -0.1, -0.28, -0.55 }, Joint_Core = { -10, 22, 0 }, Joint_Head = { -6, -14, 0 }, Joint_RightArm = { 95, 0, -20 }, Joint_LeftArm = { 12, 0, -22 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
-		-- follow-through: across and down to the far side
-		{ T = 0.42, Joint_CorePos = { -0.15, -0.3, -0.6 }, Joint_Core = { -12, 40, 0 }, Joint_Head = { -6, -26, 0 }, Joint_RightArm = { 78, 0, -66 }, Joint_LeftArm = { -10, 0, -26 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
-		-- recover
-		{ T = 0.58, Joint_CorePos = { 0, -0.1, -0.2 }, Joint_Core = { -4, 12, 0 }, Joint_Head = { 0, -6, 0 }, Joint_RightArm = { 30, 0, -14 }, Joint_LeftArm = { 6, 0, -8 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
-		{ T = 0.7 },
 	},
 }
 
@@ -456,248 +445,520 @@ local BEAST = {
 }
 
 -- ABILITIES ("Ability_<Id>", AbilityDefinitions): each its own move, performed by the limb it
--- comes from (arm abilities authored for the RIGHT arm; "_Left" = mirrored). The "Hit"
--- marker sits on the ability's Windup (the frame the server lands it), Duration = Windup +
--- Recovery.
+-- comes from (arm abilities authored for the RIGHT arm; "_Left" = mirrored; a four-legged
+-- body plays its own variant, forQuadruped). The "Hit" marker sits on the ability's Windup
+-- (the frame the server lands it); Duration = AbilityDefinitions.Length. They flow through
+-- their keys (Curve "Spline"; PoseCurve), with Stop keys on the impacts.
+-- Their effects and sounds are cued by markers (AbilityEffects): "FX_<name>" an effect at
+-- the limb doing it, "SFX_<sound>" a sound there (AudioDefinitions).
+
+-- A deterministic wobble in -1..1 (the same every time the clip plays).
+local function wobble(i: number, salt: number): number
+	return math.sin(i * 12.9898 + salt * 78.233) * 0.5 + math.sin(i * 4.1 + salt * 1.7) * 0.5
+end
+
+-- Electrocution: from t0 to t1 every `step` seconds, a jolt about `pose` (a key table
+-- without T) - small random twitches of the core, head and arms, the jaw grinding - and at
+-- each of `spasms` a full-body spasm (thrown stiff and upright for a moment).
+local function convulse(keys, pose, t0: number, t1: number, step: number, spasms)
+	local i = 0
+	local t = t0
+	while t <= t1 + 1e-6 do
+		i += 1
+		local key = table.clone(pose)
+		key.T = t
+		key.Ease = "Linear"
+		local spasm = false
+		for _, s in spasms do
+			if math.abs(t - s) < step / 2 then
+				spasm = true
+			end
+		end
+		local core, head = pose.Joint_Core, pose.Joint_Head
+		if spasm then
+			key.Joint_Core = { core[1] + 10, core[2], core[3] + 4 * wobble(i, 1) }
+			key.Joint_Head = { head[1] + 16, head[2] + 8 * wobble(i, 2), head[3] }
+			key.Joint_RightArm = { 55, 0, 34 }
+			key.Joint_LeftArm = { 55, 0, -34 }
+			key.Sub_Head_Jaw = { -8, 0, 0 }
+		else
+			key.Joint_Core = { core[1] + 3 * wobble(i, 3), core[2] + 4 * wobble(i, 4), core[3] + 3 * wobble(i, 5) }
+			key.Joint_Head = { head[1] + 4 * wobble(i, 6), head[2] + 6 * wobble(i, 7), head[3] + 4 * wobble(i, 8) }
+			key.Joint_RightArm = { 78 + 6 * wobble(i, 9), 0, 6 + 5 * wobble(i, 10) }
+			key.Joint_LeftArm = { 78 + 6 * wobble(i, 11), 0, -6 + 5 * wobble(i, 12) }
+			key.Sub_Head_Jaw = { -2 + 3 * wobble(i, 13), 0, 0 }
+		end
+		table.insert(keys, key)
+		t += step
+	end
+end
+
+-- A building shake (the reactor straining): from t0 to t1, jolts about `pose` growing from
+-- `from` to `to` degrees.
+local function strain(keys, pose, t0: number, t1: number, step: number, from: number, to: number)
+	local i = 0
+	local t = t0
+	while t <= t1 + 1e-6 do
+		i += 1
+		local k = (t - t0) / math.max(t1 - t0, 0.01)
+		local amp = from + (to - from) * k
+		local key = table.clone(pose)
+		key.T = t
+		key.Ease = "Linear"
+		local core, head = pose.Joint_Core, pose.Joint_Head
+		key.Joint_Core = { core[1] + amp * wobble(i, 21), core[2] + amp * wobble(i, 22), core[3] + amp * 1.2 * wobble(i, 23) }
+		key.Joint_Head = { head[1] + amp * wobble(i, 24), head[2] + amp * 1.4 * wobble(i, 25), head[3] }
+		key.Joint_CorePos = { 0.04 * amp * wobble(i, 26), pose.Joint_CorePos[2], 0.04 * amp * wobble(i, 27) }
+		table.insert(keys, key)
+		t += step
+	end
+end
+
+local CHARGED_BITE
+do
+	-- CHARGED BITE (Electric Jaw): rear back with the jaw cracking open, arcs crawling over
+	-- it; lunge and SNAP (0.45, Hit). Locked on, the victim CONVULSES in the jaws (the
+	-- server jolts it in step: Clamp.Style "Convulse"), three shocks running through it
+	-- (0.8, 1.15, 1.5: full-body spasms), then the jaws DISCHARGE (1.85): head whipped up,
+	-- arms flung wide, the victim blasted straight away.
+	local held = { Joint_CorePos = { 0, -0.38, -1.0 }, Joint_Core = { -24, 0, 0 }, Joint_Head = { -14, 0, 0 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } }
+	local keys = {
+		{ T = 0 },
+		{ T = 0.2, Joint_CorePos = { 0, -0.25, 0.3 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 18, 0, 0 }, Sub_Head_Jaw = { -22, 0, 0 }, Joint_RightArm = { 30, 0, 14 }, Joint_LeftArm = { 30, 0, -14 }, Sub_Legs_L = { 16, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+		{ T = 0.36, Ease = "Out", Joint_CorePos = { 0, -0.25, -0.8 }, Joint_Core = { -20, 0, 0 }, Joint_Head = { -4, 0, 0 }, Sub_Head_Jaw = { -70, 0, 0 }, Joint_RightArm = { 72, 0, 24 }, Joint_LeftArm = { 72, 0, -24 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } },
+		{ T = 0.45, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.35, -1.05 }, Joint_Core = { -26, 0, 0 }, Joint_Head = { -16, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Joint_RightArm = { 80, 0, 6 }, Joint_LeftArm = { 80, 0, -6 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+	}
+	convulse(keys, held, 0.5, 1.72, 0.055, { 0.8, 1.15, 1.5 })
+	table.insert(keys, { T = 1.78, Joint_CorePos = { 0, -0.45, -0.85 }, Joint_Core = { -22, 0, 0 }, Joint_Head = { -20, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Joint_RightArm = { 70, 0, 4 }, Joint_LeftArm = { 70, 0, -4 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -32, 0, 0 } })
+	table.insert(keys, { T = 1.85, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.1, 0.15 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 30, 0, 0 }, Sub_Head_Jaw = { -55, 0, 0 }, Joint_RightArm = { 40, 0, 55 }, Joint_LeftArm = { 40, 0, -55 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -2, 0, 0 } })
+	table.insert(keys, { T = 2.05, Joint_Core = { 4, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Head_Jaw = { -20, 0, 0 }, Joint_RightArm = { 16, 0, 20 }, Joint_LeftArm = { 16, 0, -20 } })
+	table.insert(keys, { T = 2.45 })
+	CHARGED_BITE = {
+		Duration = 2.45,
+		Curve = "Spline",
+		Markers = {
+			{ 0, "SFX_ElectricCharge" }, { 0.05, "FX_JawArcs" }, { 0.25, "FX_JawArcs" }, { 0.25, "SFX_ElectricArc" },
+			{ 0.36, "Whoosh" }, { 0.45, "Hit" }, { 0.45, "JawSnap" }, { 0.45, "FX_ShockSnap" }, { 0.45, "StepL" },
+			{ 0.8, "FX_Zap" }, { 0.8, "Grind" }, { 1.15, "FX_Zap" }, { 1.15, "Grind" }, { 1.5, "FX_Zap" }, { 1.5, "Grind" },
+			{ 1.85, "FX_Discharge" }, { 1.85, "SFX_LightningCrack" }, { 1.85, "StepR" },
+		},
+		Keys = keys,
+	}
+end
+
 local ABILITY = {
-	-- FROST RAM (head): paw the ground with the head dropped, horns first, then charge (the
-	-- server dashes the body on the Hit frame) bent low behind the skull.
+	Ability_ChargedBite = CHARGED_BITE,
+
+	-- FROST RAM (head): head down, horns first, paw the ice twice snorting frost (0.12, 0.3),
+	-- coil back on the haunches, and CHARGE (0.55, Hit: the server drives the body 14 studs
+	-- over 0.45 s, goring the first thing it runs into and carrying it on the horns),
+	-- galloping flat out bent low behind the skull; at 1.0 the head TOSSES up (the gored body
+	-- goes up and over) and it skids to a stop, ice spraying off its feet.
 	Ability_FrostRam = {
-		Duration = 0.85,
-		Markers = { { 0.12, "StepL" }, { 0.28, "Whoosh" }, { 0.35, "Hit" }, { 0.45, "StepR" }, { 0.55, "StepL" } },
+		Duration = 1.6,
+		Curve = "Spline",
+		Markers = {
+			{ 0.02, "SFX_FrostSnort" }, { 0.02, "FX_FrostBreath" }, { 0.12, "StepL" }, { 0.12, "FX_FrostScrape" }, { 0.12, "SFX_IceCrack" },
+			{ 0.3, "StepL" }, { 0.3, "FX_FrostScrape" }, { 0.38, "SFX_FrostSnort" }, { 0.38, "FX_FrostBreath" }, { 0.48, "SFX_BeastRoar" },
+			{ 0.55, "Hit" }, { 0.55, "Whoosh" }, { 0.55, "FX_FrostAura" }, { 0.68, "StepL" }, { 0.8, "StepR" }, { 0.92, "StepL" },
+			{ 1.0, "FX_HornToss" }, { 1.0, "SFX_BigWhoosh" }, { 1.05, "FX_IceSkid" }, { 1.05, "SFX_Skid" }, { 1.35, "StepR" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.2, Joint_CorePos = { 0, -0.15, 0.35 }, Joint_Core = { -8, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { -20, 0, 12 }, Joint_LeftArm = { -20, 0, -12 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -20, 0, 0 }, Sub_Legs_FL = { -12, 0, 0 }, Sub_Legs_BL = { 18, 0, 0 } },
-			{ T = 0.35, Joint_CorePos = { 0, -0.1, -0.7 }, Joint_Core = { -24, 0, 0 }, Joint_Head = { -38, 0, 0 }, Joint_RightArm = { -45, 0, 10 }, Joint_LeftArm = { -45, 0, -10 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -30, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { -20, 0, 0 }, Sub_Legs_BL = { -24, 0, 0 }, Sub_Legs_BR = { 20, 0, 0 } },
-			{ T = 0.55, Joint_CorePos = { 0, -0.1, -0.8 }, Joint_Core = { -26, 0, 0 }, Joint_Head = { -40, 0, 0 }, Joint_RightArm = { -40, 0, 10 }, Joint_LeftArm = { -40, 0, -10 }, Sub_Legs_L = { -24, 0, 0 }, Sub_Legs_R = { 30, 0, 0 }, Sub_Legs_FL = { -20, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { 20, 0, 0 }, Sub_Legs_BR = { -24, 0, 0 } },
-			{ T = 0.85 },
+			{ T = 0.06, Joint_CorePos = { 0, -0.2, 0.25 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -26, 0, 0 }, Joint_RightArm = { -15, 0, 14 }, Joint_LeftArm = { -15, 0, -14 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
+			{ T = 0.12, Ease = "Snap", Joint_CorePos = { 0, -0.25, 0.2 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -30, 0, 0 }, Joint_RightArm = { -18, 0, 14 }, Joint_LeftArm = { -18, 0, -14 }, Sub_Legs_L = { -28, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 0.21, Joint_CorePos = { 0, -0.22, 0.25 }, Joint_Core = { -15, 0, 0 }, Joint_Head = { -28, 0, 0 }, Joint_RightArm = { -16, 0, 14 }, Joint_LeftArm = { -16, 0, -14 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
+			{ T = 0.3, Ease = "Snap", Joint_CorePos = { 0, -0.27, 0.2 }, Joint_Core = { -17, 0, 0 }, Joint_Head = { -32, 0, 0 }, Joint_RightArm = { -20, 0, 14 }, Joint_LeftArm = { -20, 0, -14 }, Sub_Legs_L = { -32, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 0.42, Stop = true, Joint_CorePos = { 0, -0.45, 0.45 }, Joint_Core = { -24, 0, 0 }, Joint_Head = { -36, 0, 0 }, Joint_RightArm = { -35, 0, 12 }, Joint_LeftArm = { -35, 0, -12 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+			{ T = 0.55, Ease = "Snap", Joint_CorePos = { 0, -0.3, -0.6 }, Joint_Core = { -34, 0, 0 }, Joint_Head = { -42, 0, 0 }, Joint_RightArm = { -55, 0, 10 }, Joint_LeftArm = { -55, 0, -10 }, Sub_Legs_L = { 44, 0, 0 }, Sub_Legs_R = { -36, 0, 0 } },
+			{ T = 0.68, Joint_CorePos = { 0, -0.22, -0.7 }, Joint_Core = { -31, 0, 2 }, Joint_Head = { -40, 0, 0 }, Joint_RightArm = { -50, 0, 10 }, Joint_LeftArm = { -50, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { 40, 0, 0 } },
+			{ T = 0.8, Joint_CorePos = { 0, -0.4, -0.7 }, Joint_Core = { -36, 0, -2 }, Joint_Head = { -42, 0, 0 }, Joint_RightArm = { -55, 0, 10 }, Joint_LeftArm = { -55, 0, -10 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 0.92, Joint_CorePos = { 0, -0.22, -0.7 }, Joint_Core = { -31, 0, 2 }, Joint_Head = { -40, 0, 0 }, Joint_RightArm = { -50, 0, 10 }, Joint_LeftArm = { -50, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { 40, 0, 0 } },
+			{ T = 1.0, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.1, -0.4 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 34, 0, 0 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 20, 0, -30 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 1.12, Joint_CorePos = { 0, -0.45, -0.2 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_RightArm = { 10, 0, 24 }, Joint_LeftArm = { 10, 0, -24 }, Sub_Legs_L = { 48, 0, 0 }, Sub_Legs_R = { 20, 0, 0 } },
+			{ T = 1.35, Joint_CorePos = { 0, -0.15, 0 }, Joint_Core = { 2, 0, 0 }, Joint_RightArm = { 6, 0, 10 }, Joint_LeftArm = { 6, 0, -10 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 1.6 },
 		},
 	},
-	-- VISOR GLARE (head): brace, the head rocks back as the visor charges, then snaps level and
-	-- GLARES, the body pushed back by the beam.
+	-- VISOR GLARE (head, Scrap Visor): brace with the hands up as the visor charges white-hot,
+	-- the head rocking back; then it snaps level and GLARES (0.55, Hit): a beam pours out of
+	-- the visor for four ticks while the head sweeps it left, right, left, the body leaning
+	-- into the recoil; it gutters out and the canister vents steam (1.38).
 	Ability_ScrapVisorBeam = {
-		Duration = 0.8,
-		Markers = { { 0.3, "Whoosh" }, { 0.4, "Hit" } },
+		Duration = 1.8,
+		Curve = "Spline",
+		Markers = {
+			{ 0, "SFX_LaserCharge" }, { 0.02, "FX_VisorCharge" }, { 0.5, "SFX_Laser" }, { 0.55, "Hit" }, { 0.55, "FX_VisorBeam" }, { 0.55, "StepR" },
+			{ 1.38, "FX_Vent" }, { 1.38, "SFX_SteamHiss" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.25, Joint_CorePos = { 0, -0.15, 0.2 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 30, 0, 25 }, Joint_LeftArm = { 30, 0, -25 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
-			{ T = 0.4, Joint_CorePos = { 0, -0.2, 0 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 20, 0, -30 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
-			{ T = 0.6, Joint_CorePos = { 0, -0.2, 0.25 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 26, 0, 30 }, Joint_LeftArm = { 26, 0, -30 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
-			{ T = 0.8 },
+			{ T = 0.25, Joint_CorePos = { 0, -0.2, 0.2 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 20, 0, 0 }, Joint_RightArm = { 34, 0, 26 }, Joint_LeftArm = { 34, 0, -26 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+			{ T = 0.45, Joint_CorePos = { 0, -0.22, 0.2 }, Joint_Core = { 4, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 30, 0, 30 }, Joint_LeftArm = { 30, 0, -30 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+			{ T = 0.55, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.25, 0.15 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 20, 0, 34 }, Joint_LeftArm = { 20, 0, -34 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.75, Joint_CorePos = { 0, -0.25, 0.18 }, Joint_Core = { 6, 6, 0 }, Joint_Legs = { 0, -6, 0 }, Joint_Head = { -8, 14, 0 }, Joint_RightArm = { 20, 0, 34 }, Joint_LeftArm = { 20, 0, -34 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.95, Joint_CorePos = { 0, -0.25, 0.2 }, Joint_Core = { 6, -6, 0 }, Joint_Legs = { 0, 6, 0 }, Joint_Head = { -8, -14, 0 }, Joint_RightArm = { 20, 0, 34 }, Joint_LeftArm = { 20, 0, -34 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 1.15, Joint_CorePos = { 0, -0.25, 0.22 }, Joint_Core = { 6, 4, 0 }, Joint_Legs = { 0, -4, 0 }, Joint_Head = { -8, 10, 0 }, Joint_RightArm = { 22, 0, 32 }, Joint_LeftArm = { 22, 0, -32 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 1.35, Joint_CorePos = { 0, -0.2, 0.1 }, Joint_Core = { 2, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 16, 0, 20 }, Joint_LeftArm = { 16, 0, -20 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+			{ T = 1.5, Joint_CorePos = { 0, -0.1, 0.05 }, Joint_Core = { 0, 0, 4 }, Joint_Head = { -6, 0, 12 }, Joint_RightArm = { 10, 0, 12 }, Joint_LeftArm = { 10, 0, -12 } },
+			{ T = 1.8 },
 		},
 	},
-	-- TENTACLE LASH (arm): the arm coils back high over the shoulder, then whips out long and
-	-- low through them, the body leaning in behind it.
-	Ability_TentacleLash = {
-		Duration = 0.85,
-		Markers = { { 0.3, "Whoosh" }, { 0.4, "Hit" }, { 0.4, "StepL" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.22, Joint_CorePos = { 0, -0.15, 0.3 }, Joint_Core = { 8, -20, 0 }, Joint_Head = { -6, 16, 0 }, Joint_RightArm = { 150, 0, 30 }, Joint_LeftArm = { 40, 0, -20 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
-			{ T = 0.4, Joint_CorePos = { 0, -0.2, -0.5 }, Joint_Core = { -14, 16, 0 }, Joint_Head = { -6, -10, 0 }, Joint_RightArm = { 95, 0, -5 }, Joint_LeftArm = { 20, 0, -24 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
-			{ T = 0.52, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -16, 22, 0 }, Joint_RightArm = { 62, 0, -22 }, Joint_LeftArm = { 20, 0, -24 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
-			{ T = 0.85 },
-		},
-	},
-	-- DEMON REND (arm): rear up, the claw raised high behind the head, then rip it down and
-	-- across through them with the whole body folding after it.
-	Ability_DemonRend = {
-		Duration = 1.1,
-		Markers = { { 0.25, "StepR" }, { 0.4, "Whoosh" }, { 0.5, "Hit" }, { 0.5, "StepL" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.3, Joint_CorePos = { 0, 0.1, 0.3 }, Joint_Core = { 14, -20, 0 }, Joint_Head = { 10, 14, 0 }, Joint_RightArm = { 170, 0, 20 }, Joint_LeftArm = { 60, 0, -30 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
-			{ T = 0.5, Joint_CorePos = { 0, -0.35, -0.9 }, Joint_Core = { -28, 30, 0 }, Joint_Head = { -10, -10, 0 }, Joint_RightArm = { 40, 0, -30 }, Joint_LeftArm = { 30, 0, -20 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
-			{ T = 0.7, Joint_CorePos = { 0, -0.35, -0.95 }, Joint_Core = { -30, 40, 0 }, Joint_Head = { -8, -16, 0 }, Joint_RightArm = { 0, 0, -40 }, Joint_LeftArm = { 20, 0, -20 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
-			{ T = 0.9, Joint_CorePos = { 0, -0.15, -0.4 }, Joint_Core = { -10, 14, 0 }, Joint_RightArm = { 10, 0, -10 } },
-			{ T = 1.1 },
-		},
-	},
-	-- MAGNET PULL (arm): thrust the arm out flat at them, braced, the hand shaking with the
-	-- pull, then YANK it back, the body heaving backwards.
-	Ability_MagnetPull = {
+	-- RUSTY SLASH (arm): coil away with the claw drawn back out wide, unwind and RAKE across
+	-- through them (0.3, Hit), carry it round and fold the claw up, then BACKHAND it back the
+	-- other way (0.62, Hit) stepping in, the claw trailing sparks.
+	Ability_RustySlash = {
 		Duration = 0.9,
-		Markers = { { 0.4, "Hit" }, { 0.55, "StepR" } },
+		Curve = "Spline",
+		Markers = {
+			{ 0.1, "StepR" }, { 0.14, "FX_TrailOn" }, { 0.16, "Whoosh" }, { 0.16, "SFX_Servo" }, { 0.3, "Hit" },
+			{ 0.44, "FX_TrailOff" }, { 0.47, "StepL" }, { 0.48, "FX_TrailOn" }, { 0.5, "Whoosh" }, { 0.62, "Hit" }, { 0.62, "SFX_ClawSlash" }, { 0.76, "FX_TrailOff" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.25, Joint_CorePos = { 0, -0.2, -0.2 }, Joint_Core = { -6, 10, 0 }, Joint_Head = { -6, -6, 0 }, Joint_RightArm = { 95, 0, 0 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 0.33, Joint_CorePos = { 0, -0.2, -0.2 }, Joint_Core = { -6, 10, 2 }, Joint_RightArm = { 97, 0, 3 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 0.4, Joint_CorePos = { 0, -0.2, -0.2 }, Joint_Core = { -6, 10, -2 }, Joint_RightArm = { 93, 0, -3 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 0.55, Joint_CorePos = { 0, -0.2, 0.4 }, Joint_Core = { 12, -12, 0 }, Joint_Head = { 6, 8, 0 }, Joint_RightArm = { 50, 0, 14 }, Joint_LeftArm = { 20, 0, -30 }, Sub_Legs_L = { -10, 0, 0 }, Sub_Legs_R = { 14, 0, 0 } },
+			{ T = 0.14, Joint_CorePos = { 0.15, -0.22, 0.15 }, Joint_Core = { 4, -32, 0 }, Joint_Legs = { 0, 26, 0 }, Joint_Head = { 0, 26, 0 }, Joint_RightArm = { 40, 0, 72 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 42, 0, -12 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+			{ T = 0.3, Ease = "In", Joint_CorePos = { -0.1, -0.28, -0.55 }, Joint_Core = { -10, 22, 0 }, Joint_Legs = { 0, -18, 0 }, Joint_Head = { -6, -14, 0 }, Joint_RightArm = { 95, 0, -20 }, Sub_RightArm_Fore = { 5, 0, 0 }, Joint_LeftArm = { 12, 0, -22 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 0.44, Joint_CorePos = { -0.15, -0.3, -0.6 }, Joint_Core = { -12, 40, 0 }, Joint_Legs = { 0, -32, 0 }, Joint_Head = { -6, -26, 0 }, Joint_RightArm = { 80, 0, -70 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { -10, 0, -26 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 0.62, Ease = "In", Joint_CorePos = { 0.1, -0.3, -0.75 }, Joint_Core = { -14, -24, 0 }, Joint_Legs = { 0, 20, 0 }, Joint_Head = { -8, 20, 0 }, Joint_RightArm = { 100, 0, 55 }, Sub_RightArm_Fore = { -5, 0, 0 }, Joint_LeftArm = { 30, 0, -10 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+			{ T = 0.76, Joint_CorePos = { 0.12, -0.25, -0.6 }, Joint_Core = { -10, -34, 0 }, Joint_Legs = { 0, 26, 0 }, Joint_Head = { -6, 24, 0 }, Joint_RightArm = { 70, 0, 75 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 20, 0, -10 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
 			{ T = 0.9 },
 		},
 	},
-	-- HAMMER SLAM (arm): heave the hammer way up overhead, rising onto the toes, then bring it
-	-- down onto the ground in front with everything, folding over it, and wrench it free.
-	Ability_HammerSlam = {
-		Duration = 1.5,
-		Markers = { { 0.3, "StepR" }, { 0.65, "Whoosh" }, { 0.8, "Hit" }, { 0.8, "Land" } },
+	-- TENTACLE LASH (arm): coil it high behind, then crack it out to its full length (0.45,
+	-- Hit: the crack at the tip), the end lagging behind the arm like a whip; what it caught
+	-- is hauled in (to 0.7), hoisted high over the head (1.0) and SMASHED down into the floor
+	-- (1.2) - the server carries the victim along the same path (Wrap).
+	Ability_TentacleLash = {
+		Duration = 1.7,
+		Curve = "Spline",
+		Markers = {
+			{ 0.05, "SFX_TentacleSlime" }, { 0.25, "Whoosh" }, { 0.45, "Hit" }, { 0.45, "FX_WhipCrack" }, { 0.45, "SFX_WhipCrack" },
+			{ 0.5, "SFX_TentacleSlime" }, { 0.62, "StepR" }, { 0.85, "SFX_BigWhoosh" }, { 1.2, "FX_Stomp" }, { 1.2, "SFX_BodySlam" }, { 1.2, "Land" }, { 1.25, "SFX_BoneCrack" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.5, Joint_CorePos = { 0, 0.2, 0.3 }, Joint_Core = { 16, -10, 0 }, Joint_Head = { 14, 6, 0 }, Joint_RightArm = { 175, 0, 10 }, Joint_LeftArm = { 120, 0, -20 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
-			{ T = 0.8, Joint_CorePos = { 0, -0.4, -0.6 }, Joint_Core = { -34, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 40, 0, 0 }, Joint_LeftArm = { 30, 0, -10 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
-			{ T = 1.05, Joint_CorePos = { 0, -0.4, -0.6 }, Joint_Core = { -32, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 42, 0, 0 }, Joint_LeftArm = { 32, 0, -10 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
-			{ T = 1.25, Joint_CorePos = { 0, -0.1, -0.2 }, Joint_Core = { -6, 4, 0 }, Joint_RightArm = { 30, 0, 10 }, Joint_LeftArm = { 20, 0, -10 } },
+			{ T = 0.22, Joint_CorePos = { 0, -0.15, 0.3 }, Joint_Core = { 8, -22, 0 }, Joint_Legs = { 0, 18, 0 }, Joint_Head = { -6, 18, 0 }, Joint_RightArm = { 160, 0, 30 }, Sub_RightArm_Fore = { 70, 0, 0 }, Joint_LeftArm = { 40, 0, -20 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } },
+			{ T = 0.36, Joint_CorePos = { 0, -0.18, -0.1 }, Joint_Core = { -4, 0, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -6, 4, 0 }, Joint_RightArm = { 120, 0, 10 }, Sub_RightArm_Fore = { 90, 0, 0 }, Joint_LeftArm = { 30, 0, -22 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+			{ T = 0.45, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.2, -0.5 }, Joint_Core = { -14, 16, 0 }, Joint_Legs = { 0, -12, 0 }, Joint_Head = { -6, -10, 0 }, Joint_RightArm = { 92, 0, -4 }, Sub_RightArm_Fore = { -15, 0, 0 }, Joint_LeftArm = { 20, 0, -24 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+			{ T = 0.7, Ease = "Out", Joint_CorePos = { 0, -0.25, 0.35 }, Joint_Core = { 14, -10, 0 }, Joint_Legs = { 0, 8, 0 }, Joint_Head = { 4, 6, 0 }, Joint_RightArm = { 70, 0, -10 }, Sub_RightArm_Fore = { 80, 0, 0 }, Joint_LeftArm = { 30, 0, -20 }, Sub_Legs_L = { -6, 0, 0 }, Sub_Legs_R = { 22, 0, 0 } },
+			{ T = 1.0, Joint_CorePos = { 0, 0.05, 0.1 }, Joint_Core = { 16, -6, 0 }, Joint_Legs = { 0, 4, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 170, 0, -5 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 50, 0, -30 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 1.2, Ease = "In", Stop = true, Joint_CorePos = { 0, -0.45, -0.6 }, Joint_Core = { -30, -10, 0 }, Joint_Legs = { 0, 8, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 60, 0, -30 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 20, 0, -30 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
+			{ T = 1.45, Joint_CorePos = { 0, -0.35, -0.45 }, Joint_Core = { -24, -8, 0 }, Joint_Legs = { 0, 6, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 50, 0, -25 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 20, 0, -26 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+			{ T = 1.7 },
+		},
+	},
+	-- DEMON REND (arm): the blades IGNITE; rear up with the claw raised high behind the head,
+	-- rend DOWN across through them (0.5, Hit), whip it back up and rend down the other way
+	-- (0.72, Hit) - an X of fire - then drop low with the claw drawn back and RIP UPWARD
+	-- through them (1.02, Hit), the body uncoiling after it, throwing them up in a burst.
+	Ability_DemonRend = {
+		Duration = 1.5,
+		Curve = "Spline",
+		Markers = {
+			{ 0, "FX_Ignite" }, { 0, "SFX_FireIgnite" }, { 0.2, "StepR" }, { 0.36, "FX_TrailOn" }, { 0.4, "SFX_FireWhoosh" }, { 0.5, "Hit" }, { 0.5, "FX_RendA" },
+			{ 0.62, "SFX_FireWhoosh" }, { 0.72, "Hit" }, { 0.72, "FX_RendB" }, { 0.72, "StepL" }, { 0.86, "SFX_BeastRoar" }, { 0.94, "Whoosh" },
+			{ 1.02, "Hit" }, { 1.02, "FX_RendUp" }, { 1.02, "FX_FireBurst" }, { 1.02, "SFX_FireIgnite" }, { 1.2, "FX_TrailOff" },
+		},
+		Keys = {
+			{ T = 0 },
+			{ T = 0.3, Joint_CorePos = { 0, 0.1, 0.3 }, Joint_Core = { 14, -20, 0 }, Joint_Legs = { 0, 16, 0 }, Joint_Head = { 10, 14, 0 }, Joint_RightArm = { 170, 0, 20 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 60, 0, -30 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
+			{ T = 0.5, Ease = "In", Joint_CorePos = { 0, -0.35, -0.8 }, Joint_Core = { -26, 28, 0 }, Joint_Legs = { 0, -22, 0 }, Joint_Head = { -10, -10, 0 }, Joint_RightArm = { 50, 0, -35 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 30, 0, -20 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } },
+			{ T = 0.6, Joint_CorePos = { 0, -0.25, -0.75 }, Joint_Core = { -14, 30, 0 }, Joint_Legs = { 0, -24, 0 }, Joint_Head = { -6, -12, 0 }, Joint_RightArm = { 120, 0, -55 }, Sub_RightArm_Fore = { 50, 0, 0 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } },
+			{ T = 0.72, Ease = "In", Joint_CorePos = { 0, -0.4, -0.9 }, Joint_Core = { -24, -20, 0 }, Joint_Legs = { 0, 16, 0 }, Joint_Head = { -8, 12, 0 }, Joint_RightArm = { 50, 0, 40 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 30, 0, -16 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
+			{ T = 0.88, Stop = true, Joint_CorePos = { 0, -0.6, -0.7 }, Joint_Core = { -30, -10, 0 }, Joint_Legs = { 0, 8, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { -30, 0, 15 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 40, 0, -30 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 1.02, Ease = "Snap", Stop = true, Joint_CorePos = { 0, 0.1, -0.9 }, Joint_Core = { 12, 10, 0 }, Joint_Legs = { 0, -8, 0 }, Joint_Head = { 18, -6, 0 }, Joint_RightArm = { 175, 0, 10 }, Sub_RightArm_Fore = { -10, 0, 0 }, Joint_LeftArm = { 20, 0, -40 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 1.2, Joint_CorePos = { 0, 0.05, -0.8 }, Joint_Core = { 10, 8, 0 }, Joint_Legs = { 0, -6, 0 }, Joint_Head = { 14, -4, 0 }, Joint_RightArm = { 165, 0, 14 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 20, 0, -36 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
 			{ T = 1.5 },
 		},
 	},
-	-- BAT DIVE (wings): the wings snap up, then the body tips forward into a dive (the server
-	-- dashes it), wings swept back, arms trailing.
+	-- MAGNET PULL (arm): thrust the magnet out flat at them, braced, humming and shaking as it
+	-- LOCKS on (0.4, Hit); heave back, reeling them in along the floor (the server drags them
+	-- in by 0.85), catch them in the claw, swing them up over the head (1.03) and SLAM them
+	-- down in front (1.15).
+	Ability_MagnetPull = {
+		Duration = 1.6,
+		Curve = "Spline",
+		Markers = {
+			{ 0, "SFX_Servo" }, { 0.05, "FX_MagnetCharge" }, { 0.2, "SFX_MagnetHum" }, { 0.4, "Hit" }, { 0.4, "SFX_Hydraulic" }, { 0.4, "StepR" },
+			{ 0.62, "StepR" }, { 0.85, "SFX_MetalClang" }, { 0.95, "SFX_BigWhoosh" }, { 1.15, "SFX_BodySlam" }, { 1.15, "Land" }, { 1.15, "FX_Stomp" },
+		},
+		Keys = {
+			{ T = 0 },
+			{ T = 0.25, Joint_CorePos = { 0, -0.2, -0.2 }, Joint_Core = { -6, 10, 0 }, Joint_Legs = { 0, -8, 0 }, Joint_Head = { -6, -6, 0 }, Joint_RightArm = { 95, 0, 0 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.32, Ease = "Linear", Joint_CorePos = { 0, -0.2, -0.2 }, Joint_Core = { -6, 10, 2 }, Joint_Legs = { 0, -8, 0 }, Joint_Head = { -6, -6, 0 }, Joint_RightArm = { 97, 0, 3 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.36, Ease = "Linear", Joint_CorePos = { 0, -0.2, -0.2 }, Joint_Core = { -6, 10, -2 }, Joint_Legs = { 0, -8, 0 }, Joint_Head = { -6, -6, 0 }, Joint_RightArm = { 93, 0, -3 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.4, Stop = true, Joint_CorePos = { 0, -0.22, -0.2 }, Joint_Core = { -6, 10, 0 }, Joint_Legs = { 0, -8, 0 }, Joint_Head = { -6, -6, 0 }, Joint_RightArm = { 96, 0, 0 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.62, Joint_CorePos = { 0, -0.3, 0.35 }, Joint_Core = { 14, -12, 0 }, Joint_Legs = { 0, 10, 0 }, Joint_Head = { 6, 8, 0 }, Joint_RightArm = { 70, 0, 8 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 10, 0, -30 }, Sub_Legs_L = { -14, 0, 0 }, Sub_Legs_R = { 18, 0, 0 } },
+			{ T = 0.85, Stop = true, Joint_CorePos = { 0, -0.25, 0 }, Joint_Core = { -4, -6, 0 }, Joint_Legs = { 0, 4, 0 }, Joint_Head = { -4, 0, 0 }, Joint_RightArm = { 80, 0, -6 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 30, 0, -24 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 1.03, Joint_CorePos = { 0, 0.05, 0.15 }, Joint_Core = { 16, -4, 0 }, Joint_Head = { 20, 0, 0 }, Joint_RightArm = { 175, 0, -4 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 60, 0, -30 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 1.15, Ease = "In", Stop = true, Joint_CorePos = { 0, -0.45, -0.55 }, Joint_Core = { -30, 4, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 55, 0, -6 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 30, 0, -20 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } },
+			{ T = 1.35, Joint_CorePos = { 0, -0.35, -0.4 }, Joint_Core = { -22, 2, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 48, 0, -4 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 24, 0, -20 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.6 },
+		},
+	},
+	-- HAMMER SLAM (arm): dip and swing the hammer under, then HEAVE it up overhead rising onto
+	-- the toes, hang there, and bring it down into the floor with everything (0.8, Hit), the
+	-- body folding over it; it's stuck - the body shudders, wrenches back - and tears it free
+	-- in an AFTERSHOCK (1.25).
+	Ability_HammerSlam = {
+		Duration = 1.7,
+		Curve = "Spline",
+		Markers = {
+			{ 0.1, "StepR" }, { 0.15, "SFX_Servo" }, { 0.3, "FX_HammerGlow" }, { 0.45, "SFX_PowerUp" }, { 0.55, "StepL" }, { 0.66, "Whoosh" }, { 0.66, "SFX_BigWhoosh" },
+			{ 0.8, "Hit" }, { 0.8, "Land" }, { 0.8, "SFX_HammerClang" }, { 0.8, "FX_GroundCrack" }, { 0.82, "SFX_RockDebris" },
+			{ 1.12, "SFX_Hydraulic" }, { 1.25, "SFX_Shockwave" }, { 1.25, "FX_GroundCrack" }, { 1.25, "StepR" },
+		},
+		Keys = {
+			{ T = 0 },
+			{ T = 0.3, Joint_CorePos = { 0, -0.35, 0.2 }, Joint_Core = { -10, -20, 0 }, Joint_Legs = { 0, 16, 0 }, Joint_Head = { -6, 10, 0 }, Joint_RightArm = { -30, 0, 20 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 20, 0, -10 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+			{ T = 0.55, Joint_CorePos = { 0, 0.35, 0.3 }, Joint_Core = { 18, -10, 0 }, Joint_Legs = { 0, 8, 0 }, Joint_Head = { 16, 6, 0 }, Joint_RightArm = { 185, 0, 6 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 130, 0, -20 }, Sub_Legs_L = { 4, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
+			{ T = 0.66, Ease = "Out", Joint_CorePos = { 0, 0.45, 0.25 }, Joint_Core = { 22, -6, 0 }, Joint_Legs = { 0, 4, 0 }, Joint_Head = { 18, 4, 0 }, Joint_RightArm = { 195, 0, 4 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 140, 0, -18 }, Sub_Legs_L = { 2, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 0.8, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.55, -0.7 }, Joint_Core = { -38, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 35, 0, 0 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 25, 0, -12 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 0.88, Ease = "Linear", Joint_CorePos = { 0, -0.55, -0.7 }, Joint_Core = { -36, 0, 2 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 36, 0, 0 }, Joint_LeftArm = { 25, 0, -12 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 0.96, Ease = "Linear", Joint_CorePos = { 0, -0.55, -0.7 }, Joint_Core = { -37, 0, -2 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 35, 0, 0 }, Joint_LeftArm = { 25, 0, -12 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 1.04, Ease = "Linear", Joint_CorePos = { 0, -0.55, -0.7 }, Joint_Core = { -36, 0, 2 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 36, 0, 0 }, Joint_LeftArm = { 25, 0, -12 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 1.18, Joint_CorePos = { 0, -0.3, 0.1 }, Joint_Core = { 6, 8, 0 }, Joint_Head = { 4, 0, 0 }, Joint_RightArm = { 60, 0, 10 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 20, 0, -16 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 1.25, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.4, -0.2 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 45, 0, 8 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 20, 0, -14 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+			{ T = 1.45, Joint_CorePos = { 0, -0.15, -0.1 }, Joint_Core = { -4, 0, 0 }, Joint_RightArm = { 25, 0, 10 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 12, 0, -10 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 1.7 },
+		},
+	},
+	-- BAT DIVE (wings): two hard flaps lift it (0.1, 0.2), it screeches and DIVES (the server
+	-- flies it in an arc onto them, 0.2 - 0.45) with the wings swept back and the claws
+	-- reaching, RAKES them as it lands on them (0.45, Hit), and kicks off backwards with the
+	-- wings spread, landing at 0.7.
 	Ability_BatDive = {
-		Duration = 0.45,
-		Markers = { { 0.08, "Whoosh" }, { 0.15, "Hit" } },
+		Duration = 0.85,
+		Curve = "Spline",
+		Markers = {
+			{ 0.04, "SFX_WingFlap" }, { 0.1, "FX_WingGust" }, { 0.14, "SFX_WingFlap" }, { 0.2, "FX_WingGust" }, { 0.2, "SFX_BatScreech" }, { 0.22, "FX_Ghosts" },
+			{ 0.45, "Hit" }, { 0.45, "SFX_ClawSlash" }, { 0.52, "SFX_WingFlap" }, { 0.7, "Land" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.1, Joint_CorePos = { 0, 0.4, 0 }, Joint_Core = { -20, 0, 0 }, Sub_Back_R = { 0, 0, 40 }, Sub_Back_L = { 0, 0, -40 }, Joint_RightArm = { 20, 0, 20 }, Joint_LeftArm = { 20, 0, -20 } },
-			{ T = 0.15, Joint_CorePos = { 0, 0.2, -0.6 }, Joint_Core = { -40, 0, 0 }, Joint_Head = { 20, 0, 0 }, Sub_Back_R = { 0, 0, -20 }, Sub_Back_L = { 0, 0, 20 }, Joint_RightArm = { -40, 0, 10 }, Joint_LeftArm = { -40, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
-			{ T = 0.32, Joint_CorePos = { 0, 0.1, -0.3 }, Joint_Core = { -20, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Back_R = { 0, 0, 10 }, Sub_Back_L = { 0, 0, -10 } },
-			{ T = 0.45 },
+			{ T = 0.04, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { 4, 0, 0 }, Sub_Back_R = { 0, 0, 55 }, Sub_Back_L = { 0, 0, -55 }, Joint_RightArm = { 20, 0, 20 }, Joint_LeftArm = { 20, 0, -20 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { 6, 0, 0 } },
+			{ T = 0.1, Ease = "Snap", Joint_CorePos = { 0, 0.5, 0 }, Joint_Core = { -8, 0, 0 }, Sub_Back_R = { 0, 0, -30 }, Sub_Back_L = { 0, 0, 30 }, Joint_RightArm = { 30, 0, 20 }, Joint_LeftArm = { 30, 0, -20 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { 20, 0, 0 } },
+			{ T = 0.14, Joint_CorePos = { 0, 0.6, 0.05 }, Joint_Core = { -10, 0, 0 }, Sub_Back_R = { 0, 0, 55 }, Sub_Back_L = { 0, 0, -55 }, Joint_RightArm = { 40, 0, 24 }, Joint_LeftArm = { 40, 0, -24 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { 30, 0, 0 } },
+			{ T = 0.2, Ease = "Snap", Joint_CorePos = { 0, 0.9, 0.1 }, Joint_Core = { -15, 0, 0 }, Joint_Head = { 6, 0, 0 }, Sub_Back_R = { 0, 0, -35 }, Sub_Back_L = { 0, 0, 35 }, Joint_RightArm = { 60, 0, 30 }, Joint_LeftArm = { 60, 0, -30 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { 40, 0, 0 } },
+			{ T = 0.32, Joint_CorePos = { 0, 0.4, -0.6 }, Joint_Core = { -45, 0, 0 }, Joint_Head = { 25, 0, 0 }, Sub_Back_R = { 0, -40, -10 }, Sub_Back_L = { 0, 40, 10 }, Joint_RightArm = { 120, 0, 10 }, Joint_LeftArm = { 120, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 0.45, Ease = "In", Stop = true, Joint_CorePos = { 0, 0.1, -0.8 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Back_R = { 0, 0, 30 }, Sub_Back_L = { 0, 0, -30 }, Joint_RightArm = { 40, 0, -20 }, Joint_LeftArm = { 40, 0, 20 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
+			{ T = 0.58, Joint_CorePos = { 0, 0.6, 0.2 }, Joint_Core = { 25, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Back_R = { 0, 0, 50 }, Sub_Back_L = { 0, 0, -50 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 }, Sub_Legs_L = { 60, 0, 0 }, Sub_Legs_R = { 40, 0, 0 } },
+			{ T = 0.7, Ease = "Out", Stop = true, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -6, 0, 0 }, Sub_Back_R = { 0, 0, 10 }, Sub_Back_L = { 0, 0, -10 }, Joint_RightArm = { 16, 0, 20 }, Joint_LeftArm = { 16, 0, -20 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+			{ T = 0.85 },
 		},
 	},
-	-- BLINK DASH (wings): coil small, then tear forward stretched out flat (the server dashes
-	-- the body 20 studs), and come out of it skidding.
+	-- BLINK DASH (wings, Void Wings): wrap the wings round the body and crouch as the void
+	-- gathers into it, VANISH (0.3) and come out 20 studs on (0.35, Hit) stretched low with
+	-- the wings snapping open, skid, and look back over the shoulder as the tear left behind
+	-- splits open and cuts everything on it (0.6).
 	Ability_BlinkDash = {
-		Duration = 0.55,
-		Markers = { { 0.15, "Whoosh" }, { 0.2, "Hit" }, { 0.42, "Land" } },
+		Duration = 0.8,
+		Curve = "Spline",
+		Markers = {
+			{ 0, "FX_VoidGather" }, { 0, "SFX_VoidWhoosh" }, { 0.3, "FX_Vanish" }, { 0.35, "Hit" }, { 0.35, "SFX_Teleport" }, { 0.36, "FX_Appear" },
+			{ 0.36, "Land" }, { 0.6, "SFX_GlassShatter" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.15, Joint_CorePos = { 0, -0.3, 0.3 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { -20, 0, 20 }, Joint_LeftArm = { -20, 0, -20 }, Sub_Back_R = { 0, 0, 30 }, Sub_Back_L = { 0, 0, -30 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { 20, 0, 0 } },
-			{ T = 0.2, Joint_CorePos = { 0, -0.05, -0.8 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { -60, 0, 10 }, Joint_LeftArm = { -60, 0, -10 }, Sub_Back_R = { 0, 0, -30 }, Sub_Back_L = { 0, 0, 30 }, Sub_Legs_L = { -20, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
-			{ T = 0.42, Joint_CorePos = { 0, -0.2, -0.3 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_RightArm = { 30, 0, 30 }, Joint_LeftArm = { 30, 0, -30 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
-			{ T = 0.55 },
+			{ T = 0.25, Joint_CorePos = { 0, -0.4, 0.2 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { 60, 0, -50 }, Joint_LeftArm = { 60, 0, 50 }, Sub_Back_R = { 0, -70, 0 }, Sub_Back_L = { 0, 70, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { 20, 0, 0 } },
+			{ T = 0.33, Stop = true, Joint_CorePos = { 0, -0.45, 0.25 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -22, 0, 0 }, Joint_RightArm = { 62, 0, -52 }, Joint_LeftArm = { 62, 0, 52 }, Sub_Back_R = { 0, -75, 0 }, Sub_Back_L = { 0, 75, 0 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { 22, 0, 0 } },
+			{ T = 0.36, Ease = "Hold", Joint_CorePos = { 0, -0.3, -0.6 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { -50, 0, 20 }, Joint_LeftArm = { -50, 0, -20 }, Sub_Back_R = { 0, 20, 40 }, Sub_Back_L = { 0, -20, -40 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -36, 0, 0 } },
+			{ T = 0.5, Joint_CorePos = { 0, -0.35, -0.3 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 4, 0, 0 }, Joint_RightArm = { 30, 0, 40 }, Joint_LeftArm = { 30, 0, -40 }, Sub_Back_R = { 0, 0, 25 }, Sub_Back_L = { 0, 0, -25 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
+			{ T = 0.6, Joint_CorePos = { 0, -0.25, -0.2 }, Joint_Core = { 0, -25, 0 }, Joint_Legs = { 0, 25, 0 }, Joint_Head = { 0, -40, 0 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 20, 0, -30 }, Sub_Back_R = { 0, 0, 20 }, Sub_Back_L = { 0, 0, -20 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 0.8 },
 		},
 	},
-	-- TAIL SWEEP (tail): wind one way, then spin a full turn the other, the tail out flat
-	-- sweeping everything around.
+	-- TAIL SWEEP (tail): crouch and coil the other way, then spin round TWICE low to the
+	-- floor, the tail out flat lagging behind the body and sweeping the legs out from under
+	-- everything around (0.35, Hit), and come up out of it.
 	Ability_TailSweep = {
-		Duration = 0.75,
-		Markers = { { 0.15, "StepL" }, { 0.28, "Whoosh" }, { 0.35, "Hit" }, { 0.55, "StepR" } },
+		Duration = 0.9,
+		Markers = {
+			{ 0.08, "StepL" }, { 0.2, "SFX_BigWhoosh" }, { 0.3, "FX_SweepRing" }, { 0.35, "Hit" }, { 0.35, "Whoosh" }, { 0.55, "SFX_BigWhoosh" }, { 0.55, "StepR" }, { 0.75, "Land" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.15, Joint_CorePos = { 0, -0.15, 0 }, Joint_Core = { 0, 40, 0 }, Joint_Tail = { 0, -40, 0 }, Joint_Head = { 0, -20, 0 } },
-			{ T = 0.35, Joint_CorePos = { 0, -0.1, 0 }, Joint_Core = { 0, -180, 0 }, Joint_Tail = { 0, 30, 0 }, Joint_Head = { 0, 30, 0 } },
-			{ T = 0.55, Joint_CorePos = { 0, -0.1, 0 }, Joint_Core = { 0, -320, 0 }, Joint_Tail = { 0, 30, 0 }, Joint_Head = { 0, 20, 0 } },
-			{ T = 0.75, Joint_Core = { 0, -360, 0 } },
+			{ T = 0.15, Joint_CorePos = { 0, -0.5, 0 }, Joint_Core = { -8, 50, 0 }, Joint_Tail = { 0, -50, 10 }, Joint_Head = { 0, -30, 0 }, Joint_RightArm = { 40, 0, 40 }, Joint_LeftArm = { 40, 0, -40 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.35, Ease = "In", Joint_CorePos = { 0, -0.6, 0 }, Joint_Core = { -10, -250, 0 }, Joint_Tail = { 12, 45, -10 }, Joint_Head = { 0, 40, 0 }, Joint_RightArm = { 60, 0, 70 }, Joint_LeftArm = { 60, 0, -70 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+			{ T = 0.55, Ease = "Linear", Joint_CorePos = { 0, -0.6, 0 }, Joint_Core = { -10, -520, 0 }, Joint_Tail = { 12, 40, -10 }, Joint_Head = { 0, 40, 0 }, Joint_RightArm = { 60, 0, 70 }, Joint_LeftArm = { 60, 0, -70 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } },
+			{ T = 0.75, Ease = "Out", Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -4, -720, 0 }, Joint_Tail = { 0, 10, 0 }, Joint_Head = { 0, 10, 0 }, Joint_RightArm = { 30, 0, 30 }, Joint_LeftArm = { 30, 0, -30 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
+			{ T = 0.9, Joint_Core = { 0, -720, 0 } },
 		},
 	},
-	-- REINFORCED GUARD (core): hunker down behind crossed arms, chin tucked, plates locking.
+	-- REINFORCED GUARD (core): draw both fists back and BANG them together in front (0.15,
+	-- sparks), lift a knee and STOMP down into a crossed-arm stance (0.35, Hit) as the plates
+	-- lock round the body.
 	Ability_ReinforcedGuard = {
-		Duration = 0.4,
-		Markers = { { 0.2, "Hit" }, { 0.2, "Land" } },
+		Duration = 0.75,
+		Curve = "Spline",
+		Markers = {
+			{ 0.15, "SFX_MetalClang" }, { 0.15, "FX_Sparks" }, { 0.28, "SFX_Hydraulic" }, { 0.35, "Hit" }, { 0.35, "FX_PlateLock" }, { 0.35, "SFX_ArmorClank" }, { 0.35, "Land" }, { 0.35, "FX_Stomp" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.12, Joint_CorePos = { 0, -0.25, 0 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 80, 0, -40 }, Joint_LeftArm = { 80, 0, 40 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
-			{ T = 0.2, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 84, 0, -44 }, Joint_LeftArm = { 84, 0, 44 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
-			{ T = 0.4 },
+			{ T = 0.1, Joint_CorePos = { 0, 0, 0.1 }, Joint_Core = { 6, 0, 0 }, Joint_RightArm = { 50, 0, 30 }, Sub_RightArm_Fore = { 90, 0, 0 }, Joint_LeftArm = { 50, 0, -30 }, Sub_LeftArm_Fore = { 90, 0, 0 } },
+			{ T = 0.15, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.05, -0.1 }, Joint_Core = { -6, 0, 0 }, Joint_RightArm = { 85, 0, -38 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 85, 0, 38 }, Sub_LeftArm_Fore = { 40, 0, 0 } },
+			{ T = 0.26, Joint_CorePos = { 0, 0.25, 0 }, Joint_Core = { 2, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 84, 0, -40 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 84, 0, 40 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 0.35, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 84, 0, -44 }, Sub_RightArm_Fore = { 70, 0, 0 }, Joint_LeftArm = { 84, 0, 44 }, Sub_LeftArm_Fore = { 70, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+			{ T = 0.5, Joint_CorePos = { 0, -0.32, 0 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 84, 0, -44 }, Sub_RightArm_Fore = { 70, 0, 0 }, Joint_LeftArm = { 84, 0, 44 }, Sub_LeftArm_Fore = { 70, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+			{ T = 0.75 },
 		},
 	},
-	-- CRYSTAL BARRIER (core): the arms sweep up and out wide, head back, raising the barrier.
+	-- CRYSTAL BARRIER (core): sweep both arms up overhead, head back, then SLAM the palms
+	-- down at the floor (0.45, Hit) - crystals erupt in a ring round it - and rise with the
+	-- arms spread wide.
 	Ability_CrystalBarrier = {
-		Duration = 0.45,
-		Markers = { { 0.25, "Hit" } },
+		Duration = 0.9,
+		Curve = "Spline",
+		Markers = { { 0.05, "SFX_CrystalHum" }, { 0.3, "Whoosh" }, { 0.45, "Hit" }, { 0.45, "FX_CrystalRing" }, { 0.45, "SFX_GlassShatter" }, { 0.45, "Land" }, { 0.52, "SFX_CrystalChime" } },
 		Keys = {
 			{ T = 0 },
-			{ T = 0.15, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 12, 0, 0 }, Joint_RightArm = { 150, 0, 40 }, Joint_LeftArm = { 150, 0, -40 } },
-			{ T = 0.25, Joint_CorePos = { 0, 0.05, 0 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 110, 0, 60 }, Joint_LeftArm = { 110, 0, -60 } },
-			{ T = 0.45 },
-		},
-	},
-	-- ENERGY OVERLOAD (core): the reactor builds: hunched in on itself, shaking harder and
-	-- harder, then it VENTS: thrown upright, arms flung wide, head back.
-	Ability_EnergyOverload = {
-		Duration = 1.8,
-		Markers = { { 0.85, "Whoosh" }, { 1.0, "Hit" }, { 1.0, "Land" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.4, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { 40, 0, -40 }, Joint_LeftArm = { 40, 0, 40 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
-			{ T = 0.6, Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -18, 0, 5 }, Joint_Head = { -22, 4, 0 }, Joint_RightArm = { 42, 0, -42 }, Joint_LeftArm = { 42, 0, 42 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
-			{ T = 0.7, Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -18, 0, -5 }, Joint_Head = { -22, -4, 0 }, Joint_RightArm = { 42, 0, -42 }, Joint_LeftArm = { 42, 0, 42 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
-			{ T = 0.8, Joint_CorePos = { 0, -0.38, 0 }, Joint_Core = { -20, 0, 7 }, Joint_Head = { -24, 6, 0 }, Joint_RightArm = { 44, 0, -44 }, Joint_LeftArm = { 44, 0, 44 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
-			{ T = 0.9, Joint_CorePos = { 0, -0.38, 0 }, Joint_Core = { -20, 0, -7 }, Joint_Head = { -24, -6, 0 }, Joint_RightArm = { 44, 0, -44 }, Joint_LeftArm = { 44, 0, 44 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
-			{ T = 1.0, Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 20, 0, 0 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 100, 0, 80 }, Joint_LeftArm = { 100, 0, -80 } },
-			{ T = 1.3, Joint_CorePos = { 0, 0.25, 0 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 24, 0, 0 }, Joint_RightArm = { 96, 0, 76 }, Joint_LeftArm = { 96, 0, -76 } },
-			{ T = 1.8 },
+			{ T = 0.25, Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 170, 0, 25 }, Joint_LeftArm = { 170, 0, -25 } },
+			{ T = 0.45, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.55, -0.2 }, Joint_Core = { -30, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 40, 0, 25 }, Joint_LeftArm = { 40, 0, -25 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.62, Joint_CorePos = { 0, -0.1, 0 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 100, 0, 60 }, Joint_LeftArm = { 100, 0, -60 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } },
+			{ T = 0.9 },
 		},
 	},
 
 	-- SHOP EXCLUSIVES ----------------------------------------------------------------
-	-- METEOR FIST (arm, Inferno Gauntlet): sink deep with the fist drawn back, spring up
-	-- (the server flies the body from 0.26: an arc onto the target) with the fist raised
-	-- straight up, tuck at the top, then come down FIST FIRST into the floor on the Hit frame
-	-- (0.85, the landing), folded over it, and wrench it out of the crater.
+	-- METEOR FIST (arm, Inferno Gauntlet): the fist IGNITES; sink deep with it drawn back,
+	-- spring up (the server flies the body from 0.26: an arc onto the target) with the fist
+	-- raised straight up trailing fire, tuck at the top, then come down FIST FIRST into the
+	-- floor on the Hit frame (0.85, the landing), folded over it, and wrench it out of the
+	-- crater.
 	Ability_MeteorFist = {
 		Duration = 1.55,
-		Markers = { { 0.1, "StepL" }, { 0.28, "Whoosh" }, { 0.72, "Whoosh" }, { 0.85, "Hit" }, { 0.85, "Land" } },
+		Curve = "Spline",
+		Markers = {
+			{ 0.03, "FX_FistIgnite" }, { 0.03, "SFX_FireIgnite" }, { 0.1, "StepL" }, { 0.26, "FX_TrailOn" }, { 0.28, "Whoosh" }, { 0.28, "SFX_BigWhoosh" },
+			{ 0.72, "SFX_FireWhoosh" }, { 0.85, "Hit" }, { 0.85, "Land" }, { 0.85, "SFX_Explosion" }, { 0.9, "FX_TrailOff" }, { 1.25, "SFX_Sizzle" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.22, Joint_CorePos = { 0, -0.55, 0.25 }, Joint_Core = { -14, -12, 0 }, Joint_Head = { -8, 8, 0 }, Joint_RightArm = { 140, 0, 30 }, Joint_LeftArm = { 40, 0, -30 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { 30, 0, 0 } },
-			{ T = 0.32, Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 175, 0, 8 }, Joint_LeftArm = { 60, 0, -40 }, Sub_Legs_L = { -22, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } },
+			{ T = 0.22, Stop = true, Joint_CorePos = { 0, -0.55, 0.25 }, Joint_Core = { -14, -12, 0 }, Joint_Head = { -8, 8, 0 }, Joint_RightArm = { 140, 0, 30 }, Joint_LeftArm = { 40, 0, -30 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { 30, 0, 0 } },
+			{ T = 0.32, Ease = "Snap", Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 175, 0, 8 }, Joint_LeftArm = { 60, 0, -40 }, Sub_Legs_L = { -22, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } },
 			{ T = 0.6, Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_RightArm = { 172, 0, 6 }, Joint_LeftArm = { 70, 0, -40 }, Sub_Legs_L = { 45, 0, 0 }, Sub_Legs_R = { 38, 0, 0 } },
 			-- (measured on the hit frame: the fist's knuckles on the floor 2.0 studs ahead of the
 			-- body, the feet at their normal stance: AbilityDefinitions MeteorFist FistAhead)
-			{ T = 0.85, Joint_CorePos = { 0, -1.07, -1.0 }, Joint_Core = { -60, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 75, 0, 2 }, Joint_LeftArm = { 18, 0, -34 }, Sub_Legs_L = { 55, 0, 0 }, Sub_Legs_R = { -15, 0, 0 } },
-			{ T = 1.1, Joint_CorePos = { 0, -1.07, -1.0 }, Joint_Core = { -58, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 75, 0, 2 }, Joint_LeftArm = { 20, 0, -34 }, Sub_Legs_L = { 55, 0, 0 }, Sub_Legs_R = { -15, 0, 0 } },
+			{ T = 0.85, Ease = "In", Stop = true, Joint_CorePos = { 0, -1.07, -1.0 }, Joint_Core = { -60, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 75, 0, 2 }, Joint_LeftArm = { 18, 0, -34 }, Sub_Legs_L = { 55, 0, 0 }, Sub_Legs_R = { -15, 0, 0 } },
+			{ T = 1.1, Stop = true, Joint_CorePos = { 0, -1.07, -1.0 }, Joint_Core = { -58, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 75, 0, 2 }, Joint_LeftArm = { 20, 0, -34 }, Sub_Legs_L = { 55, 0, 0 }, Sub_Legs_R = { -15, 0, 0 } },
 			{ T = 1.32, Joint_CorePos = { 0, -0.2, -0.25 }, Joint_Core = { -8, 6, 0 }, Joint_RightArm = { 30, 0, 12 }, Joint_LeftArm = { 14, 0, -14 } },
 			{ T = 1.55 },
 		},
 	},
-	-- DRAGON BREATH (head, Dragon Skull): rear back, head thrown up, the jaw cracking open
-	-- as it draws breath, then thrust the head forward with the jaw WIDE on the Hit frame
-	-- and pour fire for the five ticks (0.5 - 1.5), braced, swaying a little, then close.
+	-- DRAGON BREATH (head, Dragon Skull): DRAW BREATH - rear back, head thrown up, the air
+	-- sucked into the jaws - then thrust the head forward with the jaw WIDE on the Hit frame
+	-- and pour fire for the five ticks (0.5 - 1.5), sweeping it left and right across them,
+	-- braced; then the jaw shuts and smoke curls out of the nostrils.
 	Ability_DragonBreath = {
 		Duration = 1.9,
-		Markers = { { 0.38, "Whoosh" }, { 0.5, "Hit" } },
+		Curve = "Spline",
+		Markers = {
+			{ 0.05, "FX_Inhale" }, { 0.05, "SFX_BeastInhale" }, { 0.38, "Whoosh" }, { 0.46, "SFX_BeastRoar" }, { 0.5, "Hit" },
+			{ 1.6, "FX_SmokeSnort" }, { 1.6, "SFX_SteamHiss" },
+		},
 		Keys = {
 			{ T = 0 },
 			{ T = 0.38, Joint_CorePos = { 0, -0.1, 0.35 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 28, 0, 0 }, Sub_Head_Jaw = { -10, 0, 0 }, Joint_RightArm = { 30, 0, 25 }, Joint_LeftArm = { 30, 0, -25 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
-			{ T = 0.5, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -12, 0, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
-			{ T = 0.8, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, 5, 0 }, Joint_Head = { -12, -5, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
-			{ T = 1.15, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, -5, 0 }, Joint_Head = { -12, 5, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 0.5, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -12, 0, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 0.75, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, 10, 0 }, Joint_Legs = { 0, -8, 0 }, Joint_Head = { -12, 12, 0 }, Sub_Head_Jaw = { -38, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.05, Joint_CorePos = { 0, -0.2, -0.45 }, Joint_Core = { -14, -10, 0 }, Joint_Legs = { 0, 8, 0 }, Joint_Head = { -12, -12, 0 }, Sub_Head_Jaw = { -38, 0, 0 }, Joint_RightArm = { -15, 0, 25 }, Joint_LeftArm = { -15, 0, -25 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.3, Joint_CorePos = { 0, -0.2, -0.42 }, Joint_Core = { -13, 6, 0 }, Joint_Legs = { 0, -5, 0 }, Joint_Head = { -11, 8, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { -14, 0, 24 }, Joint_LeftArm = { -14, 0, -24 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
 			{ T = 1.5, Joint_CorePos = { 0, -0.15, -0.35 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { -10, 0, 0 }, Sub_Head_Jaw = { -32, 0, 0 }, Joint_RightArm = { -10, 0, 20 }, Joint_LeftArm = { -10, 0, -20 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
-			{ T = 1.7, Joint_Head = { -2, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 } },
+			{ T = 1.62, Ease = "Snap", Joint_Head = { -2, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 } },
 			{ T = 1.9 },
 		},
 	},
-	-- PHOENIX DIVE (wings): the wings flare up high, then fold back as the body tips into
-	-- the dive (the server dashes it 16 studs on the Hit frame), and spread to pull out.
+	-- PHOENIX DIVE (wings): the wings flare up high and BURST INTO FLAME, the bird screeches,
+	-- then they fold back as the body tips into the dive (0.35, Hit: the server streaks it 16
+	-- studs through everything, leaving fire behind), and at the end of it they FLARE open in
+	-- a blast of fire (0.65) as it pulls up.
 	Ability_PhoenixDive = {
-		Duration = 0.7,
-		Markers = { { 0.2, "Whoosh" }, { 0.3, "Hit" }, { 0.55, "Land" } },
+		Duration = 0.85,
+		Curve = "Spline",
+		Markers = {
+			{ 0, "FX_WingsIgnite" }, { 0, "SFX_FireIgnite" }, { 0.18, "SFX_HawkScreech" }, { 0.3, "Whoosh" }, { 0.35, "Hit" }, { 0.35, "SFX_FireWhoosh" },
+			{ 0.65, "FX_PhoenixFlare" }, { 0.65, "SFX_FireIgnite" }, { 0.72, "Land" },
+		},
 		Keys = {
 			{ T = 0 },
-			{ T = 0.18, Joint_CorePos = { 0, 0.35, 0.2 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Back_R = { 0, 0, 45 }, Sub_Back_L = { 0, 0, -45 }, Joint_RightArm = { 20, 0, 30 }, Joint_LeftArm = { 20, 0, -30 } },
-			{ T = 0.3, Joint_CorePos = { 0, 0.15, -0.7 }, Joint_Core = { -42, 0, 0 }, Joint_Head = { 22, 0, 0 }, Sub_Back_R = { 0, 0, -25 }, Sub_Back_L = { 0, 0, 25 }, Joint_RightArm = { -50, 0, 10 }, Joint_LeftArm = { -50, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
-			{ T = 0.5, Joint_CorePos = { 0, 0.05, -0.4 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Back_R = { 0, 0, 15 }, Sub_Back_L = { 0, 0, -15 } },
+			{ T = 0.2, Joint_CorePos = { 0, 0.4, 0.25 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 14, 0, 0 }, Sub_Back_R = { 0, 0, 55 }, Sub_Back_L = { 0, 0, -55 }, Joint_RightArm = { 30, 0, 30 }, Joint_LeftArm = { 30, 0, -30 } },
+			{ T = 0.35, Ease = "Snap", Joint_CorePos = { 0, 0.2, -0.7 }, Joint_Core = { -48, 0, 0 }, Joint_Head = { 28, 0, 0 }, Sub_Back_R = { 0, -45, -15 }, Sub_Back_L = { 0, 45, 15 }, Joint_RightArm = { -60, 0, 10 }, Joint_LeftArm = { -60, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 0.58, Joint_CorePos = { 0, 0.2, -0.7 }, Joint_Core = { -46, 0, 4 }, Joint_Head = { 26, 0, 0 }, Sub_Back_R = { 0, -48, -15 }, Sub_Back_L = { 0, 48, 15 }, Joint_RightArm = { -62, 0, 10 }, Joint_LeftArm = { -62, 0, -10 }, Sub_Legs_L = { -30, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } },
+			{ T = 0.65, Ease = "Snap", Stop = true, Joint_CorePos = { 0, 0.3, -0.2 }, Joint_Core = { 18, 0, 0 }, Joint_Head = { 20, 0, 0 }, Sub_Back_R = { 0, 10, 70 }, Sub_Back_L = { 0, -10, -70 }, Joint_RightArm = { 90, 0, 70 }, Joint_LeftArm = { 90, 0, -70 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } },
+			{ T = 0.85 },
+		},
+	},
+	-- MAGMA SHELL (core, Obsidian Heart): curl in tight round the heart as the lava wells up,
+	-- then throw the arms wide and the head back as the crust bursts out over the body
+	-- (0.35, Hit).
+	Ability_MagmaShell = {
+		Duration = 0.7,
+		Curve = "Spline",
+		Markers = { { 0, "SFX_LavaRumble" }, { 0.05, "FX_MagmaRise" }, { 0.35, "Hit" }, { 0.35, "FX_MagmaCrust" }, { 0.35, "SFX_RockDebris" }, { 0.35, "Land" }, { 0.4, "SFX_Sizzle" } },
+		Keys = {
+			{ T = 0 },
+			{ T = 0.18, Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { 55, 0, -45 }, Sub_RightArm_Fore = { 80, 0, 0 }, Joint_LeftArm = { 55, 0, 45 }, Sub_LeftArm_Fore = { 80, 0, 0 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
+			{ T = 0.35, Ease = "Snap", Stop = true, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 95, 0, 75 }, Sub_RightArm_Fore = { 0, 0, 0 }, Joint_LeftArm = { 95, 0, -75 }, Sub_LeftArm_Fore = { 0, 0, 0 } },
+			{ T = 0.5, Joint_CorePos = { 0, 0.02, 0 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 60, 0, 40 }, Joint_LeftArm = { 60, 0, -40 } },
 			{ T = 0.7 },
 		},
 	},
-	-- MAGMA SHELL (core, Obsidian Heart): curl in tight around the heart, then throw the
-	-- arms wide and the head back as the lava crust bursts out over the body.
-	Ability_MagmaShell = {
-		Duration = 0.5,
-		Markers = { { 0.3, "Hit" }, { 0.3, "Land" } },
-		Keys = {
-			{ T = 0 },
-			{ T = 0.15, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 50, 0, -40 }, Joint_LeftArm = { 50, 0, 40 }, Sub_Legs_L = { 20, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } },
-			{ T = 0.3, Joint_CorePos = { 0, 0.1, 0 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 95, 0, 70 }, Joint_LeftArm = { 95, 0, -70 } },
-			{ T = 0.5 },
-		},
-	},
 	-- VENOM STING (tail, Scorpion Tail): lean back and cock the stinger back over the body,
-	-- then lunge in and whip it forward over the head, driving the point down into what's in
-	-- front on the Hit frame, and hold it there a beat.
+	-- then lunge in and whip it forward over the head, STABBING down into what's in front
+	-- (0.45, Hit). Pinned on it, they're pumped full of venom - the tail draws up and drives
+	-- in three times (0.67, 0.91, 1.15) - then it YANKS the stinger out (1.35) in a spray.
 	Ability_VenomSting = {
-		Duration = 0.95,
-		Markers = { { 0.12, "StepR" }, { 0.36, "Whoosh" }, { 0.45, "Hit" }, { 0.45, "StepL" } },
+		Duration = 1.8,
+		Curve = "Spline",
+		Markers = {
+			{ 0.05, "FX_VenomDrip" }, { 0.12, "StepR" }, { 0.36, "Whoosh" }, { 0.45, "Hit" }, { 0.45, "SFX_Stab" }, { 0.45, "StepL" },
+			{ 0.67, "FX_VenomPump" }, { 0.67, "SFX_GoreSquish" }, { 0.91, "FX_VenomPump" }, { 0.91, "SFX_GoreSquish" }, { 1.15, "FX_VenomPump" }, { 1.15, "SFX_GoreSquish" },
+			{ 1.35, "FX_VenomSpray" }, { 1.35, "SFX_Squirt" }, { 1.36, "SFX_AcidHiss" },
+		},
 		Keys = {
 			{ T = 0 },
 			{ T = 0.28, Joint_CorePos = { 0, 0, 0.3 }, Joint_Core = { 10, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_Tail = { 28, 0, 0 }, Sub_Legs_L = { -10, 0, 0 }, Sub_Legs_R = { 14, 0, 0 } },
-			{ T = 0.45, Joint_CorePos = { 0, -0.2, -0.5 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -60, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 0.62, Joint_CorePos = { 0, -0.2, -0.5 }, Joint_Core = { -15, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -57, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
-			{ T = 0.95 },
+			{ T = 0.45, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.2, -0.5 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -60, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.6, Joint_CorePos = { 0, -0.18, -0.48 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -53, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.67, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.24, -0.55 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -9, 0, 0 }, Joint_Tail = { -63, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 0.84, Joint_CorePos = { 0, -0.18, -0.48 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -53, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 0.91, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.24, -0.55 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -9, 0, 0 }, Joint_Tail = { -63, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.08, Joint_CorePos = { 0, -0.18, -0.48 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_Tail = { -53, 0, 0 }, Sub_Legs_L = { 28, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			{ T = 1.15, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.24, -0.55 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -9, 0, 0 }, Joint_Tail = { -64, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.28, Joint_CorePos = { 0, -0.25, -0.55 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_Tail = { -66, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 1.35, Ease = "Snap", Stop = true, Joint_CorePos = { 0, 0, -0.1 }, Joint_Core = { 8, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_Tail = { -10, 0, 0 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -4, 0, 0 } },
+			{ T = 1.55, Joint_CorePos = { 0, 0, 0 }, Joint_Core = { 2, 0, 0 }, Joint_Tail = { 10, 0, 0 } },
+			{ T = 1.8 },
 		},
 	},
 }
+
+-- ENERGY OVERLOAD (core): the reactor builds - hunched in on itself, shaking harder and
+-- harder as the light swells (0 - 0.95) - then it VENTS (1.0, Hit): thrown upright, arms
+-- flung wide, head back; it holds there smoking, then vents its stacks.
+do
+	local hunched = { Joint_CorePos = { 0, -0.35, 0 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { -22, 0, 0 }, Joint_RightArm = { 42, 0, -42 }, Joint_LeftArm = { 42, 0, 42 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } }
+	local keys = {
+		{ T = 0 },
+		{ T = 0.4, Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { -20, 0, 0 }, Joint_RightArm = { 40, 0, -40 }, Joint_LeftArm = { 40, 0, 40 }, Sub_Legs_L = { 18, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+	}
+	strain(keys, hunched, 0.46, 0.9, 0.045, 1.5, 7)
+	table.insert(keys, { T = 0.95, Joint_CorePos = { 0, -0.45, 0 }, Joint_Core = { -24, 0, 0 }, Joint_Head = { -28, 0, 0 }, Joint_RightArm = { 46, 0, -46 }, Joint_LeftArm = { 46, 0, 46 }, Sub_Legs_L = { 22, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } })
+	table.insert(keys, { T = 1.0, Ease = "Snap", Stop = true, Joint_CorePos = { 0, 0.3, 0 }, Joint_Core = { 20, 0, 0 }, Joint_Head = { 30, 0, 0 }, Joint_RightArm = { 100, 0, 80 }, Joint_LeftArm = { 100, 0, -80 } })
+	table.insert(keys, { T = 1.3, Joint_CorePos = { 0, 0.25, 0 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 24, 0, 0 }, Joint_RightArm = { 96, 0, 76 }, Joint_LeftArm = { 96, 0, -76 } })
+	table.insert(keys, { T = 1.55, Joint_CorePos = { 0, -0.1, 0 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { -8, 0, 0 }, Joint_RightArm = { 30, 0, 20 }, Joint_LeftArm = { 30, 0, -20 } })
+	table.insert(keys, { T = 1.9 })
+	ABILITY.Ability_EnergyOverload = {
+		Duration = 1.9,
+		Curve = "Spline",
+		Markers = {
+			{ 0, "SFX_EnergyCharge" }, { 0.05, "FX_OverloadCharge" }, { 0.4, "SFX_ElectricArc" }, { 0.65, "SFX_PowerUp" }, { 0.95, "Whoosh" },
+			{ 1.0, "Hit" }, { 1.0, "FX_OverloadBlast" }, { 1.0, "SFX_Explosion" }, { 1.0, "Land" }, { 1.4, "FX_Vent" }, { 1.4, "SFX_SteamHiss" },
+		},
+		Keys = keys,
+	}
+end
 
 -- ULTIMATES ("Ultimate_<Id>"): "Hit" = the Startup (when it goes off), then the body keeps
 -- performing it for the pulses / ticks that follow.
@@ -884,9 +1145,6 @@ local POSES = {
 		-- Abilities by id ("Ability_<Id>", the server's ActionName). "_Left" = mirrored for a
 		-- left-limb source.
 		Ability_Bite = BITE,
-		Ability_ChargedBite = scaled(BITE, 1.5), -- windup 0.45: the same bite, heavier
-		Ability_RustySlash = RUSTY_SLASH,
-		Ability_RustySlash_Left = mirrored(RUSTY_SLASH),
 
 		-- GUARD (the combat brain covering up, NightmareCombatDefinitions.Guard): any body
 		-- sinks, tucks the head and brings up whatever arms it has; held, a small breathing
@@ -1348,8 +1606,14 @@ for name, def in ABILITY do
 	POSES.Common[name] = def
 end
 -- (arm abilities: the left-arm version)
-for _, id in { "TentacleLash", "DemonRend", "MagnetPull", "HammerSlam", "MeteorFist" } do
+for _, id in { "RustySlash", "TentacleLash", "DemonRend", "MagnetPull", "HammerSlam", "MeteorFist" } do
 	POSES.Common["Ability_" .. id .. "_Left"] = mirrored(ABILITY["Ability_" .. id])
+end
+-- (every ability on a four-legged body: its quadruped variant, found before Common)
+for name, def in POSES.Common do
+	if name:sub(1, 8) == "Ability_" then
+		POSES.Quadruped[name] = forQuadruped(def)
+	end
 end
 for name, def in ULTIMATE do
 	POSES.Common[name] = def

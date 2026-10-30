@@ -14,6 +14,7 @@ local LOAD_ORDER = {
 	"AudioController",
 	"NightmareAnimator",
 	"EffectsController",
+	"AbilityEffects",
 	"HUDController",
 	"WorkshopController",
 	"TutorialController",

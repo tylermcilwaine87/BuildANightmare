@@ -858,14 +858,22 @@ function EffectsController:FinisherCam(attacker: Model?, target: Model?, signatu
 	end)
 end
 
+local SHIELD_TINT = {
+	Default = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(180, 230, 255) },
+	ReinforcedGuard = { Color3.fromRGB(150, 170, 190), Color3.fromRGB(90, 225, 255) },
+	CrystalBarrier = { Color3.fromRGB(170, 130, 255), Color3.fromRGB(210, 180, 255) },
+	MagmaShell = { Color3.fromRGB(255, 100, 30), Color3.fromRGB(255, 170, 70) },
+}
 function EffectsController:ShieldBubble(model: Model?, duration: number)
 	if not model or not model.Parent then
 		return
 	end
+	-- (each shield's own colour; the body shows through: its look is on AbilityEffects)
+	local style = SHIELD_TINT[model:GetAttribute("ShieldStyle")] or SHIELD_TINT.Default
 	local highlight = UIKit.New("Highlight", {
-		FillColor = Color3.fromRGB(120, 200, 255),
-		FillTransparency = 0.6,
-		OutlineColor = Color3.fromRGB(180, 230, 255),
+		FillColor = style[1],
+		FillTransparency = 0.82,
+		OutlineColor = style[2],
 		Adornee = model,
 		Parent = effectsFolder,
 	})

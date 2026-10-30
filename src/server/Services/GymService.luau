@@ -598,7 +598,7 @@ function GymService:AbilityRoutine(session)
 	return {
 		Action = "Ability_" .. def.Id,
 		Windup = def.Windup,
-		Duration = def.Windup + def.Recovery + (def.Clamp and def.Clamp.Hold or 0) + 0.3,
+		Duration = AbilityDefinitions.Length(def) + 0.3,
 		Spot = def.Motion == "Grip" and "Bite" or nil,
 		Source = brain.model:GetAttribute(("Ability%dSource"):format(pick.Slot)) or "",
 		Weight = 0,

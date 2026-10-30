@@ -8,9 +8,21 @@
 	Ability types (each handled by one executor in AbilityService):
 	  Melee   box in front of the Nightmare            Range, Width, Damage
 	  AoE     circle centred Offset studs ahead        Radius, Offset, Damage (telegraphed)
-	  Dash    lunge forward, hits along the path        Distance, Width, Damage
+	  Charge  the body is driven forward, hitting what it runs into   Distance, Width, Time
 	  Pull    yank one target in front of you           Range, Damage
+	  Glare   a beam from the head, several ticks       Range, Width, Ticks, Interval
 	  Shield  temporary damage-absorbing barrier        Amount, Duration
+	  Leap / Breath (see the shop exclusives below)
+
+	Every ability plays its own keyframed animation (NightmarePoses "Ability_<Id>"): Windup
+	is its Hit frame, Windup + Recovery its length (plus a hold's time where it has one).
+	Its effects and sounds are cued by that animation's markers (AbilityEffects).
+
+	Shapes a melee ability can take (the BITE is the model: it lands, holds, finishes):
+	  Strikes  several blows in one move: { At = seconds, Share = of Damage, Motion, ... }
+	  Clamp    the jaws lock on, hold and shake the victim, then rip / blast it away
+	  Wrap     the limb coils round the victim at range, hoists it and slams it down
+	  Pin      the point goes in and stays in: the victim is pinned while venom pumps
 
 	Which abilities a Nightmare gets (shown in the workshop):
 	  Q (Ability 1) = the Head part's ability
@@ -29,7 +41,7 @@ AbilityDefinitions.ById = {
 		DisplayName = "Bite",
 		Type = "Melee",
 		Description = "A quick, nasty chomp.",
-		Damage = 22, Range = 5, Width = 5, Windup = 0.3, Recovery = 0.4, Cooldown = 6,
+		Damage = 22, Range = 5, Width = 5, Windup = 0.3, Recovery = 0.55, Cooldown = 6,
 		Lunge = 3, Motion = "Grip", Knockback = 0,
 		-- the jaws LOCK ON: the victim is held in the mouth and thrashed for Hold seconds
 		-- (Share of the damage on the snap), then the head rips away: the rest of the damage
@@ -37,99 +49,162 @@ AbilityDefinitions.ById = {
 		-- thrash and its "Rip" marker (NightmarePoses BITE).
 		Clamp = { Hold = 1.45, Shake = 2.6, Share = 0.55, RipKnockback = 48 },
 	},
+	-- CHARGED BITE: the same lock-on as the bite, but electric: the jaw crackles open, snaps
+	-- shut, and the victim is held CONVULSING (Style "Convulse": fast small jolts instead of
+	-- a thrash) while three shocks run through it (Ticks: seconds after the snap, a share of
+	-- the damage each), then the jaws DISCHARGE and blast it straight away (Throw "Forward").
 	ChargedBite = {
 		DisplayName = "Charged Bite",
 		Type = "Melee",
 		Element = "Electric",
-		Description = "A crackling bite that hits hard.",
-		Damage = 32, Range = 5, Width = 6, Windup = 0.45, Recovery = 0.45, Cooldown = 8,
+		Description = "Lock the jaws on and run the current through them, then blast them away.",
+		Damage = 34, Range = 5, Width = 6, Windup = 0.45, Recovery = 0.6, Cooldown = 8,
 		Lunge = 3.5, Motion = "Grip", Knockback = 0,
-		-- the same clamp, its animation stretched 1.5x (so is the hold and the thrash)
-		Clamp = { Hold = 1.45 * 1.5, Shake = 2.6 / 1.5, Share = 0.55, RipKnockback = 60 },
+		Clamp = {
+			Hold = 1.4, Shake = 9, Swing = 4, Lift = 0.08, Style = "Convulse", Share = 0.35,
+			Ticks = { { 0.35, 0.1 }, { 0.7, 0.1 }, { 1.05, 0.1 } },
+			Throw = "Forward", RipKnockback = 58,
+		},
 	},
+	-- FROST RAM (Charge): paw the ground twice snorting frost, then CHARGE: the body is
+	-- driven Distance studs over Time, laying ice behind it. The first body it runs into that
+	-- can be carried is GORED (Gore.Share of the damage) and carried on the horns to the end
+	-- of the run, then TOSSED up and over (the rest, a launch); anything else it ploughs
+	-- through is knocked aside. A boss stops it dead (the full hit lands there).
 	FrostRam = {
 		DisplayName = "Frost Ram",
-		Type = "Dash",
+		Type = "Charge",
 		Element = "Ice",
-		Description = "Charge forward horns-first.",
-		Damage = 24, Distance = 14, Width = 5, Windup = 0.35, Recovery = 0.5, Cooldown = 9, Stagger = 25,
+		Description = "Paw the ice, charge horns-first, gore whatever's in the way and toss it.",
+		Damage = 30, Distance = 14, Width = 5, Time = 0.45, Windup = 0.55, Recovery = 1.05, Cooldown = 9, Stagger = 30,
+		Gore = { Share = 0.4, Lift = 1.4, Toss = { Lift = 52, Push = 20, Spin = 9 } },
+		Trail = "Ice",
 	},
+	-- VISOR GLARE (Glare): the visor charges white-hot, then a searing beam pours out of it
+	-- for Ticks x Interval, sweeping a little side to side; Damage per tick, the last one
+	-- staggers. The welder vents its canister after.
 	ScrapVisorBeam = {
 		DisplayName = "Visor Glare",
-		Type = "Melee",
-		Description = "A searing short-range glare.",
-		Damage = 20, Range = 10, Width = 3, Windup = 0.4, Recovery = 0.4, Cooldown = 7,
+		Type = "Glare",
+		Element = "Fire",
+		Description = "Charge the visor white-hot and pour a searing beam over them.",
+		Damage = 6, Ticks = 4, Interval = 0.2, Range = 12, Width = 3.5, Windup = 0.55, Recovery = 0.45, Cooldown = 7, Stagger = 8,
 	},
+	-- RUSTY SLASH: a rake across, the claw carried round, and a backhand rake back the other
+	-- way that sends them off (Strikes; "Sweep" carries the victim across the way the claw
+	-- goes, "SweepBack" the other way).
 	RustySlash = {
 		DisplayName = "Rusty Slash",
 		Type = "Melee",
-		Description = "A wide, squeaky sweep.",
-		Damage = 18, Range = 6, Width = 9, Windup = 0.3, Recovery = 0.4, Cooldown = 5,
+		Description = "Rake across, then backhand them away the other way.",
+		Damage = 20, Range = 6, Width = 9, Windup = 0.3, Recovery = 0.6, Cooldown = 5,
 		Motion = "Sweep",
+		Strikes = {
+			{ At = 0.3, Share = 0.4, Motion = "Sweep", Knockback = 6, NoKnockdown = true },
+			{ At = 0.62, Share = 0.6, Motion = "SweepBack", Knockback = 24 },
+		},
 	},
+	-- TENTACLE LASH: the whip cracks out at full length (Range); a body it catches that can be
+	-- carried is WRAPPED (Wrap.Share): reeled in to Wrap.Reach in front, hoisted Wrap.Lift
+	-- studs, and SLAMMED into the floor Wrap.SlamAt seconds after the catch (the rest,
+	-- crumpling them). Anything else just takes the lash.
 	TentacleLash = {
 		DisplayName = "Tentacle Lash",
 		Type = "Melee",
 		Element = "Shadow",
-		Description = "A long, whipping strike.",
-		Damage = 24, Range = 11, Width = 3, Windup = 0.4, Recovery = 0.45, Cooldown = 7,
+		Description = "Whip it out, wrap them up, hoist them high and smash them down.",
+		Damage = 28, Range = 11, Width = 3.5, Windup = 0.45, Recovery = 0.5, Cooldown = 7,
+		Wrap = { Share = 0.35, Reach = 4.5, Lift = 4, ReelTime = 0.25, LiftAt = 0.55, SlamAt = 0.75 },
 	},
+	-- DEMON REND: three rends with the burning claws: down across, back across (an X), then
+	-- a rising gut-rip that throws them up in a burst of fire.
 	DemonRend = {
 		DisplayName = "Demon Rend",
 		Type = "Melee",
-		Description = "A brutal finisher.",
-		Damage = 38, Range = 6, Width = 6, Windup = 0.5, Recovery = 0.6, Cooldown = 10, Stagger = 40, Element = "Fire",
+		Element = "Fire",
+		Description = "Rend them in an X, then rip upward and throw them in a burst of fire.",
+		Damage = 42, Range = 6, Width = 6, Windup = 0.5, Recovery = 1.0, Cooldown = 10, Stagger = 40,
+		Lunge = 2, Reach = 3,
+		Strikes = {
+			{ At = 0.5, Share = 0.22, Motion = "Sweep", Knockback = 4, NoKnockdown = true, NoStatus = true },
+			{ At = 0.72, Share = 0.22, Motion = "SweepBack", Knockback = 4, NoKnockdown = true, NoStatus = true },
+			{ At = 1.02, Share = 0.56, Motion = "Up", Heavy = true, Launch = { Lift = 30, Push = 14, Spin = 6 } },
+		},
 	},
+	-- MAGNET PULL: the magnet locks on (Damage x Reel.Share), the victim is DRAGGED along the
+	-- floor into the claw over Reel.Time, swung up over the head and SLAMMED down in front
+	-- Reel.SlamAt seconds after the lock (the rest). A player is yanked in instead and takes
+	-- the slam if they're still in reach.
 	MagnetPull = {
 		DisplayName = "Magnet Pull",
 		Type = "Pull",
 		Element = "Mechanical",
-		Description = "Yank an enemy right up to your claws.",
-		Damage = 15, Range = 25, Windup = 0.4, Recovery = 0.5, Cooldown = 10,
+		Description = "Lock the magnet on, drag them in, swing them overhead and slam them down.",
+		Damage = 22, Range = 25, Windup = 0.4, Recovery = 0.45, Cooldown = 10,
+		Reel = { Share = 0.3, Time = 0.45, Lift = 4.5, SlamAt = 0.75, Reach = 3 },
 	},
+	-- HAMMER SLAM: hop and heave the hammer over, slam it down (the hit), and wrench it out
+	-- of the floor in an AFTERSHOCK (Aftershock.At seconds after: a smaller ring).
 	HammerSlam = {
 		DisplayName = "Hammer Slam",
 		Type = "AoE",
-		Description = "Bring the hammer down on everything ahead.",
-		Damage = 45, Radius = 9, Offset = 7, Windup = 0.8, Recovery = 0.7, Cooldown = 12, Stagger = 50,
+		Description = "Bring the hammer down on everything ahead, then wrench it free in an aftershock.",
+		Damage = 45, Radius = 9, Offset = 7, Windup = 0.8, Recovery = 0.9, Cooldown = 12, Stagger = 50, Heavy = true,
+		Slam = true,
+		Aftershock = { At = 0.45, Radius = 6, Share = 0.2 },
 	},
+	-- BAT DIVE (Charge, Arc): two hard flaps up, then dive onto them in an arc (Time) and
+	-- rake them (StopOnHit: the dive ends on the first body), then kick off them backwards
+	-- (Bounce studs).
 	BatDive = {
 		DisplayName = "Bat Dive",
-		Type = "Dash",
-		Description = "A short flapping dive.",
-		Damage = 10, Distance = 10, Width = 4, Windup = 0.15, Recovery = 0.3, Cooldown = 6,
+		Type = "Charge",
+		Description = "Flap up, dive onto them claws-first and kick off.",
+		Damage = 12, Distance = 10, Width = 4, Time = 0.25, Windup = 0.45, Recovery = 0.4, Cooldown = 6,
+		Arc = 3.5, Early = true, StopOnHit = true, Bounce = 3,
 	},
+	-- BLINK DASH (Charge, Blink): wrap in the wings, vanish, and come out Distance studs on;
+	-- the tear left in the air along the way splits open RiftDelay seconds later and cuts
+	-- everything it passes through.
 	BlinkDash = {
 		DisplayName = "Blink Dash",
-		Type = "Dash",
+		Type = "Charge",
 		Element = "Void",
-		Description = "Tear through space and through enemies.",
-		Damage = 16, Distance = 20, Width = 5, Windup = 0.2, Recovery = 0.35, Cooldown = 8,
+		Description = "Vanish through a tear in space; a moment later the tear cuts everything on the line.",
+		Damage = 18, Distance = 20, Width = 5, Time = 0, Windup = 0.35, Recovery = 0.45, Cooldown = 8,
+		Blink = { RiftDelay = 0.25 },
+		Trail = "Void",
 	},
+	-- TAIL SWEEP: crouch, coil, and spin round one and a half times with the tail out flat
+	-- along the floor, sweeping the legs out from under everything around (Launch: a trip).
 	TailSweep = {
 		DisplayName = "Tail Sweep",
 		Type = "AoE",
-		Description = "Spin and sweep everything nearby.",
-		Damage = 14, Radius = 7, Offset = 0, Windup = 0.35, Recovery = 0.4, Cooldown = 7,
+		Description = "Spin low and sweep the legs out from under everything around.",
+		Damage = 16, Radius = 7, Offset = 0, Windup = 0.35, Recovery = 0.55, Cooldown = 7,
+		Launch = { Lift = 22, Push = 6, Spin = 10 },
 	},
 	ReinforcedGuard = {
 		DisplayName = "Reinforced Guard",
 		Type = "Shield",
 		Element = "Mechanical",
-		Description = "Lock the plates: absorbs damage for a few seconds.",
-		Amount = 60, Duration = 5, Windup = 0.2, Recovery = 0.2, Cooldown = 15,
+		Description = "Bang the fists together and stomp: the plates lock and absorb damage.",
+		Amount = 60, Duration = 5, Windup = 0.35, Recovery = 0.4, Cooldown = 15,
 	},
 	CrystalBarrier = {
 		DisplayName = "Crystal Barrier",
 		Type = "Shield",
-		Description = "A shimmering barrier that soaks a big hit.",
-		Amount = 90, Duration = 5, Windup = 0.25, Recovery = 0.2, Cooldown = 18,
+		Description = "Slam the ground: crystals erupt in a ring and soak a big hit.",
+		Amount = 90, Duration = 5, Windup = 0.45, Recovery = 0.45, Cooldown = 18,
 	},
+	-- ENERGY OVERLOAD: the reactor builds, shaking harder and harder, then VENTS: everything
+	-- around is blown outward (Radial launch).
 	EnergyOverload = {
 		DisplayName = "Energy Overload",
 		Type = "AoE",
-		Description = "The reactor vents in a devastating blast. Long cooldown.",
-		Damage = 60, Radius = 12, Offset = 0, Windup = 1.0, Recovery = 0.8, Cooldown = 25, Stagger = 60, Element = "Fire",
+		Description = "The reactor builds to breaking point and vents in a devastating blast. Long cooldown.",
+		Damage = 60, Radius = 12, Offset = 0, Windup = 1.0, Recovery = 0.9, Cooldown = 25, Stagger = 60, Element = "Fire", Heavy = true,
+		Radial = true, Launch = { Lift = 26, Push = 38, Spin = 5 },
 	},
 
 	-- SHOP exclusives (PartDefinitions "Exclusive"): tuned like the free abilities of the
@@ -153,12 +228,17 @@ AbilityDefinitions.ById = {
 		Description = "Rear back and pour a cone of fire over everything ahead.",
 		Damage = 9, Ticks = 5, Interval = 0.2, Range = 14, Cone = 50, Windup = 0.5, Recovery = 0.4, Cooldown = 11, Stagger = 6,
 	},
+	-- PHOENIX DIVE (Charge, PassThrough): the wings flare into flame, fold, and the body
+	-- streaks Distance studs through everything in the way, a trail of fire behind it, then
+	-- flares open in a burst of fire where it pulls up (EndBurst).
 	PhoenixDive = {
 		DisplayName = "Phoenix Dive",
-		Type = "Dash",
+		Type = "Charge",
 		Element = "Fire",
-		Description = "Fold the wings and dive through them in a streak of flame.",
-		Damage = 20, Distance = 16, Width = 5, Windup = 0.3, Recovery = 0.4, Cooldown = 9,
+		Description = "Burst into flame and streak through them, then flare open in a blast of fire.",
+		Damage = 22, Distance = 16, Width = 5, Time = 0.3, Windup = 0.35, Recovery = 0.5, Cooldown = 9,
+		PassThrough = 0.6, EndBurst = { Radius = 5.5, Share = 0.4 },
+		Trail = "Fire",
 	},
 	-- Retaliate: while the shield is up, anything that hits it from within Range gets the
 	-- Status (PassiveService).
@@ -167,17 +247,22 @@ AbilityDefinitions.ById = {
 		Type = "Shield",
 		Element = "Fire",
 		Description = "A crust of cooling lava: absorbs damage and burns whatever hits it.",
-		Amount = 70, Duration = 5, Windup = 0.3, Recovery = 0.2, Cooldown = 16,
+		Amount = 70, Duration = 5, Windup = 0.35, Recovery = 0.35, Cooldown = 16,
 		Retaliate = { Status = "Burn", Range = 10 },
 	},
+	-- VENOM STING: lunge in, the tail arcs over the head and STABS down. A body that can be
+	-- held is PINNED on the stinger (Pin.Share): the tail pumps venom into it three times
+	-- (Pin.Pumps: seconds after the stab, a share of the damage and a poison stack each),
+	-- then yanks out in a spray and kicks it away. Anything else just takes the sting.
 	VenomSting = {
 		DisplayName = "Venom Sting",
 		Type = "Melee",
 		Element = "Poison",
-		Description = "Lunge in as the tail arcs over the head and stabs down, poisoning.",
+		Description = "Stab down over the head, pin them on the stinger and pump the venom in.",
 		-- Reach: the stinger is 3.05 studs ahead of the body on the Hit frame (measured,
 		-- NightmarePoses VENOM STING), so the lunge stops there and the hit lands on the point
-		Damage = 26, Range = 4, Width = 3, Lunge = 4, Reach = 3.05, Windup = 0.45, Recovery = 0.5, Cooldown = 8, Knockback = 8,
+		Damage = 30, Range = 4, Width = 3, Lunge = 4, Reach = 3.05, Windup = 0.45, Recovery = 0.45, Cooldown = 8, Knockback = 8,
+		Pin = { Share = 0.35, Hold = 0.9, Pumps = { { 0.22, 0.1 }, { 0.46, 0.1 }, { 0.7, 0.1 } }, YankKnockback = 26 },
 	},
 }
 
@@ -287,6 +372,16 @@ function AbilityDefinitions.Get(id: string?)
 		return nil
 	end
 	return AbilityDefinitions.ById[id]
+end
+
+-- How long an ability's action lasts, start to finish (its animation's length), and how
+-- long it's committed (nothing cuts it before then): the windup, then any hold / pour
+-- (a clamp, a wrap's slam, a pin, a reel, a beam or a breath), then the Recovery.
+function AbilityDefinitions.Length(def): (number, number)
+	local held = (def.Clamp and def.Clamp.Hold) or (def.Wrap and def.Wrap.SlamAt) or (def.Pin and def.Pin.Hold)
+		or (def.Reel and def.Reel.SlamAt) or ((def.Type == "Glare" or def.Type == "Breath") and def.Ticks * def.Interval) or 0
+	local committed = def.Windup + held
+	return committed + def.Recovery, committed
 end
 
 -- Returns { [1] = abilityId?, [2] = abilityId? } for a build.

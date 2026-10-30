@@ -23,6 +23,9 @@
 
 	Every keyframe uses Cubic In/Out easing = the code player's smoothstep, so the asset
 	moves exactly like the tuned code version (measured: identical to 0.01 stud).
+	A clip that flows through its keys (Curve = "Spline") or eases into them its own way
+	(key Ease: PoseCurve) is BAKED instead: sampled 30 times a second (and on every key and
+	marker) with PoseCurve, linear in between, so it moves the same and keeps every marker.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -157,7 +160,7 @@ function Exporter.Build(name: string, def, rig, rootJoint: string?, rootPosKey: 
 				p = Instance.new("Pose")
 				p.Name = part
 				p.Weight = 1
-				p.EasingStyle = Enum.PoseEasingStyle.Cubic
+				p.EasingStyle = def.Baked and Enum.PoseEasingStyle.Linear or Enum.PoseEasingStyle.Cubic
 				p.EasingDirection = Enum.PoseEasingDirection.InOut
 				poses[part] = p
 			end
@@ -194,6 +197,49 @@ function Exporter.Build(name: string, def, rig, rootJoint: string?, rootPosKey: 
 	return sequence
 end
 
+-- A curved clip as plain keys: sampled every 1/30 s, on every key and on every marker,
+-- with the same curve the code player uses (PoseCurve), for every joint of the rig.
+local function bake(def, rig, rootPosKey)
+	local PoseCurve = freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.PoseCurve)
+	local times = { def.Duration }
+	for t = 0, def.Duration, 1 / 30 do
+		table.insert(times, t)
+	end
+	for _, key in def.Keys do
+		table.insert(times, key.T)
+	end
+	for _, marker in def.Markers or {} do
+		table.insert(times, marker[1])
+	end
+	table.sort(times)
+	local keys = {}
+	for _, t in times do
+		if #keys > 0 and t - keys[#keys].T < 0.002 then
+			continue
+		end
+		local key = { T = t }
+		for joint in rig do
+			key[joint] = { PoseCurve.Sample(def, joint, t) }
+		end
+		if rootPosKey then
+			key[rootPosKey] = { PoseCurve.Sample(def, rootPosKey, t) }
+		end
+		table.insert(keys, key)
+	end
+	-- (markers land on the nearest baked key)
+	local markers = {}
+	for _, marker in def.Markers or {} do
+		local best = keys[1]
+		for _, key in keys do
+			if math.abs(key.T - marker[1]) < math.abs(best.T - marker[1]) then
+				best = key
+			end
+		end
+		table.insert(markers, { best.T, marker[2], marker[3] })
+	end
+	return { Duration = def.Duration, Keys = keys, Markers = markers, Baked = true, Loop = def.Loop, __rig = def.__rig }
+end
+
 -- Exports `names` from a pose library into ServerStorage.AnimationExport.<kind> and
 -- selects it (ready for Save to File). Markers must sit on a keyframe time; any that
 -- don't get their own (interpolated-free) marker keyframe would change the motion, so
@@ -217,6 +263,10 @@ function Exporter.Export(kind: string, names: { string }, sourceOverride)
 	for _, name in names do
 		local def = library[name]
 		assert(def, "no pose named " .. name)
+		local PoseCurve = freshRequire(StarterPlayer.StarterPlayerScripts.Client.Controllers.PoseCurve)
+		if PoseCurve.IsCurved(def) then
+			def = bake(def, def.__rig and rig[def.__rig] or rig, rootPosKey)
+		end
 		for _, marker in def.Markers or {} do
 			local onKey = false
 			for _, key in def.Keys do

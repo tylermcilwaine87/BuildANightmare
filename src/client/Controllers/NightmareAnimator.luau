@@ -25,6 +25,7 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
+local ContentProvider = game:GetService("ContentProvider")
 local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -32,6 +33,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local AnimationDefinitions = require(Shared:WaitForChild("AnimationDefinitions"))
 local AbilityDefinitions = require(Shared:WaitForChild("AbilityDefinitions"))
 local POSES = require(script.Parent:WaitForChild("NightmarePoses"))
+local PoseCurve = require(script.Parent:WaitForChild("PoseCurve"))
 local BOSS_POSES = require(script.Parent:WaitForChild("BossPoses"))
 
 -- The keyframed-attack library for a model, and the asset name prefix:
@@ -194,25 +196,8 @@ end
 -- same keyframes evaluated here. Played at the speed that lands its "Hit" frame on the
 -- server's hit (the attack's windup).
 ------------------------------------------------------------------------------------------
-local function smooth(t: number): number
-	return t * t * (3 - 2 * t)
-end
-
-local function angleAt(def, joint: string, t: number): (number, number, number)
-	local keys = def.Keys
-	local prev, nextKey = keys[1], keys[#keys]
-	for i = 1, #keys - 1 do
-		if t >= keys[i].T and t <= keys[i + 1].T then
-			prev, nextKey = keys[i], keys[i + 1]
-			break
-		end
-	end
-	local a = prev[joint] or { 0, 0, 0 }
-	local b = nextKey[joint] or { 0, 0, 0 }
-	local span = nextKey.T - prev.T
-	local k = span > 0 and smooth(math.clamp((t - prev.T) / span, 0, 1)) or 1
-	return a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, a[3] + (b[3] - a[3]) * k
-end
+-- (how a clip moves between its keys: splines, eases, stops - see PoseCurve)
+local angleAt = PoseCurve.Sample
 
 -- every joint a pose keys anywhere (+ which one carries a position)
 local poseJoints = setmetatable({}, { __mode = "k" })
@@ -221,8 +206,8 @@ local function jointsOf(def)
 	if not joints then
 		joints = {}
 		for _, key in def.Keys do
-			for name in key do
-				if name ~= "T" and not name:match("Pos$") then
+			for name, value in key do
+				if type(value) == "table" and not name:match("Pos$") then
 					joints[name] = true
 				end
 			end
@@ -547,6 +532,16 @@ function NightmareAnimator:Flinch(model: Model?, direction: Vector3?, heavy: boo
 end
 
 function NightmareAnimator:Start()
+	-- the sculpted part meshes, loaded up front: a body showing up shouldn't be missing pieces
+	-- for its first moments
+	task.spawn(function()
+		local meshes = Shared:FindFirstChild("Meshes")
+		local templates = meshes and meshes:FindFirstChild("PartMeshes")
+		if templates then
+			pcall(ContentProvider.PreloadAsync, ContentProvider, templates:GetChildren())
+		end
+	end)
+
 	for _, tag in { "Nightmare", "Enemy" } do
 		for _, model in CollectionService:GetTagged(tag) do
 			track(model)
