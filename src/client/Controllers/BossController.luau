@@ -44,6 +44,14 @@ function BossController:Init(registry)
 	bossRequest = Net.Get("BossRequest")
 end
 
+-- The HUD hidden (HUDController): the bar goes with it, and comes back if a fight is on.
+function BossController:SetBarAllowed(allowed: boolean)
+	ui.BossBarAllowed = allowed
+	if ui.BossBar then
+		ui.BossBar.Visible = allowed and inFight
+	end
+end
+
 function BossController:IsInFight(): boolean
 	return inFight
 end
@@ -394,7 +402,7 @@ function BossController:Start()
 		if kind == "Start" then
 			inFight = true
 			currentBossId = data.BossId
-			ui.BossBar.Visible = true
+			ui.BossBar.Visible = ui.BossBarAllowed ~= false
 			local difficulty = Config.Difficulties[data.Mode]
 			local suffix = data.Mode == "Tutorial" and " (TRAINING)" or (difficulty and data.Mode ~= "Normal" and (" · " .. difficulty.DisplayName) or "")
 			ui.BossName.Text = data.Name .. suffix

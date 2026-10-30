@@ -96,12 +96,24 @@ function SettingsController:Refresh()
 			child:Destroy()
 		end
 	end
+	local section = nil
 	for order, def in SettingsDefinitions.List do
 		local value = self:Get(def.Key)
-		local row = UIKit.New("Frame", { Size = UDim2.new(1, -8, 0, def.Hint and 58 or 44), BackgroundColor3 = C.PanelLight, LayoutOrder = order, Parent = ui.List }, { UIKit.Corner(8), UIKit.Padding(6) })
+		-- a heading where a new section starts; the HUD's has the switch for all of it
+		if def.Section and def.Section ~= section then
+			section = def.Section
+			UIKit.Label({ Text = section, Size = UDim2.new(1, -8, 0, 30), TextColor3 = C.Warn, Font = UIKit.FontDisplay, MaxTextSize = 24, LayoutOrder = order * 10 - 2, Parent = ui.List })
+			if section == "HUD" then
+				UIKit.Button({ Text = "HIDE THE WHOLE HUD  (Y)", Size = UDim2.new(1, -8, 0, 38), BackgroundColor3 = C.Accent, MaxTextSize = 16, LayoutOrder = order * 10 - 1, Parent = ui.List }, function()
+					self:Toggle()
+					controllers.HUDController:ToggleHideAll(true)
+				end)
+			end
+		end
+		local row = UIKit.New("Frame", { Size = UDim2.new(1, -8, 0, def.Hint and 78 or 44), BackgroundColor3 = C.PanelLight, LayoutOrder = order * 10, Parent = ui.List }, { UIKit.Corner(8), UIKit.Padding(6) })
 		UIKit.Label({ Text = def.Label, Size = UDim2.new(0.58, 0, 0, 30), MaxTextSize = 16, Parent = row })
 		if def.Hint then
-			UIKit.Label({ Text = def.Hint, Position = UDim2.fromOffset(0, 30), Size = UDim2.new(0.58, 0, 0, 16), Font = UIKit.FontBody, TextColor3 = C.SubText, MaxTextSize = 12, Parent = row })
+			UIKit.Label({ Text = def.Hint, Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, 0, 0, 34), Font = UIKit.FontBody, TextColor3 = C.SubText, MaxTextSize = 12, Parent = row })
 		end
 		local controls = UIKit.New("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.4, 0, 0, 30), BackgroundTransparency = 1, Parent = row })
 		if def.Type == "Toggle" then
@@ -109,7 +121,7 @@ function SettingsController:Refresh()
 				self:Set(def.Key, not value)
 			end)
 		elseif def.Type == "Choice" then
-			UIKit.Button({ Text = string.upper(value) .. "  ▸", Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.Accent, MaxTextSize = 15, Parent = controls }, function()
+			UIKit.Button({ Text = string.upper(value) .. "  >", Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.Accent, MaxTextSize = 15, Parent = controls }, function()
 				local index = table.find(def.Options, value) or 1
 				self:Set(def.Key, def.Options[index % #def.Options + 1])
 			end)

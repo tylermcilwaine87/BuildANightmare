@@ -58,7 +58,7 @@ function HUDController:Toast(text: string, color: Color3?, duration: number?)
 	ui.Toast.Text = text
 	ui.Toast.TextColor3 = color or C.Text
 	ui.ToastLine.BackgroundColor3 = color or C.Accent
-	ui.ToastStrip.Visible = true
+	ui.ToastStrip.Visible = not ui.HideAll
 	task.delay(duration or 2.5, function()
 		if toastToken == token then
 			ui.ToastStrip.Visible = false
@@ -90,6 +90,7 @@ local function buildStatusPanel(gui: ScreenGui)
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
+	ui.StatusPanel = panel
 	UIKit.AutoScale(panel)
 	-- the smoked backing, burning out to the right
 	UIKit.New("Frame", {
@@ -112,9 +113,9 @@ local function buildStatusPanel(gui: ScreenGui)
 	ui.NightmareBar = UIKit.Bar({ Position = UDim2.fromOffset(x, 34), Size = UDim2.new(1, -x - 8, 0, 20), Color = C.NightmareHP, MaxTextSize = 14, Parent = panel })
 	ui.NightmareInfo = UIKit.Label({ Text = "", Position = UDim2.fromOffset(x, 56), Size = UDim2.new(1, -x - 8, 0, 15), TextColor3 = C.SubText, MaxTextSize = 13, Font = UIKit.FontBody, Parent = panel })
 	ui.Command = UIKit.Label({ Text = "", Position = UDim2.fromOffset(x, 71), Size = UDim2.new(1, -x - 8, 0, 15), TextColor3 = C.Accent2, MaxTextSize = 13, Parent = panel })
-	UIKit.Label({ Text = "YOU", Position = UDim2.fromOffset(x, 90), Size = UDim2.fromOffset(30, 14), TextColor3 = C.SubText, MaxTextSize = 13, Parent = panel })
-	ui.HandlerBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 32, 89), Size = UDim2.new(1, -x - 74, 0, 15), Color = C.HandlerHP, MaxTextSize = 11, Parent = panel })
-	ui.StaminaBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 32, 106), Size = UDim2.new(1, -x - 74, 0, 6), Color = Color3.fromRGB(240, 205, 85), Parent = panel })
+	UIKit.Label({ Text = "YOU", Position = UDim2.fromOffset(x, 88), Size = UDim2.fromOffset(34, 16), TextColor3 = C.SubText, MaxTextSize = 13, Parent = panel })
+	ui.HandlerBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 36, 88), Size = UDim2.new(1, -x - 78, 0, 16), Color = C.HandlerHP, MaxTextSize = 12, Parent = panel })
+	ui.StaminaBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 36, 106), Size = UDim2.new(1, -x - 78, 0, 6), Color = Color3.fromRGB(240, 205, 85), Parent = panel })
 	ui.StaminaBar.Label.Visible = false
 
 	-- the medallion: iron ring, the head turning slowly in the dark inside it
@@ -221,6 +222,7 @@ local function buildAbilityBar(gui: ScreenGui)
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, { UIKit.List(10, Enum.FillDirection.Horizontal) })
+	ui.AbilityBar = bar
 	bar:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Center
 	UIKit.AutoScale(bar)
 	UIKit.PlaceHudCenter(bar, 16)
@@ -280,8 +282,8 @@ local function buildMeters(gui: ScreenGui)
 	UIKit.AutoScale(frame)
 	UIKit.PlaceHudCenter(frame, 92)
 	-- SYNC (SyncService): you and your Nightmare hitting the same enemy together
-	ui.SyncBar = UIKit.Bar({ Size = UDim2.new(1, 0, 0, 12), Color = SYNC_COLOR, MaxTextSize = 10, Parent = frame })
-	ui.PossessionBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 15), Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(170, 100, 255), MaxTextSize = 12, Parent = frame })
+	ui.SyncBar = UIKit.Bar({ Size = UDim2.new(1, 0, 0, 15), Color = SYNC_COLOR, MaxTextSize = 13, Parent = frame })
+	ui.PossessionBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 17), Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(170, 100, 255), MaxTextSize = 12, Parent = frame })
 	ui.UltimateBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 36), Size = UDim2.new(1, 0, 0, 17), Color = Color3.fromRGB(255, 190, 60), MaxTextSize = 12, Parent = frame })
 	ui.Meters = frame
 end
@@ -501,6 +503,7 @@ local function buildTopButtons(gui: ScreenGui)
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, { UIKit.List(8, Enum.FillDirection.Horizontal) })
+	ui.TopButtons = frame
 	UIKit.AutoScale(frame)
 	frame:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Right
 
@@ -510,7 +513,7 @@ local function buildTopButtons(gui: ScreenGui)
 		local button = UIKit.Button({ Text = text, Size = UDim2.fromOffset(width, 40), BackgroundColor3 = C.PanelLight, MaxTextSize = 17, LayoutOrder = order, Parent = frame }, onClick)
 		UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, -6, 1, 3), Size = UDim2.new(1, 12, 0, 4), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 2, Parent = button })
 		if key and UserInputService.KeyboardEnabled then
-			UIKit.Label({ Text = key, Position = UDim2.fromOffset(-3, -2), Size = UDim2.fromOffset(12, 11), TextColor3 = C.SubText, MaxTextSize = 10, Font = UIKit.FontBody, ZIndex = 2, Parent = button })
+			UIKit.Label({ Text = key, Position = UDim2.fromOffset(-3, -2), Size = UDim2.fromOffset(14, 13), TextColor3 = C.SubText, MaxTextSize = 11, ZIndex = 2, Parent = button })
 		end
 		return button
 	end
@@ -643,7 +646,7 @@ local function buildHints(gui: ScreenGui)
 	if UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled then
 		text = "R2 Punch · X Kick (mix them: combos) · Y Weapon · L2 Guard · B Dive / close menu (stick back + B: Step back) · Select Lock-on · L1/R1 Abilities · D-Left Possess · R3 Ultimate · L3 Commands · D-Up Summon · D-Down Retreat · D-Right MENU"
 	elseif UserInputService.KeyboardEnabled then
-		text = "LMB Punch · RMB click Kick (mix them: combos) · 1-3 Weapons, ` Fists · Ctrl Guard · Shift Dive · X Step back (then hit: counter) · Z Lock-on · Q/E Abilities · F Possess · G Ultimate · V Commands · R Sic · T Stance · C Retreat · H Summon · B Build · P PvP · M Codex · J Goals · L Party · U Fighter (moves, weapons, runs) · K Settings"
+		text = "LMB Punch · RMB click Kick (mix them: combos) · 1-3 Weapons, ` Fists · Ctrl Guard · Shift Dive · X Step back (then hit: counter) · Z Lock-on · Q/E Abilities · F Possess · G Ultimate · V Commands · R Sic · T Stance · C Retreat · H Summon · B Build · P PvP · M Codex · J Goals · L Party · U Fighter (moves, weapons, runs) · K Settings · Y Hide HUD"
 	else
 		return
 	end
@@ -651,7 +654,7 @@ local function buildHints(gui: ScreenGui)
 		Text = text,
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 12, 1, -12),
-		Size = UDim2.fromOffset(330, 40),
+		Size = UDim2.fromOffset(450, 70),
 		TextColor3 = C.SubText,
 		TextStrokeTransparency = 0.6,
 		MaxTextSize = 13,
@@ -661,8 +664,9 @@ local function buildHints(gui: ScreenGui)
 	UIKit.AutoScale(hint)
 	-- Settings: ControlHints
 	local function apply()
-		hint.Visible = controllers.SettingsController:Get("ControlHints") ~= false
+		hint.Visible = controllers.SettingsController:Get("ControlHints") ~= false and not ui.HideAll
 	end
+	ui.ApplyHint = apply
 	apply()
 	-- (it has done its job after a while: it fades back so it isn't a wall of text in the corner)
 	task.delay(25, function()
@@ -670,6 +674,45 @@ local function buildHints(gui: ScreenGui)
 	end)
 	controllers.SettingsController.Changed:Connect(apply)
 	controllers.ClientState.Changed:Connect(apply)
+end
+
+-- WHICH PARTS SHOW: each one's own setting (saved), and the whole HUD off for the moment (Y, not
+-- saved: nobody should come back to a game with no HUD and not know why). Only the HUD itself:
+-- menus still open, and touch controls stay, or a phone couldn't play.
+function HUDController:ApplyParts()
+	local settings = controllers.SettingsController
+	local function shown(key: string): boolean
+		return not ui.HideAll and settings:Get(key) ~= false
+	end
+	ui.StatusPanel.Visible = shown("HudStatus")
+	ui.AbilityBar.Visible = shown("HudAbilities")
+	ui.Meters.Visible = shown("HudMeters")
+	ui.TopButtons.Visible = shown("HudButtons")
+	ui.HurtLayer.Enabled = shown("HudHurtEdges")
+	ui.TargetAllowed = shown("HudTarget")
+	if not ui.TargetAllowed then
+		ui.TargetFrame.Visible = false
+	end
+	if ui.HideAll then
+		ui.ToastStrip.Visible = false
+	end
+	if ui.ApplyHint then
+		ui.ApplyHint()
+	end
+	controllers.MeleeController:SetHudVisible(shown("HudHotbar"))
+	controllers.BossController:SetBarAllowed(not ui.HideAll)
+	-- a way back, always: the corner button, whenever the top row is gone
+	ui.ShowHudButton.Visible = ui.HideAll == true or settings:Get("HudButtons") == false
+	ui.ShowHudButton.Text = ui.HideAll and "SHOW HUD" or "SETTINGS"
+end
+
+function HUDController:ToggleHideAll(force: boolean?)
+	if force == nil then
+		ui.HideAll = not ui.HideAll
+	else
+		ui.HideAll = force
+	end
+	self:ApplyParts()
 end
 
 function HUDController:Start()
@@ -744,11 +787,12 @@ function HUDController:Start()
 	})
 	UIKit.AutoScale(ui.TargetFrame)
 	ui.Target = UIKit.Label({ Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextColor3 = Color3.fromRGB(255, 205, 190), TextStrokeTransparency = 0.15, MaxTextSize = 20, Parent = ui.TargetFrame })
-	ui.TargetBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 21), Size = UDim2.new(1, 0, 0, 11), Color = C.EnemyHP, MaxTextSize = 10, Parent = ui.TargetFrame })
+	ui.TargetBar = UIKit.Bar({ Position = UDim2.fromOffset(0, 21), Size = UDim2.new(1, 0, 0, 14), Color = C.EnemyHP, MaxTextSize = 12, Parent = ui.TargetFrame })
 
 	-- HURT: the edges of the screen go dark and red, and pulse as it gets worse.
 	ui.Hurt = {}
 	local hurtLayer = UIKit.New("ScreenGui", { Name = "HurtEdges", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 1, Parent = playerGui })
+	ui.HurtLayer = hurtLayer
 	for _, edge in {
 		{ Vector2.new(0, 0), UDim2.fromScale(0, 0), UDim2.new(1, 0, 0.22, 0), 90 },
 		{ Vector2.new(0, 1), UDim2.fromScale(0, 1), UDim2.new(1, 0, 0.22, 0), 270 },
@@ -759,6 +803,35 @@ function HUDController:Start()
 		UIKit.New("UIGradient", { Rotation = edge[4], Transparency = NumberSequence.new(0, 1), Parent = frame })
 		table.insert(ui.Hurt, frame)
 	end
+
+	-- the way back when the HUD or its buttons are hidden: it fades out of the way until you want it
+	ui.ShowHudButton = UIKit.Button({
+		Text = "SHOW HUD",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 12),
+		Size = UDim2.fromOffset(104, 30),
+		BackgroundColor3 = C.PanelLight,
+		BackgroundTransparency = 0.35,
+		MaxTextSize = 14,
+		Visible = false,
+		Parent = gui,
+	}, function()
+		if ui.HideAll then
+			self:ToggleHideAll(false)
+		else
+			controllers.SettingsController:Toggle()
+		end
+	end)
+	UIKit.AutoScale(ui.ShowHudButton)
+	controllers.SettingsController.Changed:Connect(function()
+		self:ApplyParts()
+	end)
+	controllers.ClientState.Changed:Connect(function()
+		self:ApplyParts()
+	end)
+	task.defer(function()
+		self:ApplyParts()
+	end)
 
 	controllers.ClientState.ServerEvent:Connect(function(kind, data)
 		if kind == "NightmareDefeated" then
@@ -1005,7 +1078,7 @@ function HUDController:Refresh()
 			ui.TargetBar.Chip.Size = UDim2.fromScale(0, 1)
 		end
 		UIKit.SetBar(ui.TargetBar, targetHumanoid.Health, targetHumanoid.MaxHealth)
-		ui.TargetFrame.Visible = true
+		ui.TargetFrame.Visible = ui.TargetAllowed ~= false
 	else
 		ui.TargetFrame.Visible = false
 	end

@@ -379,18 +379,18 @@ local function attachHealthBar(model: Model)
 		title = isMine and (title .. " (yours)") or ("%s · %s"):format(title, model:GetAttribute("OwnerName") or "?")
 	end
 	UIKit.New("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 18),
+		Size = UDim2.new(1, 0, 0, 20),
 		BackgroundTransparency = 1,
 		Text = title,
 		TextColor3 = isNightmare and C.Text or Color3.fromRGB(255, 200, 200),
-		TextStrokeTransparency = 0.4,
-		Font = UIKit.Font,
-		TextSize = 14,
+		TextStrokeTransparency = 0.2,
+		Font = UIKit.FontSmall,
+		TextSize = 16,
 		Parent = billboard,
 	})
 	local bar = UIKit.Bar({
-		Position = UDim2.fromOffset(15, 21),
-		Size = UDim2.new(1, -30, 0, 10),
+		Position = UDim2.fromOffset(15, 22),
+		Size = UDim2.new(1, -30, 0, 11),
 		Color = isNightmare and C.NightmareHP or C.EnemyHP,
 		Parent = billboard,
 	})
@@ -403,20 +403,20 @@ local function attachHealthBar(model: Model)
 	humanoid.HealthChanged:Connect(update)
 
 	-- Status effect icons (coloured tags) + stagger meter.
-	billboard.Size = UDim2.fromOffset(150, 56)
+	billboard.Size = UDim2.fromOffset(190, 60)
 	local statusLabel = UIKit.New("TextLabel", {
-		Position = UDim2.fromOffset(0, 34),
-		Size = UDim2.new(1, 0, 0, 14),
+		Position = UDim2.fromOffset(0, 38),
+		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		RichText = true,
 		Text = "",
-		Font = UIKit.Font,
-		TextSize = 12,
-		TextStrokeTransparency = 0.4,
+		Font = UIKit.FontSmall,
+		TextSize = 14,
+		TextStrokeTransparency = 0.2,
 		TextColor3 = Color3.new(1, 1, 1),
 		Parent = billboard,
 	})
-	local staggerBar = UIKit.New("Frame", { Position = UDim2.fromOffset(15, 31), Size = UDim2.new(0, 0, 0, 3), BackgroundColor3 = Color3.fromRGB(255, 220, 90), BorderSizePixel = 0, Parent = billboard })
+	local staggerBar = UIKit.New("Frame", { Position = UDim2.fromOffset(15, 34), Size = UDim2.new(0, 0, 0, 3), BackgroundColor3 = Color3.fromRGB(255, 220, 90), BorderSizePixel = 0, Parent = billboard })
 	local function updateStatus()
 		local parts = {}
 		for id, stacks in StatusDefinitions.Parse(model:GetAttribute("Statuses")) do

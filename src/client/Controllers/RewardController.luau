@@ -206,7 +206,7 @@ function RewardController:FillCard(entry)
 	local mutation = MutationDefinitions.Get(entry.Mutation)
 	if mutation then
 		ui.CardStroke.Color = mutation.Color
-		ui.CardRarity.Text = ("%s  ·  ✦ %s MUTATION"):format(rarity.DisplayName, string.upper(mutation.DisplayName))
+		ui.CardRarity.Text = ("%s  ·  ★ %s MUTATION"):format(rarity.DisplayName, string.upper(mutation.DisplayName))
 		ui.CardNew.Text = entry.MutationNew and "NEW MUTATION!" or (entry.IsNew and "NEW!" or "MUTATED")
 		ui.CardNew.TextColor3 = mutation.Color
 		ui.CardName.Text = MutationDefinitions.FullName(def and def.DisplayName or entry.Id, entry.Mutation)
@@ -216,7 +216,7 @@ function RewardController:FillCard(entry)
 		end
 		ui.CardStats.Text = statText(combined)
 		ui.CardMeta.Text ..= ("  (+%d mutation)"):format(mutation.PowerCost)
-		ui.CardAbility.Text ..= ("\n✦ %s"):format(mutation.Description)
+		ui.CardAbility.Text ..= ("\n★ %s"):format(mutation.Description)
 	end
 end
 

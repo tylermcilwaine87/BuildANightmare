@@ -22,9 +22,9 @@ UIKit.Colors = {
 	PanelLight = RGB(46, 34, 34),
 	PanelLighter = RGB(72, 54, 50),
 	Accent = RGB(232, 72, 38), -- ember
-	Accent2 = RGB(155, 95, 255), -- the Nightmare's own violet
+	Accent2 = RGB(182, 132, 255), -- the Nightmare's own violet
 	Text = RGB(240, 230, 212), -- bone
-	SubText = RGB(176, 158, 142), -- ash
+	SubText = RGB(208, 194, 178), -- ash
 	Good = RGB(120, 225, 110),
 	Bad = RGB(245, 70, 60),
 	Warn = RGB(255, 186, 60),
@@ -39,7 +39,8 @@ UIKit.FontDisplay = Enum.Font.Creepster -- (names, titles, banners)
 UIKit.FontPunch = Enum.Font.Bangers -- (the numbers that fly off a hit)
 UIKit.Font = Enum.Font.Oswald
 UIKit.FontHeavy = Enum.Font.Oswald
-UIKit.FontBody = Enum.Font.RobotoCondensed
+UIKit.FontBody = Enum.Font.GothamMedium -- (small text: wide, open letters, readable at any size)
+UIKit.FontSmall = Enum.Font.GothamBold
 
 local SMOKE = "rbxasset://textures/particles/smoke_main.dds"
 
@@ -212,6 +213,20 @@ function UIKit.Label(props)
 	if maxSize >= 20 and (props.Font == nil or props.Font == UIKit.FontHeavy) then
 		props.Font = UIKit.FontDisplay
 	end
+	-- SMALL TEXT HAS TO READ: anything small drops the narrow lettering for wide, open letters, a
+	-- size up, and never shrinks past the point you can read it.
+	local small = maxSize < 20
+	if small then
+		if props.Font == nil or props.Font == UIKit.Font then
+			props.Font = UIKit.FontSmall
+		end
+		maxSize = math.max(maxSize + (maxSize <= 16 and 2 or 0), 14)
+		-- (dark colours were picked for big text: lifted so they stand off a dark plate)
+		local color = props.TextColor3
+		if color and (color.R + color.G + color.B) / 3 < 0.55 then
+			props.TextColor3 = color:Lerp(RGB(255, 255, 255), 0.3)
+		end
+	end
 	applyDefaults(props, {
 		BackgroundTransparency = 1,
 		Font = UIKit.Font,
@@ -220,11 +235,11 @@ function UIKit.Label(props)
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextStrokeColor3 = RGB(8, 4, 4),
-		TextStrokeTransparency = 0.55,
+		TextStrokeTransparency = small and 0.35 or 0.55,
 		Text = "",
 	})
 	local label = UIKit.New("TextLabel", props)
-	UIKit.New("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = 8, Parent = label })
+	UIKit.New("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = small and 11 or 8, Parent = label })
 	return label
 end
 
@@ -253,7 +268,7 @@ function UIKit.Button(props, onActivated)
 	outline()
 	button:GetPropertyChangedSignal("TextColor3"):Connect(outline)
 	UIKit.Corner(8).Parent = button
-	UIKit.New("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = 8, Parent = button })
+	UIKit.New("UITextSizeConstraint", { MaxTextSize = math.max(maxSize + 3, 17), MinTextSize = 12, Parent = button })
 	UIKit.New("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), Parent = button })
 	-- stamped metal in its colour: lit along the top, dark along the bottom (strips, not a gradient
 	-- on the button: that would dim its text too); it lifts under the pointer and sinks when pressed

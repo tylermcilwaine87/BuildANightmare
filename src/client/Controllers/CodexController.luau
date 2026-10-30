@@ -275,13 +275,13 @@ function CodexController:ShowMutations(profile)
 			table.sort(partNames)
 			local stats = statLine(mutation.Stats)
 			card(order, mutation.Color, {
-				{ Text = ('<font color="#%s">✦ %s</font>   <font color="#%s">Found ×%d · +%d Power</font>'):format(hex(mutation.Color), string.upper(mutation.DisplayName), hex(C.SubText), entry.Found or 0, mutation.PowerCost), Size = 17 },
+				{ Text = ('<font color="#%s">★ %s</font>   <font color="#%s">Found ×%d · +%d Power</font>'):format(hex(mutation.Color), string.upper(mutation.DisplayName), hex(C.SubText), entry.Found or 0, mutation.PowerCost), Size = 17 },
 				{ Text = mutation.Description .. (stats ~= "" and ("  (" .. stats .. ")") or ""), Body = true, Size = 15 },
 				{ Text = "Found on: " .. table.concat(partNames, ", "), Color = C.SubText, Body = true, Size = 14 },
 			})
 		else
 			card(order, C.PanelLighter, {
-				{ Text = mutation.Weight <= 3 and "✦ ??? (very rare)" or "✦ ???", Color = C.SubText, Size = 17 },
+				{ Text = mutation.Weight <= 3 and "★ ??? (very rare)" or "★ ???", Color = C.SubText, Size = 17 },
 				{ Text = "Undiscovered. Boss drops can mutate, more often on Hard and Nightmare.", Color = C.SubText, Body = true, Size = 14 },
 			})
 		end
@@ -363,7 +363,7 @@ function CodexController:BuildGui()
 	UIKit.Responsive(panel) -- near full screen on phones
 	ui.Panel = panel
 
-	UIKit.Label({ Text = "✦ THE CODEX", Size = UDim2.fromScale(0.85, 0.07), Font = UIKit.FontHeavy, TextColor3 = CODEX_COLOR, MaxTextSize = 30, Parent = panel })
+	UIKit.Label({ Text = "★ THE CODEX", Size = UDim2.fromScale(0.85, 0.07), Font = UIKit.FontHeavy, TextColor3 = CODEX_COLOR, MaxTextSize = 30, Parent = panel })
 	UIKit.Button({ Text = "X", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.07, 0.07), BackgroundColor3 = C.PanelLighter, Parent = panel }, function()
 		self:Close()
 	end)

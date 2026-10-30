@@ -98,7 +98,7 @@ function ShowcaseController:Show(data)
 		local text
 		if def then
 			local rarity = RarityDefinitions.Info[def.Rarity]
-			local prefix = mutation and ('<font color="#%s">✦ %s </font>'):format(mutation.Color:ToHex(), mutation.DisplayName) or ""
+			local prefix = mutation and ('<font color="#%s">★ %s </font>'):format(mutation.Color:ToHex(), mutation.DisplayName) or ""
 			text = ('%s:  %s<font color="#%s">%s</font>'):format(SlotDefinitions.Info[slot].DisplayName, prefix, rarity.Color:ToHex(), def.DisplayName)
 		else
 			text = ('%s:  <font color="#%s">empty</font>'):format(SlotDefinitions.Info[slot].DisplayName, C.SubText:ToHex())

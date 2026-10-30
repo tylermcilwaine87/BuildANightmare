@@ -643,6 +643,13 @@ end
 ------------------------------------------------------------------------------------------
 -- Lifecycle
 ------------------------------------------------------------------------------------------
+-- Settings: the weapon hotbar on or off (HUDController).
+function MeleeController:SetHudVisible(visible: boolean)
+	if hotbar.Gui then
+		hotbar.Gui.Enabled = visible
+	end
+end
+
 function MeleeController:Start()
 	buildHotbar()
 	local function watch(character: Model)

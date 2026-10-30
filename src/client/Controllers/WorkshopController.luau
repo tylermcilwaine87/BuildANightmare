@@ -726,7 +726,7 @@ function WorkshopController:RefreshPartList()
 		UIKit.Stroke(accent, selected and 3 or 1, selected and 0 or 0.6).Parent = button
 		UIKit.New("Frame", { Size = UDim2.new(0, 6, 1, 0), BackgroundColor3 = accent, BorderSizePixel = 0, Parent = button }, { UIKit.Corner(3) })
 		UIKit.Label({
-			Text = def and (mutation and ('<font color="#%s">✦ %s</font> %s'):format(mutation.Color:ToHex(), mutation.DisplayName, def.DisplayName) or def.DisplayName) or "None (remove part)",
+			Text = def and (mutation and ('<font color="#%s">★ %s</font> %s'):format(mutation.Color:ToHex(), mutation.DisplayName, def.DisplayName) or def.DisplayName) or "None (remove part)",
 			RichText = true,
 			Position = UDim2.fromOffset(14, 4),
 			Size = UDim2.new(1, -20, 0.5, -2),
@@ -809,7 +809,7 @@ function WorkshopController:RefreshDetail()
 	local mutation = MutationDefinitions.Get(MutationDefinitions.ForSlot(state.draft, slot))
 	if mutation then
 		ui.DetailName.Text = MutationDefinitions.FullName(def.DisplayName, MutationDefinitions.ForSlot(state.draft, slot))
-		abilityText ..= ("\n✦ %s MUTATION: %s (%s, +%d Power)"):format(string.upper(mutation.DisplayName), mutation.Description, statLine(mutation.Stats), mutation.PowerCost)
+		abilityText ..= ("\n★ %s MUTATION: %s (%s, +%d Power)"):format(string.upper(mutation.DisplayName), mutation.Description, statLine(mutation.Stats), mutation.PowerCost)
 	end
 	ui.DetailStats.Text = ("%s\n%s"):format(statLine(def.Stats), abilityText)
 end

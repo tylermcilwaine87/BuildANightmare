@@ -102,6 +102,7 @@ local BINDINGS = {
 	[Enum.KeyCode.J] = "Goals",
 	[Enum.KeyCode.L] = "Party", -- (not O: Roblox uses I / O to zoom the camera)
 	[Enum.KeyCode.K] = "Settings",
+	[Enum.KeyCode.Y] = "HideHud", -- (the whole HUD off and on, for a clean look at the fight)
 	[Enum.KeyCode.U] = "Fighter", -- moves, weapons (loadout) & run styles
 	[Enum.KeyCode.DPadRight] = "Menu", -- controller: the MENU hub (Workshop is its first tile)
 	[Enum.KeyCode.N] = "Shop",
@@ -178,6 +179,10 @@ function InputController:Perform(action: string)
 	end
 	if action == "Settings" then
 		controllers.SettingsController:Toggle()
+		return
+	end
+	if action == "HideHud" then
+		controllers.HUDController:ToggleHideAll()
 		return
 	end
 	if action == "Menu" then

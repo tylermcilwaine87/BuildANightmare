@@ -22,7 +22,16 @@ SettingsDefinitions.List = {
 	{ Key = "DamageNumbers", Label = "Damage numbers", Type = "Toggle", Default = true },
 	{ Key = "FinisherCamera", Label = "Finisher camera", Type = "Toggle", Default = true, Hint = "A one-second side-on camera swing when your Nightmare lands a signature finisher (and now and then another finisher)." },
 	{ Key = "OtherNightmares", Label = "Other players' Nightmares (outside fights)", Type = "Toggle", Default = true, Hint = "Turn off for better performance in busy servers. Always shown in your boss fights and duels." },
-	{ Key = "ControlHints", Label = "Control hints (bottom left)", Type = "Toggle", Default = true },
+	-- HUD: which parts of it show (Section: a heading in the panel; the whole HUD also goes off and
+	-- on with Y, for the moment, HUDController:ToggleHideAll)
+	{ Key = "HudStatus", Section = "HUD", Label = "Health and Nightmare panel", Type = "Toggle", Default = true },
+	{ Key = "HudAbilities", Section = "HUD", Label = "Ability buttons (Q / E)", Type = "Toggle", Default = true },
+	{ Key = "HudMeters", Section = "HUD", Label = "Sync, Possession and Ultimate bars", Type = "Toggle", Default = true },
+	{ Key = "HudHotbar", Section = "HUD", Label = "Weapon hotbar", Type = "Toggle", Default = true },
+	{ Key = "HudButtons", Section = "HUD", Label = "Menu buttons (top right)", Type = "Toggle", Default = true, Hint = "Every menu still opens with its key. A small button stays in the corner to get back here." },
+	{ Key = "HudTarget", Section = "HUD", Label = "Target's health bar", Type = "Toggle", Default = true },
+	{ Key = "HudHurtEdges", Section = "HUD", Label = "Red screen edges at low health", Type = "Toggle", Default = true },
+	{ Key = "ControlHints", Section = "HUD", Label = "Control hints (bottom left)", Type = "Toggle", Default = true },
 }
 
 SettingsDefinitions.ByKey = {}
