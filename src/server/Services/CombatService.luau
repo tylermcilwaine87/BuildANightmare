@@ -143,6 +143,8 @@ function CombatService:Start()
 			possession:Toggle(player)
 		elseif action == "NM_Light" or action == "NM_Heavy" or action == "NM_Dodge" then
 			possession:PossessedAction(player, action)
+		elseif action == "NM_Guard" then
+			possession:PossessedGuard(player, arg == true)
 		end
 	end)
 end
@@ -301,9 +303,14 @@ function CombatService:ApplyDamage(params): number
 	elseif (target:GetAttribute("PhaseUntil") or 0) > Workspace:GetServerTimeNow() then
 		amount = 0 -- (Afterimage passive) mid-step: the blow hits the afterimage
 	end
-	-- a Nightmare covering up (the combat brain's GUARD): light blows are mostly absorbed;
-	-- a Heavy smashes the guard open and staggers it harder
+	-- a GUARD (BlockService: Handlers and Nightmares): most of the blow is stopped, until the
+	-- stance starts to fail
 	local guarded, guardBroken = false, false
+	if amount > 0 then
+		amount, guarded, guardBroken = self.Services.BlockService:Resolve(target, amount, attacker, params)
+	end
+	-- a boss's own timed cover (the Mirror Warden): light blows are mostly absorbed; a Heavy
+	-- smashes it open and staggers it harder
 	if (target:GetAttribute("NightmareGuard") or 0) > Workspace:GetServerTimeNow() and not params.Unblockable then
 		if params.Heavy then
 			guardBroken = true
@@ -455,7 +462,7 @@ function CombatService:ApplyDamage(params): number
 			end
 			status:AddStagger(target, stagger, attacker)
 		end
-		if params.Status and not params.NoStatus then
+		if params.Status and not params.NoStatus and not guarded then
 			status:Apply(target, params.Status, attacker)
 		end
 	end
@@ -476,7 +483,7 @@ function CombatService:ApplyDamage(params): number
 		Exposed = exposed or nil, -- (punished an exposed boss)
 		Broken = broken or nil, -- (hit a broken boss)
 		Synced = synced > 1 or nil, -- (a synced hit)
-		Guarded = guarded or nil, -- (blocked by a Nightmare's guard)
+		Guarded = (guarded and not guardBroken) or nil, -- (stopped by a guard)
 		GuardBroken = guardBroken or nil,
 	})
 

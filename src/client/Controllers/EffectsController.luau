@@ -746,6 +746,9 @@ function EffectsController:HitBurst(position: Vector3, direction: Vector3?, styl
 	else
 		count, speed, size = armoured and 16 or 8, armoured and 34 or 24, 0.14
 		colors = { Color3.fromRGB(255, 220, 120), Color3.fromRGB(255, 160, 50), Color3.fromRGB(255, 250, 220) }
+		if style == "Block" then -- (cold sparks off a guard, and its own sound: the caller plays it)
+			colors = { Color3.fromRGB(170, 215, 255), Color3.fromRGB(100, 170, 255), Color3.fromRGB(235, 245, 255) }
+		end
 	end
 	if level == "Reduced" then
 		count = math.ceil(count / 2)
@@ -766,7 +769,9 @@ function EffectsController:HitBurst(position: Vector3, direction: Vector3?, styl
 		}):Play()
 		Debris:AddItem(bit, life + 0.05)
 	end
-	controllers.AudioController:Play(style == "Bite" and "BiteImpact" or (armoured and "MetalSpark" or "ClawSlash"), position)
+	if style ~= "Block" then
+		controllers.AudioController:Play(style == "Bite" and "BiteImpact" or (armoured and "MetalSpark" or "ClawSlash"), position)
+	end
 end
 
 function EffectsController:Projectile(data)
@@ -920,9 +925,7 @@ local function watchGuard(character: Model)
 		local guarding = character:GetAttribute("Guarding") == true
 		if guarding and not highlight then
 			highlight = UIKit.New("Highlight", {
-				FillColor = Color3.fromRGB(90, 160, 255),
-				FillTransparency = 0.75,
-				OutlineColor = Color3.fromRGB(150, 200, 255),
+				FillTransparency = 0.82,
 				Adornee = character,
 				Parent = effectsFolder,
 			})
@@ -930,8 +933,16 @@ local function watchGuard(character: Model)
 			highlight:Destroy()
 			highlight = nil
 		end
+		-- what a blocker has left is readable from across the ring: blue, then hot as it fails
+		if highlight then
+			local failing = math.clamp(1 - (character:GetAttribute("GuardLevel") or Config.Block.Max) / Config.Block.CrackAt, 0, 1)
+			highlight.FillColor = Color3.fromRGB(90, 160, 255):Lerp(Color3.fromRGB(255, 70, 30), failing)
+			highlight.OutlineColor = Color3.fromRGB(150, 200, 255):Lerp(Color3.fromRGB(255, 150, 60), failing)
+			highlight.FillTransparency = 0.82 - 0.3 * failing
+		end
 	end
 	character:GetAttributeChangedSignal("Guarding"):Connect(update)
+	character:GetAttributeChangedSignal("GuardLevel"):Connect(update)
 	character.AncestryChanged:Connect(function(_, parent)
 		if not parent and highlight then
 			highlight:Destroy()
@@ -955,6 +966,7 @@ function EffectsController:Start()
 	-- AFTERIMAGE passive (PassiveDefinitions): a Nightmare's sidesteps, step-backs and
 	-- dash-ins leave a trail of ghosts (the server makes it untouchable mid-step)
 	local function watchNightmare(model: Instance)
+		watchGuard(model :: Model)
 		model:GetAttributeChangedSignal("ActionSeq"):Connect(function()
 			local action = model:GetAttribute("ActionName")
 			if (action == "StepBack" or action == "Sidestep" or action == "DashIn" or action == "Slip_R" or action == "Slip_L" or action == "RollUnder" or action == "PullBack") and Passives.Has(model, "Afterimage") then
@@ -1038,11 +1050,15 @@ function EffectsController:Start()
 					self:PopText(data.Position, tostring(data.Amount), color)
 				end
 			end
-			self:Flash(target)
+			-- stopped on a guard: no flash of a body being hurt, just the blow meeting the forearms
 			if data.Guarded then
-				self:PopText(data.Position + Vector3.new(0, 2, 0), "GUARDED", Color3.fromRGB(150, 200, 255), 20)
-			elseif data.GuardBroken then
-				self:PopText(data.Position + Vector3.new(0, 2, 0), "GUARD BREAK!", C.Bad, 28)
+				controllers.AudioController:Play("Block", data.Position)
+				self:HitBurst(data.Position, typeof(data.Dir) == "Vector3" and data.Dir or nil, "Block")
+				if Players:GetPlayerFromCharacter(target) then
+					controllers.HandlerAnimator:PlayOn(target, "BlockHit")
+				end
+			else
+				self:Flash(target)
 			end
 			local dir = typeof(data.Dir) == "Vector3" and data.Dir or nil
 			-- a blow of a known kind shows where it landed; anything else rocks them along its force
@@ -1108,7 +1124,21 @@ function EffectsController:Start()
 				controllers.HandlerAnimator:HitStop(0.08)
 			end
 		elseif kind == "GuardBreak" then
-			self:PopText(data.Position, "GUARD BREAK!", C.Bad, 30)
+			-- the stance gives way, on every screen (a Nightmare's own crumble is its server action)
+			local defender = typeof(data.Target) == "Instance" and data.Target or nil
+			local attacker = typeof(data.Attacker) == "Instance" and data.Attacker or nil
+			self:PopText(data.Position + Vector3.new(0, 2, 0), "GUARD BREAK!", C.Bad, 32)
+			self:HitBurst(data.Position, nil, "Heavy")
+			if defender and Players:GetPlayerFromCharacter(defender) then
+				controllers.HandlerAnimator:PlayOn(defender, "GuardCrumble")
+			end
+			if defender == localPlayer.Character or defender == controllers.PossessionController:GetModel() then
+				-- you have to press it again once it's back
+				controllers.CombatController:SetGuard(false)
+				self:Shake(0.35, 0.25)
+			elseif attacker == localPlayer.Character or attacker == controllers.PossessionController:GetModel() then
+				self:ImpactPunch(0.8) -- you broke them: go
+			end
 		elseif kind == "Finisher" then
 			-- a Nightmare's combination landed its finishing blow: its name over the target
 			-- and, if it's YOUR Nightmare, a short camera punch (a beat, never a cutscene)

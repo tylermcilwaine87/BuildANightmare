@@ -6,8 +6,8 @@
 	  * Stamina (attribute "Stamina" on the character, regenerates after a short delay)
 	  * Dodge: costs 25 stamina, 1s cooldown, 0.3s invulnerability. The CLIENT moves the
 	    character (it owns its physics); the SERVER decides stamina, cooldown and i-frames.
-	  * Guard: 0.15s startup, -65% blockable damage (heavy attacks: -30%), drains stamina
-	    per damage absorbed, breaks at 0 stamina (1.2s stun, can't guard).
+	  * Guard: the request, and what it does to walking and dodging. What it stops and how long
+	    it holds is BlockService (Config.Block), shared with Nightmares.
 	  * Parry: a blockable hit within 0.25s of pressing guard does nothing, and staggers the
 	    attacker (Config.Handler.Parry).
 	Attributes replicated on the character: Stamina, MaxStamina, Guarding, GuardBroken.
@@ -36,8 +36,6 @@ local function newState()
 		LastSpend = 0,
 		LastDodge = -math.huge,
 		InvulnerableUntil = 0,
-		GuardRequested = false,
-		GuardActiveAt = math.huge,
 		GuardBrokenUntil = 0,
 	}
 end
@@ -100,7 +98,7 @@ function HandlerService:Tick(player: Player, state, now: number, dt: number)
 		return
 	end
 
-	local guarding = self:IsGuarding(player)
+	local guarding = self:IsGuarding(player) -- (a held guard stops your stamina coming back)
 	if not guarding and now - state.LastSpend >= H.Stamina.RegenDelay and state.Stamina < H.Stamina.Max then
 		state.Stamina = math.min(H.Stamina.Max, state.Stamina + H.Stamina.RegenPerSecond * dt)
 	end
@@ -111,7 +109,7 @@ function HandlerService:Tick(player: Player, state, now: number, dt: number)
 		walkSpeed = 0 -- channelling: the Handler stands still while you control the Nightmare
 	elseif broken then
 		walkSpeed = H.Guard.BreakWalkSpeed
-	elseif state.GuardRequested then
+	elseif guarding then
 		walkSpeed = H.Guard.WalkSpeed
 	end
 	local cap = self.Services.MeleeService:WalkSpeedCap(player) -- the Magnet held: walk, don't run
@@ -124,8 +122,6 @@ function HandlerService:Tick(player: Player, state, now: number, dt: number)
 	end
 
 	character:SetAttribute("Stamina", math.floor(state.Stamina + 0.5))
-	character:SetAttribute("Guarding", guarding)
-	character:SetAttribute("GuardBroken", broken)
 end
 
 function HandlerService:Spend(state, amount: number)
@@ -134,12 +130,7 @@ function HandlerService:Spend(state, amount: number)
 end
 
 function HandlerService:IsGuarding(player: Player): boolean
-	local state = states[player]
-	if not state then
-		return false
-	end
-	local now = os.clock()
-	return state.GuardRequested and now >= state.GuardActiveAt and now >= state.GuardBrokenUntil
+	return states[player] ~= nil and self.Services.BlockService:IsHolding(player.Character)
 end
 
 function HandlerService:IsInvulnerable(player: Player): boolean
@@ -235,16 +226,31 @@ function HandlerService:SetGuard(player: Player, wanted: boolean)
 	if not state then
 		return
 	end
-	if wanted and not state.GuardRequested then
-		local now = os.clock()
-		state.GuardRequested = true
-		state.GuardActiveAt = now + H.Guard.Startup
+	local character = player.Character
+	local block = self.Services.BlockService
+	if not character then
+		return
+	end
+	if wanted and not block:IsHolding(character) then
+		if self.Services.PossessionService:IsPossessing(player) or not block:Press(character) then
+			return
+		end
 		-- a fresh press opens the parry window (not when mashing: see Config.Handler.Parry)
+		local now = os.clock()
 		state.ParryFrom = now - (state.LastGuardPress or -math.huge) >= H.Parry.Lockout and now or nil
 		state.LastGuardPress = now
 	elseif not wanted then
-		state.GuardRequested = false
-		state.GuardActiveAt = math.huge
+		block:Release(character)
+	end
+end
+
+-- Your guard just broke (BlockService): knocked out of whatever you were doing, and no dodge
+-- until it's back. You have to press it again.
+function HandlerService:OnGuardBroken(player: Player)
+	local state = states[player]
+	if state then
+		state.GuardBrokenUntil = os.clock() + Config.Block.BrokenTime
+		self.Services.MeleeService:Interrupt(player)
 	end
 end
 
@@ -260,6 +266,7 @@ function HandlerService:Parry(player: Player, attacker: Model)
 		if theirs then
 			theirs.GuardBrokenUntil = math.max(theirs.GuardBrokenUntil, os.clock() + cfg.AttackerStun)
 		end
+		services.BlockService:Stun(attacker, cfg.AttackerStun)
 	else
 		local status = services.StatusService
 		local boss = CollectionService:HasTag(attacker, "Boss")
@@ -307,23 +314,7 @@ function HandlerService:ModifyIncomingDamage(player: Player, amount: number, par
 		end
 		return amount
 	end
-	if params.Unblockable or not self:IsGuarding(player) then
-		return amount
-	end
-
-	local reduction = params.Heavy and H.Guard.HeavyDamageReduction or H.Guard.DamageReduction
-	local absorbed = amount * reduction
-	self:Spend(state, absorbed * H.Guard.StaminaPerDamage * (params.Heavy and 2 or 1))
-
-	local character = player.Character
-	local position = character and character:GetPivot().Position or Vector3.zero
-	if state.Stamina <= 0 then
-		state.GuardBrokenUntil = os.clock() + H.Guard.BreakStunTime
-		Net.FireNearby(self.Feedback, position, Config.Performance.EffectRadius, "GuardBreak", { Target = character, Position = position })
-	else
-		Net.FireNearby(self.Feedback, position, Config.Performance.EffectRadius, "Blocked", { Target = character, Position = position })
-	end
-	return amount - absorbed
+	return amount -- (a guard is next: BlockService, from CombatService)
 end
 
 return HandlerService

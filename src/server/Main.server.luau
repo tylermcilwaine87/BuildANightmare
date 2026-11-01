@@ -36,6 +36,7 @@ local LOAD_ORDER = {
 	"TelegraphService",
 	"NavigationService",
 	"StatusService",
+	"BlockService",
 	"HandlerService",
 	"RagdollService",
 	"CombatService",

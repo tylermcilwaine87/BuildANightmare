@@ -124,7 +124,11 @@ function PossessionService:Begin(player: Player)
 
 	self.Services.ChallengeService:Notify(player, "Possessed")
 
-	-- Hand the body over to the player.
+	-- Hand the body over to the player (your own guard comes down: you're not in that body now).
+	if player.Character then
+		self.Services.BlockService:Release(player.Character)
+	end
+	self.Services.NightmareAIService:DropGuard(brain)
 	brain.possessedBy = player
 	brain.queuedAbility = nil
 	self.Services.NightmareAIService:StopFacing(brain)
@@ -153,6 +157,7 @@ function PossessionService:End(player: Player, reason: string)
 	local brain = state.Brain
 	state.Brain = nil
 	if brain and brain.model.Parent then
+		self.Services.BlockService:Release(brain.model)
 		brain.possessedBy = nil
 		brain.busyUntil = math.max(brain.busyUntil, os.clock() + 0.3)
 		brain.model:SetAttribute("PossessedBy", nil)
@@ -175,7 +180,7 @@ local function activeBrain(self, player: Player)
 		return nil
 	end
 	local brain = state.Brain
-	if brain.humanoid.Health <= 0 or self.Services.NightmareAIService:IsBusy(brain) then
+	if brain.humanoid.Health <= 0 or self.Services.NightmareAIService:IsBusy(brain) or self.Services.BlockService:IsHolding(brain.model) then
 		return nil, brain
 	end
 	return brain
@@ -203,6 +208,21 @@ function PossessionService:PossessedAction(player: Player, action: string)
 		ai:StartAttack(brain, now)
 	elseif action == "NM_Heavy" and ai:HeavyReady(brain, now) then
 		ai:StartHeavy(brain, now)
+	end
+end
+
+-- Blocking with the Nightmare you're controlling (hold; while it's up it can't attack).
+function PossessionService:PossessedGuard(player: Player, wanted: boolean)
+	local state = states[player]
+	local brain = state and state.Active and state.Brain
+	if not brain then
+		return
+	end
+	local block = self.Services.BlockService
+	if not wanted then
+		block:Release(brain.model)
+	elseif activeBrain(self, player) then
+		block:Press(brain.model)
 	end
 end
 

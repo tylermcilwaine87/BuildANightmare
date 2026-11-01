@@ -211,7 +211,9 @@ function InputController:Perform(action: string)
 	if possession:IsPossessing() then
 		if action == "Attack" then
 			possession:Light()
-		elseif action == "Guard" or action == "PossessedHeavy" or action == "Kick" then
+		elseif action == "Guard" then
+			combat:SetGuard(true) -- (held: it's the Nightmare's guard while you're in it)
+		elseif action == "PossessedHeavy" or action == "Kick" then
 			possession:Heavy()
 		elseif action == "Dodge" or action == "StepBack" then
 			possession:Dodge()

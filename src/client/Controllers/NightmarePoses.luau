@@ -545,6 +545,21 @@ local GYM = {
 		Markers = { { 0.2, "StepR" } },
 		Keys = { pose(0), pose(0.18, PULL), pose(0.38, { Joint_CorePos = { 0, 0.1, 0.12 } }), pose(0.55) },
 	},
+	-- THE GUARD BREAKS (BlockService.BrokenTime, any body): arms knocked wide, the head snapping
+	-- back, it reels with nothing up, the legs give, and it hauls itself back together
+	Guard_Crumble = {
+		Duration = 1.3,
+		Curve = "Spline",
+		Markers = { { 0.32, "StepR" }, { 0.68, "Land" } },
+		Keys = {
+			pose(0),
+			{ T = 0.09, Ease = "Snap", Joint_CorePos = { 0, 0.1, 0.55 }, Joint_Core = { 16, 0, 0 }, Joint_Legs = { -10, 0, 0 }, Joint_Head = { -24, 0, 0 }, Joint_RightArm = { 18, 0, -74 }, Sub_RightArm_Fore = { 22, 0, 0 }, Joint_LeftArm = { 18, 0, 74 }, Sub_LeftArm_Fore = { 22, 0, 0 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } },
+			{ T = 0.32, Joint_CorePos = { 0.15, -0.15, 0.8 }, Joint_Core = { 8, -10, 6 }, Joint_Legs = { 0, 10, -4 }, Joint_Head = { -12, 12, 0 }, Joint_RightArm = { 4, 0, -46 }, Sub_RightArm_Fore = { 34, 0, 0 }, Joint_LeftArm = { 8, 0, 42 }, Sub_LeftArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { -20, 0, 0 }, Sub_Legs_R = { 18, 0, 0 } },
+			{ T = 0.68, Joint_CorePos = { 0, -0.75, 0.55 }, Joint_Core = { -34, 4, -3 }, Joint_Legs = { 30, -4, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 14, 0, -16 }, Sub_RightArm_Fore = { 50, 0, 0 }, Joint_LeftArm = { 18, 0, 14 }, Sub_LeftArm_Fore = { 54, 0, 0 }, Sub_Legs_L = { 46, 0, 0 }, Sub_Legs_R = { -38, 0, 0 } },
+			{ T = 1.02, Joint_CorePos = { 0, -0.25, 0.2 }, Joint_Core = { -16, -6, 0 }, Joint_Legs = { 14, 6, 0 }, Joint_Head = { -6, 6, 0 }, Joint_RightArm = { 36, 0, -36 }, Sub_RightArm_Fore = { 84, 0, 0 }, Joint_LeftArm = { 40, 0, 34 }, Sub_LeftArm_Fore = { 80, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } },
+			pose(1.3),
+		},
+	},
 	-- REST: hands on the knees catching its breath, straighten up, shake the arms out
 	Gym_Rest = {
 		Duration = 3.2,
@@ -1940,7 +1955,7 @@ for name, def in ULTIMATE do
 	POSES.Common[name] = def
 end
 -- (every ability and Ultimate on a four-legged body: its quadruped variant, found before Common)
-local RING_CLIPS = { Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true }
+local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true }
 for name, def in POSES.Common do
 	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" or RING_CLIPS[name] then
 		POSES.Quadruped[name] = forQuadruped(def)

@@ -882,6 +882,44 @@ POSES.Parried = {
 	},
 }
 
+local function with(...)
+	local key = {}
+	for _, part in { ... } do
+		for joint, value in part do
+			key[joint] = value
+		end
+	end
+	return key
+end
+-- BLOCKING (BlockService). Held: forearms up in front of the face, chin down, knees bent.
+local BLOCK = { LeftShoulder = { 78, -58, 0 }, LeftElbow = { 138, 0, 0 }, RightShoulder = { 72, 62, 0 }, RightElbow = { 142, 0, 0 }, Neck = { -14, 0, 0 }, Waist = { -14, 0, 0 }, LeftHip = { 16, 0, 0 }, LeftKnee = { -22, 0, 0 }, RightHip = { -8, 0, 0 }, RightKnee = { -24, 0, 0 } }
+POSES.Block = { Hold = true, Keys = { with({ T = 0 }, BLOCK) } }
+-- ...and how that same stance looks when it's almost gone: the arms dropping away from the
+-- head, shoulders hunched, the knees giving out (the guard meter blends between the two)
+POSES.BlockCrumbling = { Hold = true, Keys = { { T = 0, LeftShoulder = { 34, -42, -6 }, LeftElbow = { 96, 0, 0 }, RightShoulder = { 28, 44, 6 }, RightElbow = { 100, 0, 0 }, Neck = { 12, 0, 0 }, Waist = { -30, 0, 0 }, LeftHip = { 30, 0, 0 }, LeftKnee = { -44, 0, 0 }, RightHip = { 8, 0, 0 }, RightKnee = { -46, 0, 0 } } } }
+-- a blow stopped dead on the forearms: the whole stance rocks back and sets again
+POSES.BlockHit = {
+	Duration = 0.24,
+	Keys = {
+		with({ T = 0 }, BLOCK),
+		with({ T = 0.05 }, BLOCK, { RootPos = { 0, -0.1, 0.18 }, Waist = { -6, 0, 0 }, Neck = { -4, 0, 0 }, LeftShoulder = { 70, -58, 0 }, RightShoulder = { 64, 62, 0 } }),
+		with({ T = 0.24 }, BLOCK),
+	},
+}
+-- THE GUARD BREAKS (BlockService.BrokenTime): the arms are knocked wide, the head snaps back, it
+-- reels two steps with nothing up, the knees buckle, and it hauls itself back together
+POSES.GuardCrumble = {
+	Duration = 1.3,
+	Keys = {
+		with({ T = 0 }, BLOCK),
+		{ T = 0.09, RootPos = { 0, 0.05, 0.5 }, Root = { 12, 0, 0 }, Waist = { 14, 0, 0 }, Neck = { 22, 0, 0 }, LeftShoulder = { 20, 0, -62 }, LeftElbow = { 22, 0, 0 }, RightShoulder = { 16, 0, 66 }, RightElbow = { 20, 0, 0 }, LeftHip = { 10, 0, 0 }, RightHip = { -24, 0, 0 }, RightKnee = { -18, 0, 0 } },
+		{ T = 0.32, RootPos = { 0.15, -0.25, 0.75 }, Root = { 6, -8, 6 }, Waist = { 4, -6, 0 }, Neck = { 12, 10, 0 }, LeftShoulder = { 8, 0, -38 }, LeftElbow = { 30, 0, 0 }, RightShoulder = { -2, 0, 44 }, RightElbow = { 34, 0, 0 }, LeftHip = { -20, 0, 0 }, LeftKnee = { -18, 0, 0 }, RightHip = { 18, 0, 0 }, RightKnee = { -30, 0, 0 } },
+		{ T = 0.68, RootPos = { 0.05, -0.85, 0.6 }, Root = { -14, 4, -4 }, Waist = { -34, 0, 0 }, Neck = { 16, -6, 0 }, LeftShoulder = { 22, 0, -12 }, LeftElbow = { 50, 0, 0 }, RightShoulder = { 18, 0, 14 }, RightElbow = { 54, 0, 0 }, LeftHip = { 58, 0, 0 }, LeftKnee = { -76, 0, 0 }, RightHip = { 38, 0, 0 }, RightKnee = { -82, 0, 0 } },
+		{ T = 1.02, RootPos = { 0, -0.35, 0.2 }, Root = { -6, 0, 0 }, Waist = { -18, 0, 0 }, Neck = { 2, 0, 0 }, LeftShoulder = { 46, -28, -6 }, LeftElbow = { 90, 0, 0 }, RightShoulder = { 40, 30, 6 }, RightElbow = { 94, 0, 0 }, LeftHip = { 26, 0, 0 }, LeftKnee = { -34, 0, 0 }, RightHip = { 10, 0, 0 }, RightKnee = { -36, 0, 0 } },
+		stance(1.3),
+	},
+}
+
 -- The punches go all the way out and connect (FightAim): each contact frame, which arm, where.
 POSES.Jab.Aim = { { T = 0.11, Arm = "Left", At = "Head", Lead = 0.07 } }
 POSES.Cross.Aim = { { T = 0.14, Arm = "Right", At = "Head", Lead = 0.09 } }

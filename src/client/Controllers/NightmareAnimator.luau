@@ -428,6 +428,40 @@ local function applyStance(state, weight: number, now: number)
 	end
 end
 
+-- BLOCKING (attribute Guarding, BlockService): the guard stance, for as long as it's held. Below
+-- the meter's CrackAt the stance fails, by how far: the arms drop, it sinks, and it shakes.
+local function applyGuard(state, weight: number, now: number)
+	if weight <= 0.001 then
+		return
+	end
+	local model, motors = state.model, state.motors
+	local library = POSES[model:GetAttribute("Archetype") or "Biped"]
+	local hold = (library and library.Guard_Hold or POSES.Common.Guard_Hold).Keys[3]
+	local failing = math.clamp(1 - (model:GetAttribute("GuardLevel") or Config.Block.Max) / Config.Block.CrackAt, 0, 1)
+	local shake = math.sin(now * 42) * failing * 2.5
+	for joint, value in hold do
+		local motor = type(value) == "table" and motors[joint]
+		if motor then
+			local x = value[1] + shake
+			if joint == "Joint_RightArm" or joint == "Joint_LeftArm" then
+				x -= 38 * failing
+			elseif joint == "Sub_RightArm_Fore" or joint == "Sub_LeftArm_Fore" then
+				x -= 30 * failing
+			elseif joint == "Joint_Core" then
+				x -= 16 * failing
+			elseif joint == "Joint_Head" then
+				x += 22 * failing
+			end
+			motor.Transform = motor.Transform:Lerp(CFrame.Angles(math.rad(x), math.rad(value[2]), math.rad(value[3])), weight)
+		end
+	end
+	local core = motors.Joint_Core
+	local lift = hold.Joint_CorePos
+	if core and lift then
+		core.Transform = CFrame.new(lift[1] * weight, (lift[2] - 0.35 * failing) * weight, lift[3] * weight) * core.Transform
+	end
+end
+
 -- A hit reaction (POSES.Reactions) on top of everything else the body is doing.
 local function applyReaction(state, now: number)
 	local react = state.react
@@ -645,8 +679,12 @@ local function animate(state, root: BasePart, dt: number, now: number)
 	end
 	applyStance(state, stance, now)
 	local ringed = not bossId and CollectionService:HasTag(model, "Nightmare")
+	-- (behind a guard it isn't slipping about: the stance is set)
+	local wantGuard = ringed and model:GetAttribute("Guarding") == true and not defeated
+	state.guardWeight = (state.guardWeight or 0) + ((wantGuard and 1 or 0) - (state.guardWeight or 0)) * math.min(1, dt * 16)
 	if ringed then
-		RingCraft.Apply(state, root, stance, dt, now, speed, velocity, markerEvent)
+		RingCraft.Apply(state, root, stance * (1 - state.guardWeight), dt, now, speed, velocity, markerEvent)
+		applyGuard(state, state.guardWeight, now)
 	end
 
 	-- a keyframed attack overrides the joints it keys (the rest keep their procedural motion)

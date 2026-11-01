@@ -509,7 +509,8 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 		return false
 	end
 	local startOut = Util.FlatDistance(startRoot.Position, brain.root.Position) - math.max(startRoot.Size.X, startRoot.Size.Z) / 2 - brain.hitboxSize.Z / 2
-	if startOut > brain.stats.Reach + (def.ExtraReach or 0) + (def.Leap and def.Leap.Max or 0) + 6 then
+	-- (a leap only goes as far as it goes: nothing keeps stepping in behind one)
+	if startOut > brain.stats.Reach + (def.ExtraReach or 0) + (def.Leap and def.Leap.Max + 2 or 6) then
 		return false
 	end
 	local speedScale = 100 / brain.stats.AttackSpeed
@@ -521,7 +522,7 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 	brain.cancelableAt = now + hits[1][1] * speedScale + 0.05
 	brain.comboIndex = 1
 	brain.lastString = def.Action
-	brain.model:SetAttribute("NightmareGuard", nil)
+	self:DropGuard(brain)
 	-- the combat brain's bookkeeping: stamina, variety, the signature cooldown
 	if not brain.possessedBy then
 		spendStamina(brain, COMBAT.CostOf(def), now)
@@ -709,13 +710,19 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 				end
 				print(("[Combo] %s hit %d @%.2f gap %.1f -> %s"):format(def.Action, index, os.clock() - startedAt, targetRoot and Util.FlatDistance(targetRoot.Position, brain.root.Position) or -1, #names > 0 and table.concat(names, ",") or "MISS"))
 			end
-			-- the OPENER missed (they're out of reach): a thinking fighter doesn't swing on
-			-- at air. By personality it breaks off and resets (the client blends out of the
-			-- combination into footwork), else it keeps going and tries to catch them.
-			if index == 1 and #victims == 0 and #hits > 1 and not brain.possessedBy then
-				brain.whiffs[def.Action] = os.clock()
-				noteHabit(brain, target, "Evade")
-				local abort = brain.personality and brain.personality.Abort or 0.6
+			-- NOBODY THERE: a thinking fighter doesn't swing on at air. The OPENER missed (they got
+			-- out of reach): by personality it breaks off and resets (the client blends out of the
+			-- combination into footwork), else it keeps going and tries to catch them. A later
+			-- blow finding nothing (they're down, or were thrown clear): it always stops.
+			if #victims == 0 and index < #hits and not brain.possessedBy then
+				local abort = 1
+				if index == 1 then
+					brain.whiffs[def.Action] = os.clock()
+					noteHabit(brain, target, "Evade")
+					abort = brain.personality and brain.personality.Abort or 0.6
+					local gone = not target.Parent or not services.CombatService:IsAlive(target)
+					abort = gone and 1 or abort
+				end
 				if math.random() < abort then
 					brain.castToken += 1
 					brain.busyUntil = os.clock() + 0.35
@@ -768,6 +775,8 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 					AttackPower = brain.stats.AttackPower,
 					Knockback = hit[3] or 0,
 					Heavy = hit[4] == true,
+					GuardBreak = hasTag(def, "GuardBreak"),
+					Unblockable = grabbed == victim or nil, -- (you can't block what's got hold of you)
 					Launch = hit[5],
 					HitDirection = throwDirection,
 					Crumple = options.Crumple,
@@ -880,7 +889,7 @@ function NightmareAIService:QuickStep(brain, direction: Vector3, distance: numbe
 	end
 
 	brain.dashReadyAt = now + FIGHT.DashCooldown
-	brain.model:SetAttribute("NightmareGuard", nil) -- (stepping out drops the guard)
+	self:DropGuard(brain) -- (stepping out drops the guard)
 	brain.busyUntil = now + FIGHT.DashTime + 0.08
 	brain.cancelableAt = brain.busyUntil
 	self:Stop(brain)
@@ -951,11 +960,16 @@ function NightmareAIService:StartCounter(brain, def, target: Model, now: number)
 	local targetRoot = target:FindFirstChild("HumanoidRootPart")
 	local speedScale = 100 / brain.stats.AttackSpeed
 	local evade = def.Evade
+	-- (the string it was throwing stops here: its later beats would land during this one, and
+	-- knock the target away from the counter's own opener)
+	brain.castToken += 1
 	self:Stop(brain)
 	if targetRoot then
 		self:Face(brain, targetRoot.Position)
 	end
-	self:StartString(brain, def, target, now)
+	if not self:StartString(brain, def, target, now) then
+		return false
+	end
 	local right = Util.FlatUnit(brain.root.CFrame.RightVector) or Vector3.xAxis
 	brain.model:SetAttribute("PhaseUntil", Workspace:GetServerTimeNow() + evade.Time * speedScale)
 	pressIn(brain, right, evade.Distance, evade.Time * speedScale)
@@ -963,6 +977,7 @@ function NightmareAIService:StartCounter(brain, def, target: Model, now: number)
 	if RunService:IsStudio() and Config.Dev.LogNightmareCombos then
 		print(("[Brain] %s COUNTERS with %s"):format(brain.model.Name, def.Action))
 	end
+	return true
 end
 
 -- Performs a pending reaction. Returns true if it stepped.
@@ -989,8 +1004,11 @@ function NightmareAIService:React(brain, target: Model, now: number): boolean
 	-- animation): slide out of the line untouchable, then straight back in with the hits
 	local counterChance = math.min(0.9, FIGHT.CounterChance * 0.6 * (brain.personality and brain.personality.Counter or 1) * (adaptOf(brain, target).Aggressor and COMBAT.Adapt.Aggressor.CounterChance or 1))
 	local counter = math.random() < counterChance and self:PickCounter(brain, now)
-	if counter and not brain.root.Anchored then
-		self:StartCounter(brain, counter, target, now)
+	-- (a counter is an answer to someone in front of you: it can't land on a body that's far off,
+	-- or one already flying away from the last blow)
+	local out = Util.FlatDistance(brain.root.Position, targetRoot.Position) - math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2 - brain.hitboxSize.Z / 2
+	local settled = targetRoot.AssemblyLinearVelocity.Magnitude < 18 and not target:GetAttribute("Ragdolled")
+	if counter and not brain.root.Anchored and settled and out <= brain.stats.Reach + 4 and self:StartCounter(brain, counter, target, now) then
 		return true
 	end
 	local stepped
@@ -1003,6 +1021,7 @@ function NightmareAIService:React(brain, target: Model, now: number): boolean
 		stepped = self:QuickStep(brain, away, FIGHT.StepBackDistance, math.random() < 0.4 and "RollUnder" or "PullBack", targetRoot.Position)
 	end
 	if stepped then
+		brain.castToken += 1 -- (stepping out abandons the rest of a string it was mid-way through)
 		spendStamina(brain, COMBAT.Stamina.StepCost, now)
 	end
 	-- Step out... then straight back in with a hit (the attacker is stuck in its swing).
@@ -1328,7 +1347,9 @@ function NightmareAIService:ChooseMove(brain, target: Model, now: number, state)
 	if not state.down then
 		add("Feint", footwork("Feint") * (state.guarding and 1.6 or 1))
 		add("Flank", footwork("Flank") * (state.guarding and 1.4 or 1) * (state.boss and 2 or 1) * (brain.flair or 1))
-		add("Guard", footwork("Guard") * (state.pressured and 2.2 or 1) * (tired and 2.5 or 1))
+		-- (a stance that's nearly gone isn't worth raising again: it moves instead)
+		local stance = brain.model:GetAttribute("GuardLevel") or Config.Block.Max
+		add("Guard", stance <= Config.Block.CrackAt and 0 or footwork("Guard") * (state.pressured and 2.2 or 1) * (tired and 2.5 or 1))
 	end
 
 	local total = 0
@@ -1376,12 +1397,37 @@ end
 function NightmareAIService:StartGuard(brain, now: number)
 	local guard = COMBAT.Guard
 	local time = randomIn(guard.Time)
+	if not self.Services.BlockService:Press(brain.model) then
+		return
+	end
+	brain.guardUntil = now + time
 	brain.busyUntil = now + time
 	brain.cancelableAt = now + 0.15 -- (React may still step out of it)
 	self:Stop(brain)
-	self:PlayAction(brain, guard.Action, 0, time)
-	brain.model:SetAttribute("NightmareGuard", Workspace:GetServerTimeNow() + time)
+	if brain.target and brain.target.Parent then
+		self:Face(brain, brain.target:GetPivot().Position) -- (a guard only covers what's in front)
+	end
 	spendStamina(brain, guard.StaminaDrain * time, now)
+end
+
+function NightmareAIService:DropGuard(brain)
+	brain.guardUntil = nil
+	self.Services.BlockService:Release(brain.model)
+end
+
+-- Its guard just broke (BlockService): the stance crumbles, and it's wide open while it recovers.
+function NightmareAIService:OnGuardBroken(model: Model)
+	local brain = brains[model]
+	if not brain then
+		return
+	end
+	local time = Config.Block.BrokenTime
+	brain.guardUntil = nil
+	brain.castToken += 1
+	brain.busyUntil = os.clock() + time
+	brain.cancelableAt = brain.busyUntil -- (no stepping out of it either)
+	self:Stop(brain)
+	self:PlayAction(brain, "Guard_Crumble", 0, time)
 end
 
 function NightmareAIService:Engage(brain, target: Model, now: number)
@@ -1610,6 +1656,9 @@ function NightmareAIService:Update(brain, now: number, dt: number)
 	local fighting = brain.possessedBy ~= nil or brain.ringWork == true or (opponentRoot ~= nil and not brain.scripted and Util.FlatDistance(opponentRoot.Position, brain.root.Position) <= NM.StanceRange)
 	if brain.model:GetAttribute("FightStance") ~= (fighting or nil) then
 		brain.model:SetAttribute("FightStance", fighting or nil)
+	end
+	if brain.guardUntil and now >= brain.guardUntil then
+		self:DropGuard(brain)
 	end
 	-- scripted = another service is driving it (the Nightmare Gym's training routine)
 	if brain.humanoid.Health <= 0 or brain.possessedBy or brain.scripted then

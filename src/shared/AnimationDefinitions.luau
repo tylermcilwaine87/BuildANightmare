@@ -40,6 +40,8 @@ AnimationDefinitions.Handler = {
 	Stagger = { Id = "", Code = "Stagger", Note = "heavy hit: staggered two steps back" },
 	Parry = { Id = "", Code = "Parry", Note = "guard at the last moment: the guard snaps out" },
 	Parried = { Id = "", Code = "Parried", Note = "your strike was parried: knocked open" },
+	BlockHit = { Id = "", Code = "BlockHit", Note = "a blow stopped on your guard: the stance rocks and sets" },
+	GuardCrumble = { Id = "", Code = "GuardCrumble", Note = "your guard breaks: arms knocked wide, reeling, knees buckle" },
 	SupermanPunch = { Id = "", Code = "SupermanPunch", Note = "step back, then P: fly back in with a superman punch" },
 	CounterHeadKick = { Id = "", Code = "CounterHeadKick", Note = "step back, then K: Head Hunter, a step-in head kick" },
 

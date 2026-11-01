@@ -181,14 +181,9 @@ Config.Handler = {
 			RollDuration = 0.27,
 		},
 	},
-	Guard = {
-		Startup = 0.15, -- guard isn't active instantly
-		DamageReduction = 0.65, -- blockable damage
-		HeavyDamageReduction = 0.3, -- "heavy" boss attacks are only partly blocked
-		StaminaPerDamage = 1.0, -- stamina drained per point of damage absorbed
+	Guard = { -- (what it stops and how long it holds: Config.Block)
 		WalkSpeed = 8,
-		BreakStunTime = 1.2, -- guard break: can't guard, slowed
-		BreakWalkSpeed = 5,
+		BreakWalkSpeed = 5, -- guard broken: slowed
 	},
 	-- The PARRY: guard pressed within Window seconds before a blockable hit lands. No
 	-- damage, and the attacker is knocked off line: Stagger x its stagger bar (BossStagger
@@ -202,6 +197,30 @@ Config.Handler = {
 		BossStagger = 0.2,
 		AttackerStun = 0.6,
 	},
+}
+
+-- BLOCKING (BlockService): the guard meter, for Handlers and Nightmares alike. A held guard with
+-- nothing hitting it lasts Max / HoldDrain seconds; it starts failing below CrackAt.
+Config.Block = {
+	Max = 100,
+	Startup = 0.15, -- a press isn't protecting you yet (a parry window covers it)
+	Reduction = 0.88, -- of a normal blow, while the stance holds
+	HeavyReduction = 0.6, -- of a Heavy
+	BossReduction = 0.65, -- (boss fights stay as hard as they were tuned)
+	BossHeavyReduction = 0.3,
+	CrackAt = 40, -- below this the stance fails: Reduction slides down to LeakReduction at 0
+	LeakReduction = 0.25,
+	HoldDrain = 8.5, -- per second, just holding it up (about 12 s to break untouched)
+	HitCost = 2, -- each blow stopped (about 5 s to break under a steady stream of punches)...
+	CostPerPercent = 0.4, -- ...plus this per 1% of max health the blow would have done
+	HeavyCost = 2, -- x for a Heavy
+	GuardBreakCost = 2.2, -- x for a guard-breaking move (GuardBreak strings, some kicks)
+	RepressCost = 6, -- pressing again within RegenDelay of letting go
+	RegenDelay = 1.3, -- seconds with the guard down before it refills
+	RegenPerSecond = 26,
+	BrokenTime = 1.3, -- seconds with no guard and no dodge
+	AfterBreak = 25, -- what it comes back with, so it isn't instantly broken again
+	ArcDot = -0.15, -- hits from outside this of the way it faces (about 100 degrees either side) go through
 }
 
 -- Ragdoll knockdowns: Handlers, Nightmares and normal enemies get knocked off their feet

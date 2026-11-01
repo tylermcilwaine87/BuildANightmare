@@ -88,12 +88,12 @@ local Moves = {
 	-- Leg sweep (after the elbow): drop low on the lead leg and sweep the rear leg through
 	-- their ankles. Sweep: the knockdown FLIPS them (launched up, heels over head, onto their
 	-- back: CombatService / Config.Ragdoll.Sweep) instead of tipping them backwards.
-	LegSweep = { Pose = "LegSweep", Duration = 0.85, HitTime = 0.3, Cancel = 0.6, Damage = 13, Range = 6, Arc = 140, Knockback = 10, Stagger = 18, Heavy = true, Launch = "Sweep", Lunge = 2, Unlock = { Level = 2 }, Display = "Elbow into Leg Sweep" },
-	Knee = { Pose = "Knee", Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 2.0 },
+	LegSweep = { Pose = "LegSweep", GuardBreak = true, Duration = 0.85, HitTime = 0.3, Cancel = 0.6, Damage = 13, Range = 6, Arc = 140, Knockback = 10, Stagger = 18, Heavy = true, Launch = "Sweep", Lunge = 2, Unlock = { Level = 2 }, Display = "Elbow into Leg Sweep" },
+	Knee = { Pose = "Knee", GuardBreak = true, Duration = 0.4, HitTime = 0.15, Cancel = 0.26, Damage = 8, Range = 5, Arc = 60, Stagger = 8, Lunge = 2.0 },
 	Teep = { Pose = "FrontKick", Duration = 0.46, HitTime = 0.18, Cancel = 0.3, Damage = 7, Range = 7, Arc = 60, Knockback = 20, Stagger = 5, Lunge = 1.6 },
 	-- (the client first SPRINTS at the target, up to SprintTime, then leaps: this move
 	-- starts at the leap)
-	DropKick = { Pose = "DropKick", Duration = 1.3, HitTime = 0.26, Cancel = 1.2, Damage = 14, Range = 8, Arc = 70, Knockback = 40, Stagger = 15, Heavy = true, Leap = 11, SprintRange = 30, SprintSpeed = 30, SprintTime = 1.1, Unlock = { Level = 6 }, Display = "Drop Kick" },
+	DropKick = { Pose = "DropKick", GuardBreak = true, Duration = 1.3, HitTime = 0.26, Cancel = 1.2, Damage = 14, Range = 8, Arc = 70, Knockback = 40, Stagger = 15, Heavy = true, Leap = 11, SprintRange = 30, SprintSpeed = 30, SprintTime = 1.1, Unlock = { Level = 6 }, Display = "Drop Kick" },
 	-- 1-2-3 then the head kick: the classic finisher (harder than a lone head kick, knocks down)
 	HeadKickFinisher = { Pose = "HeadKick", Duration = 0.62, HitTime = 0.24, Cancel = 0.5, Damage = 15, Range = 7.5, Arc = 110, Knockback = 38, Stagger = 16, Heavy = true, Lunge = 3, Display = "1-2-3 Head Kick" },
 	-- Counters (right after a step back): the client dashes the whole gap back in; Lunge

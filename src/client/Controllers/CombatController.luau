@@ -348,7 +348,79 @@ function CombatController:SetGuard(wanted: boolean)
 		return
 	end
 	guarding = wanted
-	combatAction:FireServer("Guard", wanted)
+	-- (you're holding it up the instant you press: your own screen doesn't wait for the server)
+	local character = localPlayer.Character
+	if character then
+		character:SetAttribute("GuardHeld", wanted or nil)
+	end
+	if controllers.PossessionController:IsPossessing() then
+		combatAction:FireServer("NM_Guard", wanted)
+	else
+		combatAction:FireServer("Guard", wanted)
+	end
+	self:FaceWhileGuarding(wanted)
+end
+
+-- The nearest body that could hit you, any direction: enemies, others' Nightmares, and in a duel
+-- the other Handler.
+function CombatController:NearestThreat(root: BasePart): BasePart?
+	local best, bestDistance = nil, 24
+	local function consider(model: Model)
+		local other = model:FindFirstChild("HumanoidRootPart")
+		if other and other ~= root and model ~= localPlayer.Character and model:GetAttribute("OwnerUserId") ~= localPlayer.UserId then
+			local distance = (other.Position - root.Position).Magnitude
+			if distance < bestDistance then
+				best, bestDistance = other, distance
+			end
+		end
+	end
+	for _, tag in { "Enemy", "Nightmare" } do
+		for _, model in CollectionService:GetTagged(tag) do
+			consider(model)
+		end
+	end
+	if controllers.PvPController:IsInMatch() then
+		for _, model in controllers.PvPController:GetOpponentModels() do
+			consider(model)
+		end
+	end
+	return best
+end
+
+-- A guard only covers what's in front, so a held guard keeps turning to the nearest threat: you
+-- can walk backwards and keep it up. (Locked on, the lock already does this.)
+local guardTurn: RBXScriptConnection? = nil
+function CombatController:FaceWhileGuarding(wanted: boolean)
+	if guardTurn then
+		guardTurn:Disconnect()
+		guardTurn = nil
+	end
+	local body = controllers.PossessionController:GetModel() or localPlayer.Character
+	local humanoid = body and body:FindFirstChildOfClass("Humanoid")
+	local root = body and body:FindFirstChild("HumanoidRootPart")
+	if not humanoid or not root then
+		return
+	end
+	local locked = controllers.LockOnController:GetTarget() ~= nil
+	if not wanted then
+		if not locked then
+			humanoid.AutoRotate = true
+		end
+		return
+	end
+	if locked then
+		return
+	end
+	guardTurn = RunService.RenderStepped:Connect(function(dt)
+		local threat = root.Parent and self:NearestThreat(root)
+		humanoid.AutoRotate = threat == nil
+		if threat then
+			local at = Vector3.new(threat.Position.X, root.Position.Y, threat.Position.Z)
+			if (at - root.Position).Magnitude > 0.5 then
+				root.CFrame = root.CFrame:Lerp(CFrame.lookAt(root.Position, at), math.min(1, dt * 14))
+			end
+		end
+	end)
 end
 
 function CombatController:IsGuarding(): boolean

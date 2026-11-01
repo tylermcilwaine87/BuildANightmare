@@ -205,6 +205,10 @@ end
 -- character, fists up, in a fight) the fighting guard.
 local function holdFor(rig): string?
 	local model = rig.model
+	-- (hands up on your own screen the instant you press: GuardHeld is local)
+	if model:GetAttribute("Guarding") or (rig.isLocal and model:GetAttribute("GuardHeld")) then
+		return "Block"
+	end
 	local weapon = Melee.WeaponsById[model:GetAttribute("Weapon") or ""]
 	if weapon then
 		return weapon.Hold
@@ -230,6 +234,25 @@ local function applyHold(rig, dt: number)
 		return
 	end
 	local w = smooth(rig.holdWeight)
+	if rig.holdSlot == "Block" then
+		-- the stance holds, until its guard meter (BlockService) drops below CrackAt: then the
+		-- arms sag, the knees go and it starts to shake, the worse the lower it gets
+		local failing = math.clamp(1 - (rig.model:GetAttribute("GuardLevel") or Config.Block.Max) / Config.Block.CrackAt, 0, 1)
+		local crumbling = POSES.BlockCrumbling.Keys[1]
+		local shake = math.sin(os.clock() * 42) * failing * 2.2
+		for joint, angles in def.Keys[1] do
+			local motor = joint ~= "T" and rig.motors[joint]
+			local sag = crumbling[joint]
+			if motor and motor.Parent then
+				local x, y, z = angles[1], angles[2], angles[3]
+				if sag then
+					x, y, z = x + (sag[1] - x) * failing + shake, y + (sag[2] - y) * failing, z + (sag[3] - z) * failing
+				end
+				motor.Transform = motor.Transform:Lerp(CFrame.Angles(math.rad(x), math.rad(y), math.rad(z)), w)
+			end
+		end
+		return
+	end
 	for joint, angles in def.Keys[1] do
 		local motor = joint ~= "T" and rig.motors[joint]
 		if motor and motor.Parent then

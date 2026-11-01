@@ -624,11 +624,7 @@ local function buildMobileControls(gui: ScreenGui)
 		end
 	end)
 	ui.GuardTouch = roundButton("GUARD", 40, 200, 52, Color3.fromRGB(70, 120, 220), function()
-		if possession():IsPossessing() then
-			possession():Heavy()
-		else
-			combat():SetGuard(not combat():IsGuarding()) -- toggle on touch
-		end
+		combat():SetGuard(not combat():IsGuarding()) -- toggle on touch (yours, or the Nightmare's)
 	end)
 	roundButton("Q", 140, 135, 54, C.Accent, function()
 		combat():UseAbility(1)
@@ -942,7 +938,7 @@ function HUDController:RefreshMeters(character: Model?, nightmare: Model?)
 	if possession:IsPossessing() then
 		local left = possession:TimeLeft()
 		UIKit.SetBar(ui.PossessionBar, left, P.Duration)
-		ui.PossessionBar.Label.Text = (UIKit.IsTouchOnly() and "POSSESSED  %.1fs" or "POSSESSED  %.1fs   ·   LMB combo · RMB heavy · Shift dodge · F exit"):format(left)
+		ui.PossessionBar.Label.Text = (UIKit.IsTouchOnly() and "POSSESSED  %.1fs" or "POSSESSED  %.1fs   ·   LMB combo · RMB heavy · Ctrl block · Shift dodge · F exit"):format(left)
 	else
 		local meter = character and character:GetAttribute("Possession") or 0
 		local cooldownLeft = math.max(0, (character and character:GetAttribute("PossessionCooldownEnd") or 0) - Workspace:GetServerTimeNow())
@@ -968,6 +964,21 @@ function HUDController:RefreshMeters(character: Model?, nightmare: Model?)
 		local sync = character and character:GetAttribute("Sync") or 0
 		UIKit.SetBar(ui.SyncBar, sync, Config.Sync.Max)
 		ui.SyncBar.Label.Text = sync > 0 and ("SYNC  %d%%"):format(sync) or (UIKit.IsTouchOnly() and "SYNC" or "SYNC  ·  hit the same enemy as your Nightmare")
+	end
+	ui.SyncBar.Fill.BackgroundColor3 = SYNC_COLOR
+	-- your GUARD takes this bar over while it matters: how long your stance has left
+	local guardBody = controllers.PossessionController:GetModel() or character
+	if guardBody then
+		local level = guardBody:GetAttribute("GuardLevel")
+		if guardBody:GetAttribute("GuardBroken") then
+			UIKit.SetBar(ui.SyncBar, 0, Config.Block.Max)
+			ui.SyncBar.Label.Text = "GUARD BROKEN"
+		elseif level or guardBody:GetAttribute("Guarding") then
+			local shown = level or Config.Block.Max
+			UIKit.SetBar(ui.SyncBar, shown, Config.Block.Max)
+			ui.SyncBar.Label.Text = ("GUARD  %d%%"):format(shown)
+			ui.SyncBar.Fill.BackgroundColor3 = shown <= Config.Block.CrackAt and Color3.fromRGB(255, 120, 50) or Color3.fromRGB(100, 170, 255)
+		end
 	end
 	ui.Synced = syncedLeft > 0
 	for _, entry in { { "SyncGlowHandler", character }, { "SyncGlowNightmare", nightmare } } do
@@ -1074,9 +1085,6 @@ function HUDController:Refresh()
 	ui.SummonButton.Text = ui.Summoned and "RECALL" or "SUMMON"
 	self:RefreshAbilities(nightmare)
 	self:RefreshMeters(character, nightmare)
-	if ui.GuardTouch and controllers.PossessionController:IsPossessing() then
-		ui.GuardTouch.Text = "HEAVY"
-	end
 
 	-- Target readout
 	local target = controllers.CombatController:GetTarget()
