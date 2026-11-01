@@ -22,7 +22,8 @@
 	ENDS after 10s, on F, on interruption, or if the Nightmare/Handler goes down.
 	Then a 45s cooldown starts.
 
-	Client notifications via PlayerFX: "PossessStart" { Model, Duration }, "PossessEnd" { Reason }.
+	Client notifications via PlayerFX: "PossessStart" { Model, Duration }, "PossessEnd" { Reason },
+	"PossessDenied" { Text }.
 ]]
 
 local Players = game:GetService("Players")
@@ -108,10 +109,16 @@ function PossessionService:Begin(player: Player)
 	local character = player.Character
 	local handlerHumanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local brain = self.Services.NightmareAIService:GetBrain(player)
-	if not handlerHumanoid or handlerHumanoid.Health <= 0 or not brain or brain.humanoid.Health <= 0 then
+	if not handlerHumanoid or handlerHumanoid.Health <= 0 then
+		return
+	end
+	-- (the meter's full, so the HUD says READY: say why it isn't happening)
+	if not brain or brain.humanoid.Health <= 0 then
+		self.PlayerFX:FireClient(player, "PossessDenied", { Text = "Your Nightmare isn't here to possess." })
 		return
 	end
 	if self.Services.StatusService:IsStaggered(brain.model) then
+		self.PlayerFX:FireClient(player, "PossessDenied", { Text = "Your Nightmare is staggered. Try again in a moment!" })
 		return
 	end
 

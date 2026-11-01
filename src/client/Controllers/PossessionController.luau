@@ -203,6 +203,8 @@ function PossessionController:Start()
 			onStart(data)
 		elseif kind == "PossessEnd" then
 			onEnd(data)
+		elseif kind == "PossessDenied" and type(data.Text) == "string" then
+			controllers.HUDController:Toast(data.Text, nil, 2)
 		end
 	end)
 
