@@ -14,6 +14,14 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared:WaitForChild("Net"))
 local Config = require(Shared:WaitForChild("Config"))
 
+-- The exported clips are editing assets that only Studio's preview plays: don't send them to players.
+if not game:GetService("RunService"):IsStudio() then
+	local clips = Shared:FindFirstChild("Animations")
+	if clips then
+		clips:Destroy()
+	end
+end
+
 Net.Setup()
 
 local ServicesFolder = script.Parent:WaitForChild("Services")
