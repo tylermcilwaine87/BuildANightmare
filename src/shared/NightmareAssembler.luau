@@ -317,6 +317,20 @@ function NightmareAssembler.Build(build, opts)
 	applyMutation(MutationDefinitions.ForSlot(build, "Core"), corePieces, coreRoot, opts.Preview == true)
 	table.move(corePieces, 1, #corePieces, #visualParts + 1, visualParts)
 
+	-- A soft light above and ahead of the body: the world is dark at night, and without it dark
+	-- parts (a Dragon Skull) render as black shapes that hide their sculpting.
+	local keyLightMount = Instance.new("Attachment")
+	keyLightMount.Name = "KeyLightMount"
+	keyLightMount.Position = Vector3.new(0, 7, -3)
+	keyLightMount.Parent = coreRoot
+	local keyLight = Instance.new("PointLight")
+	keyLight.Name = "KeyLight"
+	keyLight.Range = 20
+	keyLight.Brightness = 1.1
+	keyLight.Color = Color3.fromRGB(255, 244, 232)
+	keyLight.Shadows = false
+	keyLight.Parent = keyLightMount
+
 	-- Every other slot plugs into a core socket.
 	for _, slot in SlotDefinitions.Order do
 		if slot == "Core" then
