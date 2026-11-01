@@ -43,6 +43,7 @@ function MenuController:Toggle()
 		return
 	end
 	ui.SummonTile.Text = controllers.ClientState:GetMyNightmare() and "RECALL" or "SUMMON"
+	ui.HideHudTile.Text = controllers.HUDController:IsHiddenAll() and "SHOW HUD" or "HIDE HUD"
 	ui.Panel.Visible = true
 	if UserInputService.GamepadEnabled then
 		GuiService.SelectedObject = ui.FirstTile
@@ -81,6 +82,9 @@ local function tiles()
 		{ "SUMMON", Color3.fromRGB(90, 80, 120), "Call / recall your Nightmare", function()
 			controllers.CombatController:ToggleSummon()
 		end },
+		{ "HIDE HUD", C.PanelLighter, "A clean screen (menus still open)", function()
+			controllers.HUDController:ToggleHideAll()
+		end },
 	}
 end
 
@@ -118,6 +122,8 @@ function MenuController:BuildGui()
 		end
 		if label == "SUMMON" then
 			ui.SummonTile = title
+		elseif label == "HIDE HUD" then
+			ui.HideHudTile = title
 		end
 	end
 end

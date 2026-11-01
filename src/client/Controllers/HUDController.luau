@@ -91,7 +91,7 @@ local function buildStatusPanel(gui: ScreenGui)
 		Parent = gui,
 	})
 	ui.StatusPanel = panel
-	UIKit.AutoScale(panel)
+	UIKit.AutoScale(panel, 1.3)
 	-- the smoked backing, burning out to the right
 	UIKit.New("Frame", {
 		Name = "Backing",
@@ -113,7 +113,7 @@ local function buildStatusPanel(gui: ScreenGui)
 	ui.NightmareBar = UIKit.Bar({ Position = UDim2.fromOffset(x, 34), Size = UDim2.new(1, -x - 8, 0, 20), Color = C.NightmareHP, MaxTextSize = 14, Parent = panel })
 	ui.NightmareInfo = UIKit.Label({ Text = "", Position = UDim2.fromOffset(x, 56), Size = UDim2.new(1, -x - 8, 0, 15), TextColor3 = C.SubText, MaxTextSize = 13, Font = UIKit.FontBody, Parent = panel })
 	ui.Command = UIKit.Label({ Text = "", Position = UDim2.fromOffset(x, 71), Size = UDim2.new(1, -x - 8, 0, 15), TextColor3 = C.Accent2, MaxTextSize = 13, Parent = panel })
-	UIKit.Label({ Text = "YOU", Position = UDim2.fromOffset(x, 88), Size = UDim2.fromOffset(34, 16), TextColor3 = C.SubText, MaxTextSize = 13, Parent = panel })
+	ui.YouLabel = UIKit.Label({ Text = "YOU", Position = UDim2.fromOffset(x, 88), Size = UDim2.fromOffset(34, 16), TextColor3 = C.SubText, MaxTextSize = 13, Parent = panel })
 	ui.HandlerBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 36, 88), Size = UDim2.new(1, -x - 78, 0, 16), Color = C.HandlerHP, MaxTextSize = 12, Parent = panel })
 	ui.StaminaBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 36, 106), Size = UDim2.new(1, -x - 78, 0, 6), Color = Color3.fromRGB(240, 205, 85), Parent = panel })
 	ui.StaminaBar.Label.Visible = false
@@ -159,6 +159,13 @@ local function buildStatusPanel(gui: ScreenGui)
 	ui.CoinsLabel = UIKit.Label({ Text = "0 coins", Position = UDim2.fromOffset(6, 130), Size = UDim2.new(1, -46, 0, 16), TextColor3 = C.Warn, MaxTextSize = 14, Parent = panel })
 	ui.StatusLine = UIKit.Label({ Text = "", Position = UDim2.fromOffset(6, 146), Size = UDim2.new(1, -46, 0, 15), RichText = true, MaxTextSize = 13, Parent = panel })
 	ui.SaveStatus = UIKit.Label({ Text = "", Position = UDim2.fromOffset(6, 161), Size = UDim2.new(1, -46, 0, 12), TextColor3 = C.SubText, MaxTextSize = 11, Font = UIKit.FontBody, Parent = panel })
+	-- A phone gets what matters: the small print goes, and the rest closes up under the name.
+	if UIKit.IsTouchOnly() then
+		ui.NightmareInfo.Visible, ui.Command.Visible, ui.SaveStatus.Visible = false, false, false
+		ui.YouLabel.Position = UDim2.fromOffset(x, 60)
+		ui.HandlerBar.Frame.Position = UDim2.fromOffset(x + 36, 60)
+		ui.StaminaBar.Frame.Position = UDim2.fromOffset(x + 36, 78)
+	end
 end
 
 -- Which parts of a body gave it an ability, for its icon.
@@ -548,7 +555,7 @@ local function buildTopButtons(gui: ScreenGui)
 
 	-- Phones / tablets: a compact bar (MENU · BUILD · RECALL); the MENU hub has the rest.
 	-- Seven buttons would run into the status panel on a small screen.
-	ui.MenuButton = tab("☰ MENU", 120, C.Iron, -1, nil, function()
+	ui.MenuButton = tab("MENU", 96, C.Iron, -1, nil, function()
 		controllers.MenuController:Toggle()
 	end)
 	ui.MenuButton.Visible = false
@@ -704,6 +711,10 @@ function HUDController:ApplyParts()
 	-- a way back, always: the corner button, whenever the top row is gone
 	ui.ShowHudButton.Visible = ui.HideAll == true or settings:Get("HudButtons") == false
 	ui.ShowHudButton.Text = ui.HideAll and "SHOW HUD" or "SETTINGS"
+end
+
+function HUDController:IsHiddenAll(): boolean
+	return ui.HideAll == true
 end
 
 function HUDController:ToggleHideAll(force: boolean?)
@@ -931,7 +942,7 @@ function HUDController:RefreshMeters(character: Model?, nightmare: Model?)
 	if possession:IsPossessing() then
 		local left = possession:TimeLeft()
 		UIKit.SetBar(ui.PossessionBar, left, P.Duration)
-		ui.PossessionBar.Label.Text = ("POSSESSED  %.1fs   ·   LMB combo · RMB heavy · Shift dodge · F exit"):format(left)
+		ui.PossessionBar.Label.Text = (UIKit.IsTouchOnly() and "POSSESSED  %.1fs" or "POSSESSED  %.1fs   ·   LMB combo · RMB heavy · Shift dodge · F exit"):format(left)
 	else
 		local meter = character and character:GetAttribute("Possession") or 0
 		local cooldownLeft = math.max(0, (character and character:GetAttribute("PossessionCooldownEnd") or 0) - Workspace:GetServerTimeNow())
@@ -956,7 +967,7 @@ function HUDController:RefreshMeters(character: Model?, nightmare: Model?)
 	else
 		local sync = character and character:GetAttribute("Sync") or 0
 		UIKit.SetBar(ui.SyncBar, sync, Config.Sync.Max)
-		ui.SyncBar.Label.Text = sync > 0 and ("SYNC  %d%%"):format(sync) or "SYNC  ·  hit the same enemy as your Nightmare"
+		ui.SyncBar.Label.Text = sync > 0 and ("SYNC  %d%%"):format(sync) or (UIKit.IsTouchOnly() and "SYNC" or "SYNC  ·  hit the same enemy as your Nightmare")
 	end
 	ui.Synced = syncedLeft > 0
 	for _, entry in { { "SyncGlowHandler", character }, { "SyncGlowNightmare", nightmare } } do

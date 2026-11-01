@@ -205,6 +205,13 @@ local function applyDefaults(props, defaults)
 	end
 end
 
+-- The smallest small text may go. (The HUD scales down on a phone: its boxes get too small to hold
+-- the desktop floor, and text forced past its box wraps and clips.)
+function UIKit.SmallestText(): number
+	local input = game:GetService("UserInputService")
+	return input.TouchEnabled and not input.KeyboardEnabled and 8 or 11
+end
+
 -- props.MaxTextSize (custom) caps TextScaled text so it stays readable on big screens.
 function UIKit.Label(props)
 	local maxSize = props.MaxTextSize or 20
@@ -239,7 +246,7 @@ function UIKit.Label(props)
 		Text = "",
 	})
 	local label = UIKit.New("TextLabel", props)
-	UIKit.New("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = small and 11 or 8, Parent = label })
+	UIKit.New("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = small and UIKit.SmallestText() or 8, Parent = label })
 	return label
 end
 
@@ -268,7 +275,7 @@ function UIKit.Button(props, onActivated)
 	outline()
 	button:GetPropertyChangedSignal("TextColor3"):Connect(outline)
 	UIKit.Corner(8).Parent = button
-	UIKit.New("UITextSizeConstraint", { MaxTextSize = math.max(maxSize + 3, 17), MinTextSize = 12, Parent = button })
+	UIKit.New("UITextSizeConstraint", { MaxTextSize = math.max(maxSize + 3, 17), MinTextSize = UIKit.SmallestText() + 1, Parent = button })
 	UIKit.New("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), Parent = button })
 	-- stamped metal in its colour: lit along the top, dark along the bottom (strips, not a gradient
 	-- on the button: that would dim its text too); it lifts under the pointer and sinks when pressed
@@ -434,7 +441,8 @@ function UIKit.ShowParts(viewport: ViewportFrame, parts: { BasePart }, turn: num
 end
 
 -- Scales an offset-sized panel with the screen (phones -> smaller, 4K -> capped).
-function UIKit.AutoScale(guiObject: GuiObject)
+-- (`touchBoost`: a piece that must stay legible on a phone is scaled up by this there)
+function UIKit.AutoScale(guiObject: GuiObject, touchBoost: number?)
 	local scale = UIKit.New("UIScale", { Parent = guiObject })
 	local function update()
 		local camera = Workspace.CurrentCamera
@@ -442,7 +450,7 @@ function UIKit.AutoScale(guiObject: GuiObject)
 			return
 		end
 		local viewport = camera.ViewportSize
-		scale.Scale = math.clamp(math.min(viewport.X / 1280, viewport.Y / 720), 0.6, 1.25)
+		scale.Scale = math.clamp(math.min(viewport.X / 1280, viewport.Y / 720), 0.6, 1.25) * (UIKit.IsTouchOnly() and touchBoost or 1)
 	end
 	update()
 	if Workspace.CurrentCamera then
@@ -503,9 +511,18 @@ function UIKit.IsSmallScreen(): boolean
 end
 
 function UIKit.Responsive(panel: GuiObject)
-	local desktopSize = panel.Size
+	-- A controller's selection stays in the open panel (it would wander onto the HUD behind it).
+	panel.SelectionGroup = true
+	panel.SelectionBehaviorUp = Enum.SelectionBehavior.Stop
+	panel.SelectionBehaviorDown = Enum.SelectionBehavior.Stop
+	panel.SelectionBehaviorLeft = Enum.SelectionBehavior.Stop
+	panel.SelectionBehaviorRight = Enum.SelectionBehavior.Stop
+	local desktopSize, desktopPosition = panel.Size, panel.Position
 	local function update()
-		panel.Size = UIKit.IsSmallScreen() and UDim2.fromScale(0.95, 0.9) or desktopSize
+		local small = UIKit.IsSmallScreen()
+		panel.Size = small and UDim2.fromScale(0.95, 0.86) or desktopSize
+		-- (below Roblox's own buttons along the top of the screen)
+		panel.Position = small and UDim2.new(0.5, 0, 0.5, 20) or desktopPosition
 	end
 	update()
 	if Workspace.CurrentCamera then
