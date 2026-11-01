@@ -326,6 +326,7 @@ function GymService:RunTraining(player: Player, session)
 	end
 	humanoid:MoveTo(brain.root.Position)
 	ai:Face(brain, session.bagAt)
+	brain.ringWork = true -- hands up: it's working now (RingCraft moves it between routines)
 	task.wait(0.4)
 
 	while live() do
@@ -344,14 +345,20 @@ function GymService:RunTraining(player: Player, session)
 		else
 			session.sinceRest += 1
 		end
-		-- footwork: step to the range this move lands from (in for a bite or a knee, back
-		-- out for a spinning kick, punching range for the hands)
+		-- footwork: circle the bag now and then, and step to the range this move lands from
+		-- (in for a bite or a knee, back out for a spinning kick, punching range for the
+		-- hands), shuffling with its eyes on the bag the whole way
+		if not routine.Rest and random:NextNumber() < GymDefinitions.RingMoveChance then
+			local angles = GymDefinitions.RingAngles
+			local pick = angles[random:NextInteger(1, #angles)]
+			session.ringAngle = pick ~= session.ringAngle and pick or -pick
+		end
 		local spot = self:SpotFor(session, routine)
 		if Util.FlatDistance(brain.root.Position, spot) > 0.5 then
-			ai:StopFacing(brain)
 			humanoid:MoveTo(spot)
 			local started = os.clock()
 			while live() and Util.FlatDistance(brain.root.Position, spot) > 0.5 and os.clock() - started < 1.5 do
+				ai:Face(brain, session.bagAt)
 				task.wait(0.05)
 			end
 			humanoid:MoveTo(brain.root.Position)
@@ -525,6 +532,7 @@ function GymService:Possess(player: Player, session): boolean
 	end
 	if session.brain and session.brain ~= brain then
 		session.brain.scripted = nil
+		session.brain.ringWork = nil
 	end
 	session.brain = brain
 	brain.scripted = true
@@ -570,13 +578,16 @@ end
 -- Where the body has to stand for a routine to land: punching range, the mouth on the
 -- leather for a bite, or each kick's own range (its Reach fraction of the leg).
 function GymService:SpotFor(session, routine)
+	local spot = session.standAt
 	if routine.Spot == "Bite" then
 		return session.biteAt
 	elseif routine.Legs and session.legLength then
 		local distance = session.hipForward + session.legLength * (routine.Reach or 1) + GymDefinitions.Bag.Radius - 0.35
-		return session.bagAt - session.bayLook * distance
+		spot = session.bagAt - session.bayLook * distance
 	end
-	return session.standAt
+	-- the same range, from the angle it has worked its way round to
+	local around = CFrame.Angles(0, math.rad(session.ringAngle or 0), 0)
+	return session.bagAt + around:VectorToWorldSpace(spot - session.bagAt)
 end
 
 -- An ability from its own loadout, as a routine: its animation at its real timing (a
@@ -649,6 +660,7 @@ function GymService:Leave(player: Player, teleport: boolean)
 	local brain = session.brain
 	if brain then
 		brain.scripted = nil
+		brain.ringWork = nil
 		if brain.model.Parent then
 			brain.model:SetAttribute("GymBay", nil)
 			brain.humanoid:MoveTo(brain.root.Position)
@@ -677,7 +689,9 @@ function GymService:Leave(player: Player, teleport: boolean)
 	end
 	countTraining()
 	self:UpdateStatsWall()
-	self.Services.PlayerDataService:SaveNow(player)
+	if not session.rehearsal then
+		self.Services.PlayerDataService:SaveNow(player)
+	end
 	return summary
 end
 
@@ -760,6 +774,44 @@ end
 
 -- STUDIO ONLY (DevBridge): roll the next reward now, optionally forcing its tier, so the
 -- reveals can be checked without waiting. Does nothing in a live game.
+-- Studio: the real training routine in a real bay, to look at, with nothing granted or counted
+-- (no reward timer, no training time) and no save when it ends.
+function GymService:DevRehearse(player: Player)
+	local spawner = self.Services.NightmareSpawnService
+	if not RunService:IsStudio() or sessions[player] or not spawner:GetNightmare(player) then
+		return false
+	end
+	local bay = 1
+	bayOwner[bay] = player
+	local session = {
+		bay = bay,
+		state = "Training",
+		rehearsal = true,
+		enteredAt = os.clock(),
+		trained = 0,
+		count = 0,
+		recent = {},
+		sinceRest = 0,
+		restDue = random:NextInteger(GymDefinitions.RestEvery[1], GymDefinitions.RestEvery[2]),
+		startedAt = os.clock(),
+		lastTick = os.clock(),
+		carry = 0,
+		nextRewardAt = math.huge,
+	}
+	sessions[player] = session
+	local bayCF = GymDefinitions.BayCF(bay)
+	local handlerAt = bayCF * GymDefinitions.HandlerOffset
+	pcall(player.RequestStreamAroundAsync, player, bayCF.Position, 3)
+	player.Character:PivotTo(handlerAt)
+	if not self:Possess(player, session) then
+		sessions[player] = nil
+		bayOwner[bay] = nil
+		return false
+	end
+	session.thread = task.spawn(self.RunTraining, self, player, session)
+	return true
+end
+
 function GymService:DevRollNow(player: Player, tierId: string?)
 	local session = sessions[player]
 	if not RunService:IsStudio() or not session or session.state ~= "Training" then
@@ -800,7 +852,7 @@ function GymService:Tick()
 				session.trained += dt
 				session.carry += dt
 				local profile = self.Services.PlayerDataService:Get(player)
-				if profile and session.carry >= 1 then
+				if profile and session.carry >= 1 and not session.rehearsal then
 					local whole = math.floor(session.carry)
 					profile.Gym.TotalTime += whole
 					session.carry -= whole

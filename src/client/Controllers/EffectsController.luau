@@ -957,7 +957,7 @@ function EffectsController:Start()
 	local function watchNightmare(model: Instance)
 		model:GetAttributeChangedSignal("ActionSeq"):Connect(function()
 			local action = model:GetAttribute("ActionName")
-			if (action == "StepBack" or action == "Sidestep" or action == "DashIn") and Passives.Has(model, "Afterimage") then
+			if (action == "StepBack" or action == "Sidestep" or action == "DashIn" or action == "Slip_R" or action == "Slip_L" or action == "RollUnder" or action == "PullBack") and Passives.Has(model, "Afterimage") then
 				for i = 0, 2 do
 					task.delay(i * 0.07, function()
 						if model.Parent then

@@ -994,11 +994,13 @@ function NightmareAIService:React(brain, target: Model, now: number): boolean
 		return true
 	end
 	local stepped
+	-- (it boxes its way out: a slip the way it's going, or under the shot or back from it)
 	if math.random() < FIGHT.SidestepShare then
 		local side = Vector3.new(-away.Z, 0, away.X) * (math.random() < 0.5 and -1 or 1)
-		stepped = self:QuickStep(brain, (side + away * 0.3).Unit, FIGHT.SidestepDistance, "Sidestep", targetRoot.Position)
+		local slip = side:Dot(brain.root.CFrame.RightVector) > 0 and "Slip_R" or "Slip_L"
+		stepped = self:QuickStep(brain, (side + away * 0.3).Unit, FIGHT.SidestepDistance, slip, targetRoot.Position)
 	else
-		stepped = self:QuickStep(brain, away, FIGHT.StepBackDistance, "StepBack", targetRoot.Position)
+		stepped = self:QuickStep(brain, away, FIGHT.StepBackDistance, math.random() < 0.4 and "RollUnder" or "PullBack", targetRoot.Position)
 	end
 	if stepped then
 		spendStamina(brain, COMBAT.Stamina.StepCost, now)
@@ -1448,7 +1450,7 @@ function NightmareAIService:Engage(brain, target: Model, now: number)
 	if brain.finisherPending then
 		brain.finisherPending = false
 		if math.random() < FIGHT.AfterFinisherStepChance * (aggressive and 0.5 or 1) then
-			self:QuickStep(brain, -toTarget, FIGHT.StepBackDistance, "StepBack", targetRoot.Position)
+			self:QuickStep(brain, -toTarget, FIGHT.StepBackDistance, "PullBack", targetRoot.Position)
 		end
 		if math.random() < FIGHT.CircleChance * (aggressive and 0.4 or 1) then
 			brain.circleUntil = now + FIGHT.DashTime + randomIn(FIGHT.CircleTime)
@@ -1605,7 +1607,7 @@ function NightmareAIService:Update(brain, now: number, dt: number)
 	-- always fighting; NightmareAnimator lays the stance over everything else)
 	local opponent = brain.target
 	local opponentRoot = opponent and opponent.Parent and opponent:FindFirstChild("HumanoidRootPart")
-	local fighting = brain.possessedBy ~= nil or (opponentRoot ~= nil and not brain.scripted and Util.FlatDistance(opponentRoot.Position, brain.root.Position) <= NM.StanceRange)
+	local fighting = brain.possessedBy ~= nil or brain.ringWork == true or (opponentRoot ~= nil and not brain.scripted and Util.FlatDistance(opponentRoot.Position, brain.root.Position) <= NM.StanceRange)
 	if brain.model:GetAttribute("FightStance") ~= (fighting or nil) then
 		brain.model:SetAttribute("FightStance", fighting or nil)
 	end

@@ -160,6 +160,11 @@ Gym.Routines = {
 	{ Action = "Gym_BodyRip", Duration = 1.5, Weight = 2, Arms = true }, -- body hook, uppercut
 	{ Action = "Gym_Power", Duration = 1.4, Weight = 1, Arms = true }, -- one big overhand
 	{ Action = "Gym_Bounce", Duration = 1.6, Weight = 2 }, -- stance, feints, footwork (any body)
+	{ Action = "Gym_Weave", Duration = 2.4, Weight = 3 }, -- slips, a weave under, a pull back (any body)
+	{ Action = "Gym_SlipCounter", Duration = 1.9, Weight = 3, Arms = true }, -- slip, slip, cross, hook
+	{ Action = "Gym_RollHook", Duration = 2, Weight = 3, Arms = true }, -- roll under, hook, overhand
+	{ Action = "Gym_PullCounter", Duration = 1.6, Weight = 2, Arms = true }, -- jab, pull back, cross
+	{ Action = "Gym_DuckUpper", Duration = 1.7, Weight = 2, Arms = true }, -- duck, uppercut, hook
 	{ Action = "Ability_Bite", Duration = 2.3, Weight = 3, Arms = false, Windup = 0.3, Spot = "Bite" }, -- jaw work: clamp, thrash, rip
 	-- kicks (two-legged bodies). Reach = how far out the foot lands on the contact frame, as
 	-- a fraction of the leg's length (measured on the gym bag): GymService steps the body
@@ -175,7 +180,11 @@ Gym.Routines = {
 	{ Action = "Gym_Rest", Duration = 3.2, Weight = 1, Rest = true }, -- hands on knees, breathe, shake out
 }
 -- Pause between routines (seconds), and how many routines before a rest is due.
-Gym.RoutineGap = { 0.25, 0.9 }
+Gym.RoutineGap = { 0.4, 1.2 }
+-- It works its way around the bag between routines: chance to move, and the angles (degrees
+-- around the bag from the front of the bay) it boxes from.
+Gym.RingMoveChance = 0.65
+Gym.RingAngles = { -40, -22, 0, 22, 40 }
 Gym.RestEvery = { 5, 8 }
 
 -- How each strike marker pushes the bag (studs/s at the bag, in the striker's frame:

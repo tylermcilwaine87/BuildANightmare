@@ -37,6 +37,7 @@ local PoseCurve = require(script.Parent:WaitForChild("PoseCurve"))
 local BOSS_POSES = require(script.Parent:WaitForChild("BossPoses"))
 local BossMotion = require(script.Parent:WaitForChild("BossMotion"))
 local FightAim = require(script.Parent:WaitForChild("FightAim"))
+local RingCraft = require(script.Parent:WaitForChild("RingCraft"))
 
 -- The keyframed-attack library for a model, and the asset name prefix:
 -- bosses by BossId (BossPoses), Nightmares by body plan (NightmarePoses).
@@ -364,6 +365,11 @@ local function applyPose(state, now: number, dt: number)
 			markerEvent:Fire(state.model, state.action, marker[2])
 		end
 	end
+	for _, key in def.Keys do
+		if key.Stop and key.T > pose.LastT and key.T <= t then
+			RingCraft.Thud(state)
+		end
+	end
 	pose.LastT = t
 	if t > def.Duration then
 		state.pose = nil
@@ -607,10 +613,10 @@ local function animate(state, root: BasePart, dt: number, now: number)
 	setTransform(motors.Sub_Legs_L, CFrame.Angles(forward, 0, side))
 	setTransform(motors.Sub_Legs_R, CFrame.Angles(-forward, 0, -side))
 	-- Quadruped trot: diagonal pairs move together.
-	setTransform(motors.Sub_Legs_FL, CFrame.Angles(stride, 0, 0))
-	setTransform(motors.Sub_Legs_BR, CFrame.Angles(stride, 0, 0))
-	setTransform(motors.Sub_Legs_FR, CFrame.Angles(-stride, 0, 0))
-	setTransform(motors.Sub_Legs_BL, CFrame.Angles(-stride, 0, 0))
+	setTransform(motors.Sub_Legs_FL, CFrame.Angles(forward, 0, side))
+	setTransform(motors.Sub_Legs_BR, CFrame.Angles(forward, 0, side))
+	setTransform(motors.Sub_Legs_FR, CFrame.Angles(-forward, 0, -side))
+	setTransform(motors.Sub_Legs_BL, CFrame.Angles(-forward, 0, -side))
 	if floating then
 		setTransform(motors.Joint_Legs, CFrame.Angles(math.sin(now * 3) * 0.1, 0, math.sin(now * 2.3) * 0.1))
 	end
@@ -638,6 +644,10 @@ local function animate(state, root: BasePart, dt: number, now: number)
 		bossMotion(state, motors, root, dt, now, speed, markerEvent)
 	end
 	applyStance(state, stance, now)
+	local ringed = not bossId and CollectionService:HasTag(model, "Nightmare")
+	if ringed then
+		RingCraft.Apply(state, root, stance, dt, now, speed, velocity, markerEvent)
+	end
 
 	-- a keyframed attack overrides the joints it keys (the rest keep their procedural motion)
 	local skipping = currentSkip
@@ -649,6 +659,9 @@ local function animate(state, root: BasePart, dt: number, now: number)
 	applyFade(state, now)
 	applyReaction(state, now)
 	currentSkip = nil
+	if ringed then
+		RingCraft.Settle(state)
+	end
 end
 
 ------------------------------------------------------------------------------------------

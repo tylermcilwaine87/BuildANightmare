@@ -202,6 +202,12 @@ local function knee(side: string)
 		Sub_Legs_R = r and { 105, 0, -12 } or { -8, 0, 0 }, Sub_Legs_L = r and { -8, 0, 0 } or { 105, 0, 12 } }
 end
 local GUARD_REST = { Joint_CorePos = { 0, 0.06, 0.02 } }
+-- head movement (-Z leans the body to its right): the head comes off the line, the hips swing
+-- under it so the feet stay put, and the hands stay home
+local SLIP_R = { Joint_CorePos = { 0.55, -0.1, -0.05 }, Joint_Core = { -12, -2, -15 }, Joint_Legs = { 12, 2, 5 }, Joint_Head = { -12, 8, 9 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
+local SLIP_L = { Joint_CorePos = { -0.55, -0.1, -0.05 }, Joint_Core = { -12, -18, 15 }, Joint_Legs = { 12, 18, -5 }, Joint_Head = { -12, 12, -9 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
+local DIP = { Joint_CorePos = { 0, -0.5, -0.12 }, Joint_Core = { -24, -8, 0 }, Joint_Legs = { 24, 8, 0 }, Joint_Head = { -4, 8, 0 }, Sub_Legs_L = { 36, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } }
+local PULL = { Joint_CorePos = { 0, 0.1, 0.42 }, Joint_Core = { 9, -8, 0 }, Joint_Legs = { -2, 8, 0 }, Joint_Head = { -18, 8, 0 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } }
 
 local GYM = {
 	-- JAB, JAB, CROSS: the double jab walks in behind the lead hand, the second one loads the
@@ -413,12 +419,131 @@ local GYM = {
 			pose(0.2, { Joint_CorePos = { 0, 0, 0 } }),
 			pose(0.38, { Joint_CorePos = { 0, 0.18, 0.05 } }),
 			pose(0.55, { Joint_LeftArm = { 84, 0, 30 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Joint_Core = { -10, -18, 0 }, Joint_Legs = { 10, 18, 0 }, Joint_CorePos = { 0, 0.08, -0.2 } }), -- feint
-			pose(0.75, { Joint_Core = { -14, -6, 14 }, Joint_Legs = { 14, 6, -14 }, Joint_CorePos = { 0.5, -0.05, 0 }, Joint_Head = { -14, 10, 10 } }), -- slip right
+			pose(0.75, { Joint_Core = { -14, -6, -14 }, Joint_Legs = { 14, 6, 5 }, Joint_CorePos = { 0.5, -0.05, 0 }, Joint_Head = { -14, 10, 10 } }), -- slip right
 			pose(0.95, { Joint_CorePos = { 0, 0.15, 0.05 } }),
-			pose(1.15, { Joint_Core = { -14, -14, -14 }, Joint_Legs = { 14, 14, 14 }, Joint_CorePos = { -0.5, -0.05, 0 }, Joint_Head = { -14, 10, -10 } }), -- slip left
+			pose(1.15, { Joint_Core = { -14, -14, 14 }, Joint_Legs = { 14, 14, -5 }, Joint_CorePos = { -0.5, -0.05, 0 }, Joint_Head = { -14, 10, -10 } }), -- slip left
 			pose(1.35, { Joint_CorePos = { 0, 0.02, 0 } }),
 			pose(1.6),
 		},
+	},
+	-- DEFENCE DRILLS: the head moves first, and the punches come out of where it went.
+	-- SLIP, SLIP, then the CROSS and HOOK off the second one
+	Gym_SlipCounter = {
+		Duration = 1.9,
+		Curve = "Spline",
+		Markers = { { 0.2, "StepR" }, { 0.6, "StepL" }, { 0.84, "Whoosh" }, { 0.92, "BagCross" }, { 0.92, "StepR" }, { 1.14, "Whoosh" }, { 1.22, "BagHook" }, { 1.22, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.2, SLIP_R),
+			pose(0.4),
+			pose(0.6, SLIP_L),
+			pose(0.78, P_CROSS_LOAD),
+			blow(0.92, P_CROSS),
+			pose(1.08, P_HOOK_LOAD),
+			blow(1.22, P_HOOK),
+			pose(1.4, P_HOOK_FOLLOW),
+			pose(1.62, GUARD_REST),
+			pose(1.9),
+		},
+	},
+	-- ROLL under a hook, come up loaded on the far side: LEFT HOOK, RIGHT OVERHAND
+	Gym_RollHook = {
+		Duration = 2,
+		Curve = "Spline",
+		Markers = { { 0.22, "StepL" }, { 0.68, "StepR" }, { 0.9, "Whoosh" }, { 0.96, "BagHook" }, { 0.96, "StepL" }, { 1.22, "Whoosh" }, { 1.3, "BagOverhand" }, { 1.3, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.22, SLIP_L),
+			pose(0.46, DIP),
+			pose(0.68, SLIP_R),
+			pose(0.82, P_HOOK_LOAD),
+			blow(0.96, P_HOOK),
+			pose(1.12, P_OVER_LOAD),
+			blow(1.3, P_OVERHAND),
+			pose(1.48, P_OVER_FOLLOW),
+			pose(1.75, GUARD_REST),
+			pose(2),
+		},
+	},
+	-- JAB, lean back from the answer on the back foot, and fire the CROSS as it comes forward
+	Gym_PullCounter = {
+		Duration = 1.6,
+		Curve = "Spline",
+		Markers = { { 0.22, "Whoosh" }, { 0.28, "BagJab" }, { 0.5, "StepR" }, { 0.72, "Whoosh" }, { 0.8, "BagCross" }, { 0.8, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.14),
+			blow(0.28, P_JAB),
+			pose(0.5, PULL),
+			pose(0.66, P_CROSS_LOAD),
+			blow(0.8, P_CROSS),
+			pose(1, { Joint_CorePos = { 0, 0.15, -0.3 }, Joint_Core = { -8, 14, 0 }, Joint_Legs = { 8, -14, 0 } }),
+			pose(1.3, GUARD_REST),
+			pose(1.6),
+		},
+	},
+	-- DUCK low, drive up out of the legs: RIGHT UPPERCUT, LEFT HOOK
+	Gym_DuckUpper = {
+		Duration = 1.7,
+		Curve = "Spline",
+		Markers = { { 0.24, "StepL" }, { 0.6, "Whoosh" }, { 0.66, "BagUpper" }, { 0.66, "StepR" }, { 0.92, "Whoosh" }, { 0.98, "BagHook" }, { 0.98, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.24, DIP),
+			pose(0.5, P_UPPER_LOAD),
+			blow(0.66, P_UPPER),
+			pose(0.84, P_HOOK_LOAD),
+			blow(0.98, P_HOOK),
+			pose(1.16, P_HOOK_FOLLOW),
+			pose(1.44, GUARD_REST),
+			pose(1.7),
+		},
+	},
+	-- NOTHING BUT MOVEMENT (any body): slip, slip, a full weave under, lean back, a feint, reset
+	Gym_Weave = {
+		Duration = 2.4,
+		Curve = "Spline",
+		Markers = { { 0.2, "StepL" }, { 0.56, "StepR" }, { 1.26, "StepL" }, { 1.56, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.2, SLIP_L),
+			pose(0.38),
+			pose(0.56, SLIP_R),
+			pose(0.82, DIP),
+			pose(1.06, SLIP_L),
+			pose(1.26),
+			pose(1.56, PULL),
+			pose(1.74),
+			pose(1.92, { Joint_LeftArm = { 84, 0, 30 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Joint_Core = { -10, -18, 0 }, Joint_Legs = { 10, 18, 0 }, Joint_CorePos = { 0, 0.08, -0.2 } }),
+			pose(2.14, GUARD_REST),
+			pose(2.4),
+		},
+	},
+	-- what the fighting brain does when it reads a shot coming (NightmareAIService:React): the
+	-- feet carry it out of range, and the head goes first
+	Slip_R = {
+		Duration = 0.5,
+		Curve = "Spline",
+		Markers = { { 0.2, "StepR" } },
+		Keys = { pose(0), pose(0.17, SLIP_R), pose(0.34, { Joint_CorePos = { 0.2, 0.02, 0 } }), pose(0.5) },
+	},
+	Slip_L = {
+		Duration = 0.5,
+		Curve = "Spline",
+		Markers = { { 0.2, "StepL" } },
+		Keys = { pose(0), pose(0.17, SLIP_L), pose(0.34, { Joint_CorePos = { -0.2, 0.02, 0 } }), pose(0.5) },
+	},
+	RollUnder = {
+		Duration = 0.72,
+		Curve = "Spline",
+		Markers = { { 0.5, "StepL" } },
+		Keys = { pose(0), pose(0.14, SLIP_R), pose(0.32, DIP), pose(0.5, SLIP_L), pose(0.72) },
+	},
+	PullBack = {
+		Duration = 0.55,
+		Curve = "Spline",
+		Markers = { { 0.2, "StepR" } },
+		Keys = { pose(0), pose(0.18, PULL), pose(0.38, { Joint_CorePos = { 0, 0.1, 0.12 } }), pose(0.55) },
 	},
 	-- REST: hands on the knees catching its breath, straighten up, shake the arms out
 	Gym_Rest = {
@@ -1815,8 +1940,9 @@ for name, def in ULTIMATE do
 	POSES.Common[name] = def
 end
 -- (every ability and Ultimate on a four-legged body: its quadruped variant, found before Common)
+local RING_CLIPS = { Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true }
 for name, def in POSES.Common do
-	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" then
+	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" or RING_CLIPS[name] then
 		POSES.Quadruped[name] = forQuadruped(def)
 	end
 end
@@ -1880,7 +2006,8 @@ POSES.Stance = {
 	Biped = BOXER,
 	Floating = { Joint_CorePos = { 0, 0, 0 }, Joint_Core = { -6, -10, 0 }, Joint_Head = { -8, 10, 0 }, Joint_RightArm = { 50, 0, -50 }, Sub_RightArm_Fore = { 95, 0, 0 }, Joint_LeftArm = { 55, 0, 45 }, Sub_LeftArm_Fore = { 95, 0, 0 } },
 	-- stalking: shoulders down, head level and pointed at them, tail up, ready to spring
-	Quadruped = { Joint_CorePos = { 0, -0.12, 0 }, Joint_Core = { -5, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Legs_FL = { 10, 0, 0 }, Sub_Legs_FR = { -4, 0, 0 }, Sub_Legs_BL = { -6, 0, 0 }, Sub_Legs_BR = { 8, 0, 0 }, Joint_Tail = { -16, 0, 0 } },
+	Quadruped = { Joint_CorePos = { 0, -0.12, 0 }, Joint_Core = { -5, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Legs_FL = { 10, 0, 0 }, Sub_Legs_FR = { -4, 0, 0 }, Sub_Legs_BL = { -6, 0, 0 }, Sub_Legs_BR = { 8, 0, 0 }, Joint_Tail = { -16, 0, 0 },
+		Joint_RightArm = { 50, 0, -40 }, Sub_RightArm_Fore = { 95, 0, 0 }, Joint_LeftArm = { 55, 0, 40 }, Sub_LeftArm_Fore = { 90, 0, 0 } },
 }
 -- a clip that starts or ends on "rest" starts and ends in the stance instead (or the blend
 -- into it dips the hands at both ends)
