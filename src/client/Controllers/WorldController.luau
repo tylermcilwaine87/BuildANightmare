@@ -66,7 +66,7 @@ function WorldController:ApplyRegion(regionId: string)
 	currentRegion = regionId
 	local look = region.Lighting
 	Lighting.ClockTime = look.ClockTime
-	TweenService:Create(Lighting, BLEND, { Brightness = look.Brightness, Ambient = look.Ambient, OutdoorAmbient = look.OutdoorAmbient }):Play()
+	TweenService:Create(Lighting, BLEND, { Brightness = look.Brightness, Ambient = look.Ambient, OutdoorAmbient = look.OutdoorAmbient, ExposureCompensation = look.Exposure or 0 }):Play()
 	TweenService:Create(effects.Atmosphere, BLEND, look.Atmosphere):Play()
 	TweenService:Create(effects.Grading, BLEND, look.Grading):Play()
 	TweenService:Create(effects.Bloom, BLEND, look.Bloom):Play()
@@ -332,7 +332,8 @@ end
 function WorldController:Start()
 	effects.Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or effect("Atmosphere", "WorldAtmosphere")
 	effects.Grading = effect("ColorCorrectionEffect", "WorldGrading")
-	effects.Bloom = effect("BloomEffect", "WorldBloom")
+	-- (the place has its own bloom: a second one on top blows out everything pale)
+	effects.Bloom = Lighting:FindFirstChildOfClass("BloomEffect") or effect("BloomEffect", "WorldBloom")
 
 	for _, kind in { "WSpin", "WBob", "WSwing", "WOrbit", "WConveyor", "WPulse", "WFlicker" } do
 		for _, inst in CollectionService:GetTagged(kind) do

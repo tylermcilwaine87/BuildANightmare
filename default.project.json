@@ -2,6 +2,11 @@
   "name": "BuildANightmare",
   "tree": {
     "$className": "DataModel",
+    "Lighting": {
+      "$properties": {
+        "LightingStyle": "Realistic"
+      }
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"

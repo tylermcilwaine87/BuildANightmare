@@ -106,12 +106,12 @@ local function setupEnvironment()
 	end)
 	-- One look per terrain material (each region uses its own materials).
 	for material, color in {
-		[Mat.Basalt] = RGB(46, 44, 56), -- the Forge mesa, storm cliffs
-		[Mat.Ground] = RGB(92, 66, 48), -- the rust wasteland
-		[Mat.Rock] = RGB(64, 66, 74),
-		[Mat.Slate] = RGB(60, 66, 80), -- storm highland
-		[Mat.Mud] = RGB(30, 44, 44), -- abyss
-		[Mat.Limestone] = RGB(70, 84, 82), -- abyss stone
+		[Mat.Basalt] = RGB(84, 78, 98), -- the Forge mesa, storm cliffs
+		[Mat.Ground] = RGB(110, 80, 58), -- the rust wasteland
+		[Mat.Rock] = RGB(86, 88, 96),
+		[Mat.Slate] = RGB(84, 92, 110), -- storm highland
+		[Mat.Mud] = RGB(48, 66, 66), -- abyss
+		[Mat.Limestone] = RGB(92, 106, 104), -- abyss stone
 		[Mat.CrackedLava] = RGB(140, 60, 30),
 		[Mat.Snow] = RGB(200, 210, 225),
 		[Mat.Salt] = RGB(220, 220, 236), -- mirror islands

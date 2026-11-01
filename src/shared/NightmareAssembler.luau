@@ -325,8 +325,8 @@ function NightmareAssembler.Build(build, opts)
 	keyLightMount.Parent = coreRoot
 	local keyLight = Instance.new("PointLight")
 	keyLight.Name = "KeyLight"
-	keyLight.Range = 16
-	keyLight.Brightness = 0.8
+	keyLight.Range = 12
+	keyLight.Brightness = 1.2
 	keyLight.Color = Color3.fromRGB(255, 244, 232)
 	keyLight.Shadows = false
 	keyLight.Parent = keyLightMount
