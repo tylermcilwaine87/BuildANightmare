@@ -9,7 +9,7 @@
 
 local Config = {}
 
-Config.Version = "0.12.0 (the SHOP)"
+Config.Version = "0.13.0 (the FIGHT)"
 
 Config.Dev = {
 	-- DEV ONLY: in Studio, every player gets 2 of every part so the whole builder can be
