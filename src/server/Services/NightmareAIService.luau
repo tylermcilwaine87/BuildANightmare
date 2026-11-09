@@ -400,6 +400,18 @@ function NightmareAIService:DevStartString(player: Player, action: string, targe
 			return self:StartString(brain, def, target, os.clock())
 		end
 	end
+	-- (the UNLEASHED moves too, so a grab slam can be measured without a possession timer)
+	local rage = Config.Possession.Rampage
+	for _, def in { rage.Grab, rage.Leap, table.unpack(rage.Beats) } do
+		if def.Action == action then
+			local root = target:FindFirstChild("HumanoidRootPart")
+			if root then
+				self:Face(brain, root.Position)
+			end
+			brain.target = target
+			return self:StartString(brain, def, target, os.clock())
+		end
+	end
 	return false
 end
 
