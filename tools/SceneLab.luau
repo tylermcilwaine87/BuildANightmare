@@ -106,6 +106,12 @@ function SceneLab.Tour(seconds: number, only: { string }?)
 			end
 		end
 		Workspace:SetAttribute("ShotName", "END")
+		-- (let go of the character: an anchored body arrives anywhere else lying down)
+		local player = Players:GetPlayers()[1]
+		local root = player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			root.Anchored = false
+		end
 	end)
 end
 
