@@ -501,16 +501,21 @@ end
 -- Nightmare keeps turning to face the target and presses in if it slipped back), a clinch
 -- holds the target for the knees, and the last hit usually decides what happens next
 -- (chain straight into another string, hit and run...).
-function NightmareAIService:StartString(brain, def, target: Model, now: number)
+function NightmareAIService:StartString(brain, def, target: Model?, now: number)
 	-- never swing at air: if the opener can't get there (they've been thrown clear), it isn't
-	-- thrown at all: the brain goes after them first
-	local startRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
-	if not startRoot then
-		return false
-	end
-	local startOut = Util.FlatDistance(startRoot.Position, brain.root.Position) - math.max(startRoot.Size.X, startRoot.Size.Z) / 2 - brain.hitboxSize.Z / 2
-	-- (a leap only goes as far as it goes: nothing keeps stepping in behind one)
-	if startOut > brain.stats.Reach + (def.ExtraReach or 0) + (def.Leap and def.Leap.Max + 2 or 6) then
+	-- thrown at all: the brain goes after them first. (Possessed, the player swings where they
+	-- like: no target means the blows go into the air in front.)
+	if target then
+		local startRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+		if not startRoot then
+			return false
+		end
+		local startOut = Util.FlatDistance(startRoot.Position, brain.root.Position) - math.max(startRoot.Size.X, startRoot.Size.Z) / 2 - brain.hitboxSize.Z / 2
+		-- (a leap only goes as far as it goes: nothing keeps stepping in behind one)
+		if startOut > brain.stats.Reach + (def.ExtraReach or 0) + (def.Leap and def.Leap.Max + 2 or 6) and not brain.possessedBy then
+			return false
+		end
+	elseif not brain.possessedBy then
 		return false
 	end
 	local speedScale = 100 / brain.stats.AttackSpeed
@@ -564,12 +569,20 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			if brains[brain.model] ~= brain or brain.humanoid.Health <= 0 or brain.castToken ~= castToken or brain.model:GetAttribute("Ragdolled") then
 				return
 			end
-			local targetRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+			local targetRoot = target and target.Parent and target:FindFirstChild("HumanoidRootPart")
 			local toTarget = targetRoot and Util.FlatUnit(targetRoot.Position - brain.root.Position)
 			if not toTarget then
+				-- (possessed with nothing to aim at: it leaps straight ahead, Leap.Ahead studs)
+				local look = brain.possessedBy and Util.FlatUnit(brain.root.CFrame.LookVector)
+				if look then
+					pressIn(brain, look, leap.Ahead or leap.Max * 0.5, leap.Time * speedScale)
+				end
 				return
 			end
-			self:Face(brain, targetRoot.Position)
+			-- (the player steers a possessed body: the server never turns it)
+			if not brain.possessedBy then
+				self:Face(brain, targetRoot.Position)
+			end
 			local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
 			local gap = Util.FlatDistance(targetRoot.Position, brain.root.Position) - radius - brain.hitboxSize.Z / 2 - reach * 0.4
 			pressIn(brain, toTarget, math.clamp(gap, 0, leap.Max), leap.Time * speedScale)
@@ -580,7 +593,7 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 	for index, hit in hits do
 		-- each blow steps in behind itself, arriving with the fist (not a leap: that's already
 		-- bringing it onto them; not a grab's later beats: they're held)
-		if not leap and not (def.Clinch and index > 1) then
+		if target and not brain.possessedBy and not leap and not (def.Clinch and index > 1) then
 			-- (the opener closes all the way in, however far it started: it's what commits to them)
 			local previous = index > 1 and hits[index - 1][1] or 0
 			local lead = math.min(index == 1 and 0.3 or 0.14, (hit[1] - previous) * 0.8) * speedScale
@@ -591,7 +604,7 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 			end)
 		end
 		-- (hit[6].Chase: lunge after a body that slid away, landing just as this beat hits)
-		local chase = hit[6] and hit[6].Chase
+		local chase = target and hit[6] and hit[6].Chase
 		if chase then
 			task.delay(math.max(0, hit[1] * speedScale - 0.22), function()
 				local targetRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
@@ -617,10 +630,13 @@ function NightmareAIService:StartString(brain, def, target: Model, now: number)
 				release()
 				return
 			end
-			local targetRoot = target.Parent and target:FindFirstChild("HumanoidRootPart")
+			local targetRoot = target and target.Parent and target:FindFirstChild("HumanoidRootPart")
 			if targetRoot and not grabbed then
 				-- stay on them: square up, and step in if they've slipped just out of reach
-				self:Face(brain, targetRoot.Position)
+				-- (a possessed body is steered by its player, never turned by the server)
+				if not brain.possessedBy then
+					self:Face(brain, targetRoot.Position)
+				end
 				local toTarget = Util.FlatUnit(targetRoot.Position - brain.root.Position)
 				local radius = math.max(targetRoot.Size.X, targetRoot.Size.Z) / 2
 				local gap = Util.FlatDistance(targetRoot.Position, brain.root.Position) - radius - brain.hitboxSize.Z / 2 - reach * 0.8
@@ -852,6 +868,78 @@ function NightmareAIService:StartHeavy(brain, now: number)
 			})
 		end
 	end)
+	return true
+end
+
+------------------------------------------------------------------------------------------
+-- UNLEASHED (Config.Possession.Rampage): the moveset a POSSESSED Nightmare fights with
+------------------------------------------------------------------------------------------
+local RAGE = Config.Possession.Rampage
+
+-- The enemy a possessed blow goes for: the nearest one roughly in front (the player aims with
+-- the body; the client has already turned it toward its lock-on target or the camera).
+function NightmareAIService:RageTarget(brain): Model?
+	local look = Util.FlatUnit(brain.root.CFrame.LookVector) or Vector3.zAxis
+	local best, bestScore = nil, math.huge
+	-- (enemies, and in a live duel the other side's Handler and Nightmare)
+	local candidates = table.clone(CollectionService:GetTagged("Enemy"))
+	for _, model in duelService:GetOpponentModels(brain.owner) do
+		table.insert(candidates, model)
+	end
+	for _, candidate in candidates do
+		local root = candidate ~= brain.model and candidate:FindFirstChild("HumanoidRootPart")
+		local humanoid = root and candidate:FindFirstChildOfClass("Humanoid")
+		if root and humanoid and humanoid.Health > 0 and not candidate:GetAttribute("Defeated")
+			and Util.FlatDistance(root.Position, brain.root.Position) <= RAGE.AimRange then
+			local offset = Util.Flat(root.Position - brain.root.Position)
+			local distance = offset.Magnitude - math.max(root.Size.X, root.Size.Z) / 2
+			local facing = distance < 2 and 1 or look:Dot(offset.Unit)
+			if facing > 0.35 then
+				-- (straight ahead beats slightly closer but off to the side)
+				local score = distance * (1.6 - facing)
+				if score < bestScore then
+					best, bestScore = candidate, score
+				end
+			end
+		end
+	end
+	return best
+end
+
+-- kind "Light": the next blow of the Rampage; "Heavy": a grab-and-slam or a crushing leap.
+function NightmareAIService:StartRage(brain, kind: string, now: number): boolean
+	local target = self:RageTarget(brain)
+	local def
+	if kind == "Heavy" then
+		if now < (brain.rageHeavyAt or 0) then
+			return false
+		end
+		local can = bodyCan(brain)
+		local root = target and target:FindFirstChild("HumanoidRootPart")
+		local grabbable = root and canClinch(target) and (can.BothArms or (can.Quad and can.Head))
+			and Util.FlatDistance(root.Position, brain.root.Position) - math.max(root.Size.X, root.Size.Z) / 2 - brain.hitboxSize.Z / 2 <= brain.stats.Reach + RAGE.Grab.GrabReach
+		def = grabbable and RAGE.Grab or RAGE.Leap
+		brain.rageHeavyAt = now + RAGE.HeavyCooldown
+		brain.rageIndex = 1
+	else
+		if now > (brain.rageResetAt or 0) then
+			brain.rageIndex = 1
+		end
+		def = RAGE.Beats[brain.rageIndex or 1]
+	end
+	if not self:StartString(brain, def, target, now) then
+		return false
+	end
+	if kind ~= "Heavy" then
+		brain.rageIndex = (brain.rageIndex or 1) % #RAGE.Beats + 1
+	end
+	-- the player's next press comes as soon as this blow has landed and recovered, not after
+	-- the companion's breather
+	local speedScale = 100 / brain.stats.AttackSpeed
+	brain.busyUntil = now + (def.Hits[#def.Hits][1] + def.Recovery) * speedScale
+	brain.cancelableAt = brain.busyUntil
+	brain.rageResetAt = brain.busyUntil + RAGE.ResetTime
+	brain.target = target or brain.target
 	return true
 end
 

@@ -2050,6 +2050,209 @@ for _, name in { "Combo_NightmareFrenzy", "Combo_TentacleSlam" } do
 	fromStance({ [name] = POSES.Common[name] }, BOXER)
 end
 
+------------------------------------------------------------------------------------------
+-- UNLEASHED (Config.Possession.Rampage): the heavy moveset of a POSSESSED Nightmare. Every
+-- blow is thrown with the whole body: big loads, the hips all the way through, the weight
+-- dropped onto the contact, and follow-throughs that carry on past it. Contact frames are
+-- the server's hit times (Rampage Hits), with no "Hit" marker: the clip plays at the speed
+-- the server's timing implies, like the wild moveset's strings.
+------------------------------------------------------------------------------------------
+local RAGE = {
+	-- a wild right HAYMAKER: wound right round, then the whole body thrown through it
+	Rage_Haymaker = {
+		Duration = 1.0,
+		Markers = { { 0.26, "Whoosh" }, { 0.36, "Strike" }, { 0.36, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.16, { Joint_CorePos = { 0, 0.05, 0.3 }, Joint_Core = { 8, -42, 4 }, Joint_Legs = { -8, 42, -4 }, Joint_Head = { -8, 24, 0 }, Joint_RightArm = { 62, 0, 72 }, Sub_RightArm_Fore = { 50, 0, 0 }, Joint_LeftArm = { 70, 0, 40 }, Sub_LeftArm_Fore = { 105, 0, 0 }, Sub_Legs_L = { 14, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }),
+			blow(0.36, { Joint_CorePos = { 0, -0.08, -0.95 }, Joint_Core = { -18, 50, -8 }, Joint_Legs = { 18, -50, 8 }, Joint_Head = { -12, -18, 0 }, Joint_RightArm = { 90, 0, -30 }, Sub_RightArm_Fore = { 28, 0, 0 }, Joint_LeftArm = { 40, 0, 30 }, Sub_LeftArm_Fore = { 110, 0, 0 }, Sub_Legs_L = { 38, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } }),
+			pose(0.52, { Joint_CorePos = { 0, -0.2, -1.05 }, Joint_Core = { -26, 70, -8 }, Joint_Legs = { 26, -56, 8 }, Joint_Head = { -12, -30, 0 }, Joint_RightArm = { 70, 0, -62 }, Sub_RightArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -28, 0, 0 } }),
+			pose(0.78, { Joint_CorePos = { 0, 0.05, -0.4 }, Joint_Core = { -8, 20, 0 }, Joint_Legs = { 8, -20, 0 } }),
+			pose(1.0),
+		},
+	},
+	-- a lead ELBOW: the arm folded tight so the point of the elbow leads, smashed across
+	Rage_Elbow = {
+		Duration = 0.95,
+		Markers = { { 0.22, "Whoosh" }, { 0.3, "Strike" }, { 0.3, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.13, { Joint_CorePos = { 0, 0.05, -0.1 }, Joint_Core = { -8, 30, 2 }, Joint_Legs = { 8, -30, 0 }, Joint_Head = { -10, -8, 0 }, Joint_LeftArm = { 78, 0, -26 }, Sub_LeftArm_Fore = { 138, 0, 0 }, Sub_Legs_L = { 26, 0, 0 }, Sub_Legs_R = { -18, 0, 0 } }),
+			blow(0.3, { Joint_CorePos = { 0, -0.12, -0.8 }, Joint_Core = { -16, -40, 6 }, Joint_Legs = { 16, 40, -6 }, Joint_Head = { -12, 18, 0 }, Joint_LeftArm = { 95, 0, 40 }, Sub_LeftArm_Fore = { 142, 0, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } }),
+			pose(0.46, { Joint_CorePos = { 0, -0.1, -0.85 }, Joint_Core = { -18, -56, 6 }, Joint_Legs = { 18, 46, -6 }, Joint_Head = { -12, 26, 0 }, Joint_LeftArm = { 86, 0, 58 }, Sub_LeftArm_Fore = { 130, 0, 0 } }),
+			pose(0.72, { Joint_CorePos = { 0, 0.08, -0.35 } }),
+			pose(0.95),
+		},
+	},
+	-- the LAUNCHER: dropped deep into the legs, then everything explodes upward behind the
+	-- rear uppercut, up onto the toes and carrying on over the top
+	Rage_Uppercut = {
+		Duration = 1.1,
+		Markers = { { 0.26, "Whoosh" }, { 0.34, "Strike" }, { 0.34, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.18, { Joint_CorePos = { 0, -0.62, -0.15 }, Joint_Core = { -28, -26, 0 }, Joint_Legs = { 28, 26, 0 }, Joint_Head = { -10, 10, 0 }, Joint_RightArm = { 18, 0, -28 }, Sub_RightArm_Fore = { 122, 0, 0 }, Sub_Legs_L = { 48, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } }),
+			blow(0.34, { Joint_CorePos = { 0, 0.42, -0.6 }, Joint_Core = { 6, 32, 0 }, Joint_Legs = { -6, -32, 0 }, Joint_Head = { 8, -12, 0 }, Joint_RightArm = { 128, 0, -28 }, Sub_RightArm_Fore = { 48, 0, 0 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } }),
+			pose(0.5, { Joint_CorePos = { 0, 0.6, -0.65 }, Joint_Core = { 14, 38, 0 }, Joint_Legs = { -10, -34, 0 }, Joint_Head = { 14, -14, 0 }, Joint_RightArm = { 168, 0, -14 }, Sub_RightArm_Fore = { 26, 0, 0 }, Sub_Legs_L = { 4, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } }),
+			pose(0.8, { Joint_CorePos = { 0, 0.1, -0.3 } }),
+			pose(1.1),
+		},
+	},
+	-- both fists high over the head, up off the floor, and DOWN: the weight lands with the fists
+	Rage_Smash = {
+		Duration = 1.4,
+		Markers = { { 0.42, "Whoosh" }, { 0.52, "Land" }, { 0.52, "Strike" } },
+		Keys = {
+			pose(0),
+			pose(0.2, { Joint_CorePos = { 0, 0.25, 0.3 }, Joint_Core = { 18, 0, 0 }, Joint_Legs = { -18, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 168, 0, -12 }, Sub_RightArm_Fore = { 46, 0, 0 }, Joint_LeftArm = { 168, 0, 12 }, Sub_LeftArm_Fore = { 46, 0, 0 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } }),
+			pose(0.38, { Joint_CorePos = { 0, 0.75, 0.1 }, Joint_Core = { 24, 0, 0 }, Joint_Legs = { -24, 0, 0 }, Joint_Head = { 14, 0, 0 }, Joint_RightArm = { 178, 0, -8 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 178, 0, 8 }, Sub_LeftArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { -4, 0, 0 }, Sub_Legs_R = { -4, 0, 0 } }),
+			blow(0.52, { Joint_CorePos = { 0, -0.95, -0.9 }, Joint_Core = { -46, 0, 0 }, Joint_Legs = { 46, 0, 0 }, Joint_Head = { -22, 0, 0 }, Joint_RightArm = { 38, 0, -14 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 38, 0, 14 }, Sub_LeftArm_Fore = { 10, 0, 0 }, Sub_Legs_L = { 54, 0, 0 }, Sub_Legs_R = { -32, 0, 0 } }),
+			pose(0.82, { Joint_CorePos = { 0, -0.85, -0.85 }, Joint_Core = { -40, 0, 0 }, Joint_Legs = { 40, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 44, 0, -14 }, Sub_RightArm_Fore = { 16, 0, 0 }, Joint_LeftArm = { 44, 0, 14 }, Sub_LeftArm_Fore = { 16, 0, 0 }, Sub_Legs_L = { 52, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } }),
+			pose(1.12, { Joint_CorePos = { 0, -0.1, -0.3 }, Joint_Core = { -10, 0, 0 }, Joint_Legs = { 10, 0, 0 } }),
+			pose(1.4),
+		},
+	},
+	-- GRAB SLAM: both hands lock on, a squat under the weight, hoisted to arm's length over the
+	-- head, a lean back to load it, and driven down into the floor (the server carries the
+	-- body along Rampage.Grab.Hold.Path: in front, overhead by 0.96 s, slammed down at 1.12)
+	Rage_GrabSlam = {
+		Duration = 1.9,
+		Markers = { { 0.22, "Whoosh" }, { 0.3, "Strike" }, { 0.3, "StepL" }, { 1.04, "Whoosh" }, { 1.12, "Land" }, { 1.12, "Strike" } },
+		Keys = {
+			pose(0),
+			pose(0.16, { Joint_CorePos = { 0, -0.1, -0.45 }, Joint_Core = { -14, 0, 0 }, Joint_Legs = { 14, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 98, 0, -14 }, Sub_RightArm_Fore = { 18, 0, 0 }, Joint_LeftArm = { 98, 0, 14 }, Sub_LeftArm_Fore = { 18, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } }),
+			blow(0.3, { Joint_CorePos = { 0, -0.15, -0.65 }, Joint_Core = { -16, 0, 0 }, Joint_Legs = { 16, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 92, 0, -4 }, Sub_RightArm_Fore = { 48, 0, 0 }, Joint_LeftArm = { 92, 0, 4 }, Sub_LeftArm_Fore = { 48, 0, 0 }, Sub_Legs_L = { 32, 0, 0 }, Sub_Legs_R = { -22, 0, 0 } }),
+			pose(0.52, { Joint_CorePos = { 0, -0.6, -0.25 }, Joint_Core = { -22, 0, 0 }, Joint_Legs = { 22, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 84, 0, -6 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 84, 0, 6 }, Sub_LeftArm_Fore = { 60, 0, 0 }, Sub_Legs_L = { 46, 0, 0 }, Sub_Legs_R = { -10, 0, 0 } }),
+			pose(0.76, { Joint_CorePos = { 0, 0.4, 0.1 }, Joint_Core = { 14, 0, 0 }, Joint_Legs = { -14, 0, 0 }, Joint_Head = { 18, 0, 0 }, Joint_RightArm = { 170, 0, -10 }, Sub_RightArm_Fore = { 34, 0, 0 }, Joint_LeftArm = { 170, 0, 10 }, Sub_LeftArm_Fore = { 34, 0, 0 }, Sub_Legs_L = { 4, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } }),
+			pose(0.96, { Joint_CorePos = { 0, 0.55, 0.25 }, Joint_Core = { 24, 0, 0 }, Joint_Legs = { -24, 0, 0 }, Joint_Head = { 20, 0, 0 }, Joint_RightArm = { 180, 0, -6 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 180, 0, 6 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { 0, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } }),
+			blow(1.12, { Joint_CorePos = { 0, -0.95, -0.95 }, Joint_Core = { -48, 0, 0 }, Joint_Legs = { 48, 0, 0 }, Joint_Head = { -24, 0, 0 }, Joint_RightArm = { 34, 0, -12 }, Sub_RightArm_Fore = { 12, 0, 0 }, Joint_LeftArm = { 34, 0, 12 }, Sub_LeftArm_Fore = { 12, 0, 0 }, Sub_Legs_L = { 56, 0, 0 }, Sub_Legs_R = { -32, 0, 0 } }),
+			pose(1.42, { Joint_CorePos = { 0, -0.8, -0.85 }, Joint_Core = { -40, 0, 0 }, Joint_Legs = { 40, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 40, 0, -12 }, Joint_LeftArm = { 40, 0, 12 }, Sub_Legs_L = { 52, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } }),
+			pose(1.66, { Joint_CorePos = { 0, -0.1, -0.3 }, Joint_Core = { -10, 0, 0 }, Joint_Legs = { 10, 0, 0 } }),
+			pose(1.9),
+		},
+	},
+	-- CRUSHING LEAP: sunk into a crouch with the arms flung back, sprung up and out with both
+	-- fists raised, knees tucked in the air, and crashed down fists-first (the server carries
+	-- the body Leap.Max studs onto them, landing on the 0.6 s hit)
+	Rage_Leap = {
+		Duration = 1.5,
+		Markers = { { 0.22, "Whoosh" }, { 0.6, "Land" }, { 0.6, "Strike" } },
+		Keys = {
+			pose(0),
+			pose(0.16, { Joint_CorePos = { 0, -0.65, 0.25 }, Joint_Core = { -24, 0, 0 }, Joint_Legs = { 24, 0, 0 }, Joint_Head = { -4, 0, 0 }, Joint_RightArm = { -35, 0, 20 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { -35, 0, -20 }, Sub_LeftArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { 52, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } }),
+			pose(0.26, { Joint_CorePos = { 0, 0.9, -0.4 }, Joint_Core = { -6, 0, 0 }, Joint_Legs = { 6, 0, 0 }, Joint_Head = { 6, 0, 0 }, Joint_RightArm = { 160, 0, -14 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 160, 0, 14 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { -10, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } }),
+			pose(0.42, { Joint_CorePos = { 0, 2.4, -0.5 }, Joint_Core = { 14, 0, 0 }, Joint_Legs = { -14, 0, 0 }, Joint_Head = { 14, 0, 0 }, Joint_RightArm = { 178, 0, -8 }, Sub_RightArm_Fore = { 34, 0, 0 }, Joint_LeftArm = { 178, 0, 8 }, Sub_LeftArm_Fore = { 34, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { 30, 0, 0 } }),
+			blow(0.6, { Joint_CorePos = { 0, -1.0, -0.8 }, Joint_Core = { -46, 0, 0 }, Joint_Legs = { 46, 0, 0 }, Joint_Head = { -22, 0, 0 }, Joint_RightArm = { 36, 0, -14 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 36, 0, 14 }, Sub_LeftArm_Fore = { 10, 0, 0 }, Sub_Legs_L = { 58, 0, 0 }, Sub_Legs_R = { -34, 0, 0 } }),
+			pose(0.9, { Joint_CorePos = { 0, -0.85, -0.8 }, Joint_Core = { -38, 0, 0 }, Joint_Legs = { 38, 0, 0 }, Joint_Head = { -16, 0, 0 }, Joint_RightArm = { 44, 0, -14 }, Joint_LeftArm = { 44, 0, 14 }, Sub_Legs_L = { 52, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } }),
+			pose(1.2, { Joint_CorePos = { 0, -0.1, -0.3 }, Joint_Core = { -10, 0, 0 }, Joint_Legs = { 10, 0, 0 } }),
+			pose(1.5),
+		},
+	},
+}
+-- the same moves on FOUR LEGS (the head pitch runs the other way: +X tips the snout down)
+local QS = POSES.Stance.Quadruped
+local function qpose(t: number, change)
+	return at(t, QS, change)
+end
+local function qblow(t: number, change)
+	local key = at(t, QS, change)
+	key.Ease, key.Stop = "Snap", true
+	return key
+end
+local RAGE_QUAD = {
+	-- right forepaw reared high and raked down across them
+	Rage_Haymaker = {
+		Duration = 1.0,
+		Markers = { { 0.26, "Whoosh" }, { 0.36, "Strike" } },
+		Keys = {
+			qpose(0),
+			qpose(0.16, { Joint_CorePos = { 0, 0.3, 0.2 }, Joint_Core = { 14, -18, 0 }, Joint_Head = { -10, 16, 0 }, Sub_Legs_FR = { 110, 0, 40 }, Sub_Legs_FL = { 10, 0, 0 }, Sub_Legs_BL = { -10, 0, 0 }, Sub_Legs_BR = { -10, 0, 0 } }),
+			qblow(0.36, { Joint_CorePos = { 0, -0.1, -0.9 }, Joint_Core = { -8, 22, 0 }, Joint_Head = { -10, -18, 0 }, Sub_Legs_FR = { 60, 0, -40 }, Sub_Legs_FL = { 14, 0, 0 }, Sub_Legs_BL = { -20, 0, 0 }, Sub_Legs_BR = { -20, 0, 0 } }),
+			qpose(0.55, { Joint_CorePos = { 0, -0.15, -0.8 }, Joint_Core = { -6, 30, 0 }, Joint_Head = { -6, -24, 0 }, Sub_Legs_FR = { 30, 0, -50 } }),
+			qpose(0.8, { Joint_CorePos = { 0, 0, -0.3 } }),
+			qpose(1.0),
+		},
+	},
+	-- and the left one back the other way
+	Rage_Elbow = {
+		Duration = 0.95,
+		Markers = { { 0.22, "Whoosh" }, { 0.3, "Strike" } },
+		Keys = {
+			qpose(0),
+			qpose(0.13, { Joint_CorePos = { 0, 0.3, 0.1 }, Joint_Core = { 14, 18, 0 }, Joint_Head = { -10, -16, 0 }, Sub_Legs_FL = { 110, 0, -40 }, Sub_Legs_FR = { 10, 0, 0 }, Sub_Legs_BL = { -10, 0, 0 }, Sub_Legs_BR = { -10, 0, 0 } }),
+			qblow(0.3, { Joint_CorePos = { 0, -0.1, -0.85 }, Joint_Core = { -8, -22, 0 }, Joint_Head = { -10, 18, 0 }, Sub_Legs_FL = { 60, 0, 40 }, Sub_Legs_FR = { 14, 0, 0 }, Sub_Legs_BL = { -20, 0, 0 }, Sub_Legs_BR = { -20, 0, 0 } }),
+			qpose(0.48, { Joint_CorePos = { 0, -0.15, -0.75 }, Joint_Core = { -6, -30, 0 }, Joint_Head = { -6, 24, 0 }, Sub_Legs_FL = { 30, 0, 50 } }),
+			qpose(0.72, { Joint_CorePos = { 0, 0, -0.3 } }),
+			qpose(0.95),
+		},
+	},
+	-- head low under them, jaws open, then TOSSED: snapped shut and flung upward
+	Rage_Uppercut = {
+		Duration = 1.1,
+		Markers = { { 0.26, "Whoosh" }, { 0.34, "JawSnap" } },
+		Keys = {
+			qpose(0),
+			qpose(0.18, { Joint_CorePos = { 0, -0.35, 0.15 }, Joint_Core = { -8, 0, 0 }, Joint_Head = { 30, 0, 0 }, Sub_Head_Jaw = { -38, 0, 0 }, Sub_Legs_FL = { -10, 0, 0 }, Sub_Legs_FR = { -10, 0, 0 }, Sub_Legs_BL = { 22, 0, 0 }, Sub_Legs_BR = { 22, 0, 0 } }),
+			qblow(0.34, { Joint_CorePos = { 0, 0.45, -0.85 }, Joint_Core = { 20, 0, 0 }, Joint_Head = { -42, 0, 0 }, Sub_Head_Jaw = { 4, 0, 0 }, Sub_Legs_FL = { 46, 0, 0 }, Sub_Legs_FR = { 46, 0, 0 }, Sub_Legs_BL = { -26, 0, 0 }, Sub_Legs_BR = { -26, 0, 0 } }),
+			qpose(0.55, { Joint_CorePos = { 0, 0.4, -0.7 }, Joint_Core = { 24, 0, 0 }, Joint_Head = { -30, 0, 0 }, Sub_Head_Jaw = { -14, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 } }),
+			qpose(0.85, { Joint_CorePos = { 0, 0, -0.3 } }),
+			qpose(1.1),
+		},
+	},
+	-- reared right up on the hind legs and both forepaws STAMPED down
+	Rage_Smash = {
+		Duration = 1.4,
+		Markers = { { 0.44, "Whoosh" }, { 0.52, "Land" }, { 0.52, "Strike" } },
+		Keys = {
+			qpose(0),
+			qpose(0.2, { Joint_CorePos = { 0, 0.2, 0.3 }, Joint_Core = { 12, 0, 0 }, Joint_Head = { -10, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { 14, 0, 0 }, Sub_Legs_BR = { 14, 0, 0 } }),
+			qpose(0.38, { Joint_CorePos = { 0, 1.1, 0.45 }, Joint_Core = { 38, 0, 0 }, Joint_Head = { -26, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Sub_Legs_FL = { 105, 0, 0 }, Sub_Legs_FR = { 95, 0, 0 }, Sub_Legs_BL = { -30, 0, 0 }, Sub_Legs_BR = { -30, 0, 0 }, Joint_Tail = { -30, 0, 0 } }),
+			qblow(0.52, { Joint_CorePos = { 0, -0.55, -0.8 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { 20, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 28, 0, 0 }, Sub_Legs_FR = { 28, 0, 0 }, Sub_Legs_BL = { 14, 0, 0 }, Sub_Legs_BR = { 14, 0, 0 }, Joint_Tail = { 10, 0, 0 } }),
+			qpose(0.85, { Joint_CorePos = { 0, -0.45, -0.75 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { 14, 0, 0 }, Sub_Legs_FL = { 24, 0, 0 }, Sub_Legs_FR = { 24, 0, 0 }, Sub_Legs_BL = { 12, 0, 0 }, Sub_Legs_BR = { 12, 0, 0 } }),
+			qpose(1.1, { Joint_CorePos = { 0, -0.05, -0.3 } }),
+			qpose(1.4),
+		},
+	},
+	-- jaws clamped on, hauled up as it rears, and WHIPPED down into the floor
+	Rage_GrabSlam = {
+		Duration = 1.9,
+		Markers = { { 0.22, "Whoosh" }, { 0.3, "JawSnap" }, { 1.04, "Whoosh" }, { 1.12, "Land" }, { 1.12, "Strike" } },
+		Keys = {
+			qpose(0),
+			qpose(0.16, { Joint_CorePos = { 0, -0.2, -0.6 }, Joint_Core = { -10, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Head_Jaw = { -55, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { -20, 0, 0 }, Sub_Legs_BR = { -20, 0, 0 } }),
+			qblow(0.3, { Joint_CorePos = { 0, -0.25, -0.9 }, Joint_Core = { -14, 0, 0 }, Joint_Head = { 8, 0, 0 }, Sub_Head_Jaw = { 2, 0, 0 }, Sub_Legs_FL = { 36, 0, 0 }, Sub_Legs_FR = { 36, 0, 0 }, Sub_Legs_BL = { -26, 0, 0 }, Sub_Legs_BR = { -26, 0, 0 } }),
+			qpose(0.6, { Joint_CorePos = { 0, 0.3, -0.2 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { -30, 0, 0 }, Sub_Head_Jaw = { 2, 0, 0 }, Sub_Legs_FL = { 60, 0, 0 }, Sub_Legs_FR = { 60, 0, 0 }, Sub_Legs_BL = { -20, 0, 0 }, Sub_Legs_BR = { -20, 0, 0 } }),
+			qpose(0.96, { Joint_CorePos = { 0, 0.9, 0.3 }, Joint_Core = { 34, 0, 0 }, Joint_Head = { -44, 0, 0 }, Sub_Head_Jaw = { 2, 0, 0 }, Sub_Legs_FL = { 95, 0, 0 }, Sub_Legs_FR = { 95, 0, 0 }, Sub_Legs_BL = { -30, 0, 0 }, Sub_Legs_BR = { -30, 0, 0 }, Joint_Tail = { -30, 0, 0 } }),
+			qblow(1.12, { Joint_CorePos = { 0, -0.6, -0.9 }, Joint_Core = { -18, 0, 0 }, Joint_Head = { 34, 0, 0 }, Sub_Head_Jaw = { -20, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { 14, 0, 0 }, Sub_Legs_BR = { 14, 0, 0 }, Joint_Tail = { 10, 0, 0 } }),
+			qpose(1.45, { Joint_CorePos = { 0, -0.4, -0.7 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { 22, 0, 0 }, Sub_Head_Jaw = { -10, 0, 0 } }),
+			qpose(1.9),
+		},
+	},
+	-- a pounce from a crouch, flying in with the forepaws out, crashing down on them
+	Rage_Leap = {
+		Duration = 1.5,
+		Markers = { { 0.22, "Whoosh" }, { 0.6, "Land" }, { 0.6, "Strike" } },
+		Keys = {
+			qpose(0),
+			qpose(0.16, { Joint_CorePos = { 0, -0.5, 0.3 }, Joint_Core = { -6, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Legs_FL = { -20, 0, 0 }, Sub_Legs_FR = { -20, 0, 0 }, Sub_Legs_BL = { 40, 0, 0 }, Sub_Legs_BR = { 40, 0, 0 } }),
+			qpose(0.26, { Joint_CorePos = { 0, 0.8, -0.4 }, Joint_Core = { 14, 0, 0 }, Joint_Head = { -20, 0, 0 }, Sub_Legs_FL = { 80, 0, 0 }, Sub_Legs_FR = { 80, 0, 0 }, Sub_Legs_BL = { -50, 0, 0 }, Sub_Legs_BR = { -50, 0, 0 } }),
+			qpose(0.42, { Joint_CorePos = { 0, 2.2, -0.5 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { -10, 0, 0 }, Sub_Head_Jaw = { -40, 0, 0 }, Sub_Legs_FL = { 100, 0, 0 }, Sub_Legs_FR = { 100, 0, 0 }, Sub_Legs_BL = { -60, 0, 0 }, Sub_Legs_BR = { -60, 0, 0 }, Joint_Tail = { -30, 0, 0 } }),
+			qblow(0.6, { Joint_CorePos = { 0, -0.6, -0.8 }, Joint_Core = { -16, 0, 0 }, Joint_Head = { 26, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 }, Sub_Legs_FL = { 30, 0, 0 }, Sub_Legs_FR = { 30, 0, 0 }, Sub_Legs_BL = { 20, 0, 0 }, Sub_Legs_BR = { 20, 0, 0 } }),
+			qpose(0.9, { Joint_CorePos = { 0, -0.45, -0.7 }, Joint_Core = { -12, 0, 0 }, Joint_Head = { 18, 0, 0 } }),
+			qpose(1.2, { Joint_CorePos = { 0, -0.05, -0.3 } }),
+			qpose(1.5),
+		},
+	},
+}
+-- weight: flowing between keys, dead stop on each contact, and the body carrying on past it
+local RagePoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))
+for name, def in RAGE do
+	POSES.Common[name] = RagePoseTools.Punch(def, 0.3)
+end
+for name, def in RAGE_QUAD do
+	POSES.Quadruped[name] = RagePoseTools.Punch(def, 0.3)
+end
+
 -- The punches go all the way out and connect (FightAim): each contact frame, which arm, where.
 local function aim(library, name: string, list)
 	local def = library[name]
@@ -2099,6 +2302,12 @@ aim(POSES.Biped, "Combo_CycloneDestroyer", { { 0.3, "L" }, { 0.72, "R" } })
 aim(POSES.Biped, "Combo_TitanCombination", { { 0.72, "R" }, { 1.1, "L", "B" } })
 aim(POSES.Biped, "Combo_AerialCrusher", { { 0.36, "R" } })
 aim(POSES.Biped, "Heavy", { { 0.45, "R" } })
+-- UNLEASHED: the haymaker and the launcher drive the fist into them (the elbow, the smashes
+-- and the grab aren't a straight arm)
+aim(POSES.Common, "Rage_Haymaker", { { 0.36, "R" } })
+aim(POSES.Common, "Rage_Uppercut", { { 0.34, "R" } })
+aim(POSES.Quadruped, "Rage_Haymaker", { { 0.36, "FrontRight", "B" } })
+aim(POSES.Quadruped, "Rage_Elbow", { { 0.3, "FrontLeft", "B" } })
 
 -- every combination lands: flows through its keys, fast into each contact, stopped dead on it
 local PoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))

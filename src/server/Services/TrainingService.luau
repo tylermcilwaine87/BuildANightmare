@@ -2,13 +2,20 @@
 	TrainingService  (ModuleScript)
 	Location: ServerScriptService/Server/Services/TrainingService
 
-	Spawns and runs the Training Arena enemies (placeholder geometry, built in code):
+	Spawns and runs the Training Arena enemies (built in code; where they stand:
+	Config.World.Arena, in the arena's own frame):
 
 	  Training Dummy  stationary, 400 HP, fully heals 5s after the last hit, respawns
+	  Guard Dummy     a dummy holding its padded arms up for good (BlockService GuardSteady):
+	                  practise breaking a guard, or getting round it. Broken, the pads drop
+	                  for a moment, then come back up.
 	  Scrapling       small hostile robot: chases nearby Handlers/Nightmares, telegraphs a
 	                  claw swipe for 0.7s (red floor marker on clients), turning to track
 	                  its target (capped speed), then commits, lunges in and hits. Gives
 	                  Phase 1 a real "defeat a training enemy" target that fights back.
+	  Scrap Brute     a big armoured Scrapling: a long-telegraphed two-fist overhead SLAM
+	                  that hits hard and knocks you flying.
+	Scraplings and the Brute live in THE PIT (a caged octagon) and only go for what's inside it.
 
 	Enemies are tagged "Enemy" and expose attributes the client uses:
 	  DisplayName, Defence, ActionName/ActionWindup/ActionDuration/ActionSeq,
@@ -22,8 +29,11 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local TweenService = game:GetService("TweenService")
+
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Net = require(Shared:WaitForChild("Net"))
 local Util = require(Shared:WaitForChild("Util"))
 
 local TrainingService = {}
@@ -151,42 +161,111 @@ local function buildDummy(ground: Vector3, facing: Vector3): (Model, Humanoid)
 	return model, humanoid
 end
 
-local function buildScrapling(ground: Vector3, facing: Vector3): (Model, Humanoid)
-	local cfg = Config.Enemies.Scrapling
+-- THE GUARD DUMMY: a dummy with two padded forearms held up in front of its face on a hinge
+-- (Joint_Guard: TrainingService drops them when the guard breaks and lifts them back up).
+local GUARD_UP = CFrame.Angles(0, 0, 0)
+local GUARD_DOWN = CFrame.Angles(math.rad(-75), 0, 0)
+local function buildGuardDummy(ground: Vector3, facing: Vector3): (Model, Humanoid)
+	local cfg = Config.Enemies.GuardDummy
 	local model = Instance.new("Model")
-	model.Name = "Scrapling"
+	model.Name = "GuardDummy"
 
-	local hipHeight = 0.75
-	local rootSize = V(3, 3, 2.5)
+	local baseCF = CFrame.lookAt(ground, V(facing.X, ground.Y, facing.Z))
+	local root = makeRoot(model, V(3, 5, 2), baseCF * CFrame.new(0, 2.5, 0), true)
+	local core = helper(model, "Core_Root", baseCF)
+	motor("Joint_Core", root, core, baseCF)
+
+	local wood, canvas, pad, trim = RGB(70, 52, 38), RGB(60, 66, 84), RGB(36, 40, 56), RGB(90, 160, 255)
+	visual(model, core, "Block", V(2.8, 0.4, 2.8), baseCF * CFrame.new(0, 0.2, 0), wood, Mat.WoodPlanks)
+	visual(model, core, "Cylinder", V(3.6, 0.55, 0.55), baseCF * CFrame.new(0, 2, 0) * CFrame.Angles(0, 0, math.rad(90)), wood, Mat.Wood)
+	visual(model, core, "Block", V(2.4, 2.4, 1.3), baseCF * CFrame.new(0, 3.3, 0), canvas, Mat.Fabric)
+	visual(model, core, "Ball", V(1.5, 1.5, 1.5), baseCF * CFrame.new(0, 5.0, 0), canvas, Mat.Fabric)
+	-- a blue stripe: it's the one that blocks
+	visual(model, core, "Block", V(2.45, 0.3, 1.35), baseCF * CFrame.new(0, 2.6, 0), trim, Mat.Neon)
+	-- the guard: two thick pads up in front of the face and chest, hinged at the shoulders
+	local hinge = baseCF * CFrame.new(0, 4.3, -0.7)
+	local arms = helper(model, "Guard_Root", hinge)
+	motor("Joint_Guard", core, arms, hinge)
+	for _, side in { -1, 1 } do
+		visual(model, arms, "Block", V(0.9, 2.6, 0.8), hinge * CFrame.new(0.55 * side, 0.1, -0.45) * CFrame.Angles(0, 0, math.rad(-8 * side)), pad, Mat.Fabric)
+		visual(model, arms, "Block", V(0.95, 0.25, 0.85), hinge * CFrame.new(0.55 * side, 1.3, -0.45), trim, Mat.Neon)
+	end
+
+	local humanoid = makeHumanoid(model, cfg.MaxHealth, 0, 0)
+	model:SetAttribute("DisplayName", cfg.DisplayName)
+	model:SetAttribute("Defence", cfg.Defence)
+	model:SetAttribute("EnemyType", "GuardDummy")
+	model:SetAttribute("ActionSeq", 0)
+	-- (BlockService: holds it up for good; it never wears out on its own)
+	model:SetAttribute("GuardSteady", true)
+	return model, humanoid
+end
+
+-- A Scrapling, or (kind "ScrapBrute") the big two-fisted one: the same build at cfg.Scale,
+-- with armour plates, a second arm and heavier fists.
+local function buildScrapling(ground: Vector3, facing: Vector3, kind: string?): (Model, Humanoid)
+	kind = kind or "Scrapling"
+	local cfg = Config.Enemies[kind]
+	local brute = kind == "ScrapBrute"
+	local s = cfg.Scale or 1
+	local model = Instance.new("Model")
+	model.Name = kind
+
+	local hipHeight = 0.75 * s
+	local rootSize = V(3, 3, 2.5) * s
 	local rootPos = ground + V(0, hipHeight + rootSize.Y / 2 + 0.2, 0)
 	local rootCF = CFrame.lookAt(rootPos, V(facing.X, rootPos.Y, facing.Z))
 	local root = makeRoot(model, rootSize, rootCF, false)
 	local core = helper(model, "Core_Root", rootCF)
 	motor("Joint_Core", root, core, rootCF)
+	local function at(x, y, z)
+		return rootCF * CFrame.new(x * s, y * s, z * s)
+	end
 
 	local rust, metal, dark, glow = RGB(120, 95, 80), RGB(150, 150, 160), RGB(55, 55, 62), RGB(255, 70, 50)
-	visual(model, core, "Block", V(2.6, 2, 2), rootCF * CFrame.new(0, 0.1, 0), rust, Mat.CorrodedMetal)
-	visual(model, core, "Block", V(2.8, 0.4, 2.2), rootCF * CFrame.new(0, 1.1, 0), metal, Mat.Metal)
-	visual(model, core, "Ball", V(1, 1, 1), rootCF * CFrame.new(0, 0.4, -1.0), glow, Mat.Neon)
-	visual(model, core, "Cylinder", V(1, 0.12, 0.12), rootCF * CFrame.new(0.6, 1.8, 0) * CFrame.Angles(0, 0, math.rad(90)), dark, Mat.Metal)
-	visual(model, core, "Ball", V(0.35, 0.35, 0.35), rootCF * CFrame.new(0.6, 2.35, 0), glow, Mat.Neon)
-	for _, side in { -1, 1 } do
-		visual(model, core, "Block", V(0.6, 1.3, 0.6), rootCF * CFrame.new(0.7 * side, -1.4, 0), dark, Mat.Metal)
-		visual(model, core, "Block", V(0.9, 0.3, 1.1), rootCF * CFrame.new(0.7 * side, -2.1, -0.1), dark, Mat.Metal)
+	if brute then
+		rust, metal, glow = RGB(96, 70, 58), RGB(120, 118, 128), RGB(255, 120, 30)
 	end
-	visual(model, core, "Block", V(0.5, 1.4, 0.5), rootCF * CFrame.new(-1.55, -0.3, 0) * CFrame.Angles(0, 0, math.rad(-10)), rust, Mat.CorrodedMetal)
+	visual(model, core, "Block", V(2.6, 2, 2) * s, at(0, 0.1, 0), rust, Mat.CorrodedMetal)
+	visual(model, core, "Block", V(2.8, 0.4, 2.2) * s, at(0, 1.1, 0), metal, Mat.Metal)
+	visual(model, core, "Ball", V(1, 1, 1) * s, at(0, 0.4, -1.0), glow, Mat.Neon)
+	visual(model, core, "Cylinder", V(1, 0.12, 0.12) * s, at(0.6, 1.8, 0) * CFrame.Angles(0, 0, math.rad(90)), dark, Mat.Metal)
+	visual(model, core, "Ball", V(0.35, 0.35, 0.35) * s, at(0.6, 2.35, 0), glow, Mat.Neon)
+	for _, side in { -1, 1 } do
+		visual(model, core, "Block", V(0.6, 1.3, 0.6) * s, at(0.7 * side, -1.4, 0), dark, Mat.Metal)
+		visual(model, core, "Block", V(0.9, 0.3, 1.1) * s, at(0.7 * side, -2.1, -0.1), dark, Mat.Metal)
+	end
+	if brute then
+		-- riveted chest plate, shoulder plates and a jaw grille
+		visual(model, core, "Block", V(2.2, 1.4, 0.3) * s, at(0, 0.15, -1.05), metal, Mat.DiamondPlate)
+		visual(model, core, "Block", V(1.6, 0.35, 0.35) * s, at(0, -0.55, -1.15), dark, Mat.Metal)
+		for _, side in { -1, 1 } do
+			visual(model, core, "Wedge", V(1.0, 0.7, 2.2) * s, at(1.45 * side, 1.15, 0) * CFrame.Angles(0, math.rad(90 * side), 0), metal, Mat.Metal)
+			visual(model, core, "Cylinder", V(0.25, 0.3, 0.3) * s, at(0.9 * side, 0.85, -1.15) * CFrame.Angles(0, math.rad(90), 0), glow, Mat.Neon)
+		end
+	else
+		visual(model, core, "Block", V(0.5, 1.4, 0.5), at(-1.55, -0.3, 0) * CFrame.Angles(0, 0, math.rad(-10)), rust, Mat.CorrodedMetal)
+	end
 
-	-- Animated right claw (client animator swings Joint_RightArm on "Swipe").
-	local shoulder = rootCF * CFrame.new(1.4, 0.5, 0)
-	local arm = helper(model, "RightArm_Root", shoulder)
-	motor("Joint_RightArm", core, arm, shoulder)
-	visual(model, arm, "Block", V(0.5, 1.5, 0.5), shoulder * CFrame.new(0.15, -0.75, 0), rust, Mat.CorrodedMetal)
-	visual(model, arm, "Wedge", V(0.6, 0.6, 0.9), shoulder * CFrame.new(0.15, -1.7, -0.2), metal, Mat.Metal)
+	-- Animated claws: the client animator swings Joint_RightArm on "Swipe", both on "Slam".
+	for _, side in brute and { 1, -1 } or { 1 } do
+		local shoulder = at(1.4 * side, 0.5, 0)
+		local name = side > 0 and "RightArm" or "LeftArm"
+		local arm = helper(model, name .. "_Root", shoulder)
+		motor("Joint_" .. name, core, arm, shoulder)
+		visual(model, arm, "Block", V(0.5, 1.5, 0.5) * s, shoulder * CFrame.new(0.15 * side * s, -0.75 * s, 0), rust, Mat.CorrodedMetal)
+		if brute then
+			-- a huge riveted fist
+			visual(model, arm, "Block", V(1.1, 1.0, 1.1) * s, shoulder * CFrame.new(0.15 * side * s, -1.7 * s, -0.1 * s), metal, Mat.DiamondPlate)
+		else
+			visual(model, arm, "Wedge", V(0.6, 0.6, 0.9), shoulder * CFrame.new(0.15, -1.7, -0.2), metal, Mat.Metal)
+		end
+	end
 
 	local humanoid = makeHumanoid(model, cfg.MaxHealth, hipHeight, cfg.WalkSpeed)
 	model:SetAttribute("DisplayName", cfg.DisplayName)
 	model:SetAttribute("Defence", cfg.Defence)
-	model:SetAttribute("EnemyType", "Scrapling")
+	model:SetAttribute("EnemyType", kind)
 	model:SetAttribute("ActionSeq", 0)
 	model:SetAttribute("TelegraphLength", cfg.AttackRange)
 	model:SetAttribute("TelegraphWidth", cfg.AttackWidth)
@@ -195,8 +274,14 @@ end
 
 local BUILDERS = {
 	TrainingDummy = buildDummy,
+	GuardDummy = buildGuardDummy,
 	Scrapling = buildScrapling,
+	ScrapBrute = function(ground, facing)
+		return buildScrapling(ground, facing, "ScrapBrute")
+	end,
 }
+-- the ones that walk about and fight (the rest stand still)
+local FIGHTERS = { Scrapling = true, ScrapBrute = true }
 
 ------------------------------------------------------------------------------------------
 -- Spawning
@@ -229,6 +314,9 @@ function TrainingService:SpawnEnemy(placement)
 		lastHit = 0,
 	}
 	enemies[model] = record
+	if placement.Kind == "GuardDummy" then
+		self:RaiseGuard(record)
+	end
 
 	humanoid.Died:Connect(function()
 		model:SetAttribute("Defeated", true)
@@ -244,13 +332,42 @@ function TrainingService:SpawnEnemy(placement)
 	end)
 end
 
+-- The Guard Dummy's guard: up for good (BlockService GuardSteady). When it breaks the pads fall
+-- (BlockService sets GuardBroken for Config.Block.BrokenTime); when it clears they come back up.
+function TrainingService:RaiseGuard(record)
+	local model = record.model
+	local hinge = model:FindFirstChild("Joint_Guard", true)
+	if not hinge then
+		return
+	end
+	local upC0 = hinge.C0
+	local block = self.Services.BlockService
+	block:Press(model, 0)
+	model:GetAttributeChangedSignal("GuardBroken"):Connect(function()
+		if enemies[model] ~= record then
+			return
+		end
+		if model:GetAttribute("GuardBroken") then
+			TweenService:Create(hinge, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { C0 = upC0 * GUARD_DOWN }):Play()
+		else
+			TweenService:Create(hinge, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { C0 = upC0 * GUARD_UP }):Play()
+			task.delay(0.3, function()
+				if enemies[model] == record and record.humanoid.Health > 0 then
+					block:Press(model, 0)
+				end
+			end)
+		end
+	end)
+end
+
 ------------------------------------------------------------------------------------------
--- Scrapling AI
+-- Scrapling / Scrap Brute AI
 ------------------------------------------------------------------------------------------
 local function findPlayerSideTarget(record): (Model?, number)
-	local cfg = Config.Enemies.Scrapling
+	local cfg = Config.Enemies[record.kind]
 	local position = record.root.Position
 	local home = record.placement.Ground
+	local bounds = record.placement.Bounds
 	local best, bestDistance = nil, cfg.AggroRadius
 
 	local function consider(model: Model?)
@@ -263,6 +380,10 @@ local function findPlayerSideTarget(record): (Model?, number)
 			return
 		end
 		if Util.FlatDistance(root.Position, home) > cfg.LeashRadius then
+			return
+		end
+		-- (a Pit fighter only goes for what's in the Pit with it: never at the cage bars)
+		if bounds and Util.FlatDistance(root.Position, bounds.Center) > bounds.Radius then
 			return
 		end
 		local distance = Util.FlatDistance(root.Position, position)
@@ -281,7 +402,8 @@ local function findPlayerSideTarget(record): (Model?, number)
 end
 
 function TrainingService:ScraplingAttack(record, target: Model, now: number)
-	local cfg = Config.Enemies.Scrapling
+	local cfg = Config.Enemies[record.kind]
+	local brute = record.kind == "ScrapBrute"
 	local model, root = record.model, record.root
 	record.nextAttack = now + cfg.AttackCooldown
 	record.busyUntil = now + cfg.AttackWindup + 0.3
@@ -292,9 +414,9 @@ function TrainingService:ScraplingAttack(record, target: Model, now: number)
 		root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
 	end
 
-	model:SetAttribute("ActionName", "Swipe")
+	model:SetAttribute("ActionName", brute and "Slam" or "Swipe")
 	model:SetAttribute("ActionWindup", cfg.AttackWindup)
-	model:SetAttribute("ActionDuration", cfg.AttackWindup + 0.35)
+	model:SetAttribute("ActionDuration", cfg.AttackWindup + (brute and 0.6 or 0.35))
 	model:SetAttribute("ActionSeq", (model:GetAttribute("ActionSeq") or 0) + 1)
 
 	-- Track the target through the windup (capped turn speed), then commit: stop turning
@@ -342,23 +464,29 @@ function TrainingService:ScraplingAttack(record, target: Model, now: number)
 			return -- staggering, knocking down or biting hold of a Scrapling cancels its swipe
 		end
 		local boxCFrame = root.CFrame * CFrame.new(0, 0, -(root.Size.Z / 2 + cfg.AttackRange / 2))
-		local boxSize = V(cfg.AttackWidth, 5, cfg.AttackRange)
+		local boxSize = V(cfg.AttackWidth, brute and 8 or 5, cfg.AttackRange)
 		local services = self.Services
+		if brute then
+			-- the fists hit the floor: the slam's shockwave where they land
+			local ground = (root.CFrame * CFrame.new(0, -(root.Size.Y / 2 + record.humanoid.HipHeight), -(root.Size.Z / 2 + cfg.AttackRange * 0.55))).Position
+			Net.FireNearby(services.TelegraphService.WorldFX, ground, Config.Performance.EffectRadius, "Slam", { Position = ground, Radius = cfg.AttackWidth * 0.6, Power = 0.7 })
+		end
 		for _, victim in services.HitDetectionService:QueryBox(boxCFrame, boxSize, { model }, root.Position) do
 			services.CombatService:ApplyDamage({
 				Attacker = model,
 				Target = victim,
 				BaseDamage = cfg.AttackDamage,
 				AttackPower = 100,
-				Knockback = 12,
-				Source = "Scrapling",
+				Knockback = cfg.AttackKnockback or 12,
+				Heavy = brute or nil, -- (a guard only takes the edge off it)
+				Source = record.kind,
 			})
 		end
 	end)
 end
 
 function TrainingService:UpdateScrapling(record, now: number)
-	local cfg = Config.Enemies.Scrapling
+	local cfg = Config.Enemies[record.kind]
 	if record.humanoid.Health <= 0 or now < record.busyUntil then
 		return
 	end
@@ -399,14 +527,22 @@ function TrainingService:Init(services)
 end
 
 function TrainingService:Start()
-	local world = Config.World
-	local center = world.ArenaCenter + V(0, 0.4, 0) -- arena floor top
-	for _, offset in world.DummyOffsets do
-		self:SpawnEnemy({ Kind = "TrainingDummy", Ground = center + offset, Facing = center })
+	-- (Config.World.Arena is in the arena's own frame; the floor top is 0.4 above its centre)
+	local layout = Config.World.Arena
+	local function point(offset: Vector3): Vector3
+		return Config.ArenaPoint(offset) + V(0, 0.4, 0)
 	end
-	for _, offset in world.ScraplingOffsets do
-		self:SpawnEnemy({ Kind = "Scrapling", Ground = center + offset, Facing = center })
+	local rangeFacing = point(layout.RangeFacing)
+	for _, offset in layout.Dummies do
+		self:SpawnEnemy({ Kind = "TrainingDummy", Ground = point(offset), Facing = rangeFacing })
 	end
+	self:SpawnEnemy({ Kind = "GuardDummy", Ground = point(layout.GuardDummy), Facing = point(layout.GuardFacing) })
+	local pit = point(layout.Pit.Center)
+	local bounds = { Center = pit, Radius = layout.Pit.Radius + 1 }
+	for _, offset in layout.Scraplings do
+		self:SpawnEnemy({ Kind = "Scrapling", Ground = point(layout.Pit.Center + offset), Facing = pit, Bounds = bounds })
+	end
+	self:SpawnEnemy({ Kind = "ScrapBrute", Ground = point(layout.Pit.Center + layout.Brute), Facing = point(layout.Pit.Center + V(0, 0, -10)), Bounds = bounds })
 
 	-- Dummies heal fully once left alone, so DPS testing always starts fresh.
 	self.Services.CombatService:OnDamaged(function(target)
@@ -426,14 +562,14 @@ function TrainingService:Start()
 		accumulated = 0
 		local now = os.clock()
 		for _, record in enemies do
-			if record.kind == "Scrapling" then
+			if FIGHTERS[record.kind] then
 				local ok, err = pcall(self.UpdateScrapling, self, record, now)
 				if not ok then
-					warn("[TrainingService] scrapling update failed:", err)
+					warn("[TrainingService] " .. record.kind .. " update failed:", err)
 				end
-			elseif record.kind == "TrainingDummy" then
+			else
 				local humanoid = record.humanoid
-				if humanoid.Health > 0 and humanoid.Health < humanoid.MaxHealth and now - record.lastHit > Config.Enemies.TrainingDummy.RegenDelay then
+				if humanoid.Health > 0 and humanoid.Health < humanoid.MaxHealth and now - record.lastHit > Config.Enemies[record.kind].RegenDelay then
 					humanoid.Health = humanoid.MaxHealth
 				end
 			end

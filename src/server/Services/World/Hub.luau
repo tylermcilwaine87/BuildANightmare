@@ -99,9 +99,14 @@ local function buildGround(root)
 	end
 
 	-- Lamp posts around the inner plaza (skipping the conduit lines).
+	-- (none inside the Training Arena's wall)
+	local arena = Config.World.ArenaCenter
 	for a = 15, 345, 30 do
 		local ang = rad(a)
-		Kit.Lamp(root, V3(c.X - 76 * sin(ang), 1, c.Z - 76 * cos(ang)), RGB(220, 190, 255), 10)
+		local pos = V3(c.X - 76 * sin(ang), 1, c.Z - 76 * cos(ang))
+		if (Vector3.new(pos.X, 0, pos.Z) - Vector3.new(arena.X, 0, arena.Z)).Magnitude > Config.World.ArenaRadius + 6 then
+			Kit.Lamp(root, pos, RGB(220, 190, 255), 10)
+		end
 	end
 
 	-- Purple embers drifting over the whole hub.
@@ -367,35 +372,172 @@ local function buildWorkshop(root)
 	Kit.Sign(w, C(0, 17.5, 2), V3(24, 3.4, 0.5), "NIGHTMARE WORKSHOP", BLUE)
 end
 
+-- THE TRAINING ARENA: a round, walled fight hall 100 studs across (Config.World.ArenaRadius),
+-- its entrance arch facing the Engine. Inside, in the arena's own frame (Config.ArenaPoint:
+-- x right, z toward the back wall, standing in the entrance):
+--   left   THE STRIKING RANGE  four dummies on a mat, and the Guard Dummy at the back
+--   right  THE PIT             a caged octagon: Scraplings and a Scrap Brute (TrainingService)
+--   back   tiered stands; floodlight masts with banners round the outside of the wall
 local function buildTraining(root)
-	local c = Config.World.ArenaCenter
-	local s = Config.World.ArenaSize
-	local half = s / 2
+	local world = Config.World
+	local layout = world.Arena
+	local c = world.ArenaCenter
+	local R = world.ArenaRadius
+	local A = Config.ArenaFrame()
 	local t = Kit.Model("TrainingArena", root)
 	local RED = RGB(255, 90, 90)
-	P(t, CF(c + V3(0, 0.2, 0)), V3(s, 0.4, s), RGB(52, 44, 58), M.Concrete)
-	Kit.Ring(t, CF(c + V3(0, 0.45, 0)), 14, 0.08, 0.6, 32, RED, M.Neon, glow)
-	local wallH = 4
-	local function wall(size, offset)
-		P(t, CF(c + offset + V3(0, wallH / 2, 0)), size, RGB(60, 50, 70), M.Brick)
-		P(t, CF(c + offset + V3(0, wallH + 0.15, 0)), V3(size.X, 0.3, size.Z), RED, M.Neon, glow)
+	local WALL = RGB(60, 50, 70)
+	local floorY = 0.4 -- (the floor's top, above the arena centre)
+	-- arena coordinates (z toward the back wall) -> world; a CFrame there turned `yaw` degrees
+	local function W(x: number, y: number, z: number): Vector3
+		return A:PointToWorldSpace(V3(x, y, -z))
 	end
-	local seg = (s - 16) / 2
-	wall(V3(s, wallH, 2), V3(0, 0, -half)) -- north
-	wall(V3(2, wallH, s), V3(half, 0, 0)) -- east
-	-- west and south walls have 16-stud openings towards the hub
-	wall(V3(2, wallH, seg), V3(-half, 0, -(8 + seg / 2)))
-	wall(V3(2, wallH, seg), V3(-half, 0, 8 + seg / 2))
-	wall(V3(seg, wallH, 2), V3(-(8 + seg / 2), 0, half))
-	wall(V3(seg, wallH, 2), V3(8 + seg / 2, 0, half))
-	-- target posts and floodlights
-	for _, corner in { V3(-1, 0, -1), V3(1, 0, -1), V3(1, 0, 1) } do
-		local pos = c + corner * (half - 4)
-		cyl(t, pos, pos + V3(0, 16, 0), 0.8, IRON, M.Metal)
-		local lamp = P(t, CF(pos + V3(0, 16.5, 0)), V3(2.4, 1, 2.4), RGB(255, 220, 160), M.Neon, glow)
-		Kit.Light(lamp, RGB(255, 220, 170), 2.5, 50, { Kind = "SpotLight", Face = Enum.NormalId.Bottom, Angle = 80 })
+	local function CA(x: number, y: number, z: number, yaw: number?): CFrame
+		return A * CF(x, y, -z) * ANG(0, rad(yaw or 0), 0)
 	end
-	Kit.Sign(t, CFrame.lookAt(c + V3(-half - 2, 9, half + 2), c + V3(-half - 30, 9, half + 30)), V3(20, 3.6, 0.5), "TRAINING ARENA", RED)
+	-- a point round the wall: `deg` from straight back (+ = round to the left), `r` out
+	local function around(deg: number, r: number, y: number): CFrame
+		return A * ANG(0, rad(deg), 0) * CF(0, y, -r)
+	end
+
+	-- the floor: a concrete disc, a red edge line and a worn centre circle
+	disc(t, CF(c + V3(0, floorY / 2, 0)), R * 2, floorY, RGB(52, 44, 58), M.Concrete, { Name = "ArenaFloor" })
+	Kit.Ring(t, CF(c + V3(0, floorY + 0.03, 0)), R - 0.8, 0.06, 1, 72, RED, M.Neon, glow)
+
+	-- the wall (a gap for the entrance, which faces the hub), its red trim and buttresses
+	local wallH = 5
+	local GAP = 21 -- degrees either side of the entrance
+	Kit.Ring(t, A * CF(0, floorY + wallH / 2, 0), R + 1, wallH, 2, 44, WALL, M.Brick, nil, -180 + GAP, 180 - GAP)
+	-- (a stone cap with a thin red line along it: a glow, not a band)
+	Kit.Ring(t, A * CF(0, floorY + wallH + 0.15, 0), R + 1, 0.3, 2.4, 44, STONE_LIGHT, M.Slate, nil, -180 + GAP, 180 - GAP)
+	Kit.Ring(t, A * CF(0, floorY + wallH + 0.34, 0), R + 0.2, 0.1, 0.35, 44, RED, M.Neon, glow, -180 + GAP, 180 - GAP)
+	for deg = -180 + GAP, 180 - GAP, 23.8 do
+		P(t, around(deg, R + 2.2, floorY + (wallH + 1.2) / 2), V3(2.2, wallH + 1.2, 2.2), STONE_LIGHT, M.Slate)
+		P(t, around(deg, R + 2.2, floorY + wallH + 1.35), V3(2.8, 0.3, 2.8), IRON, M.Metal)
+	end
+
+	-- the entrance ARCH (the sign faces the hub; the inside one faces the floor)
+	local archL, archR = around(180 - GAP + 1, R + 1.5, 0), around(-180 + GAP - 1, R + 1.5, 0)
+	for _, base in { archL, archR } do
+		P(t, base * CF(0, floorY + 8, 0), V3(3.4, 16, 3.4), STONE_LIGHT, M.Slate)
+		P(t, base * CF(0, floorY + 16.4, 0), V3(4.2, 0.8, 4.2), IRON, M.Metal)
+		local flame = ball(t, base.Position + V3(0, floorY + 17.4, 0), 1.2, RGB(255, 120, 90), M.Neon, glow)
+		Kit.Light(flame, RGB(255, 120, 90), 1.4, 18)
+	end
+	local archMid = (archL.Position + archR.Position) / 2
+	rod(t, archL.Position + V3(0, floorY + 14, 0), archR.Position + V3(0, floorY + 14, 0), 2.4, 2.4, IRON, M.Metal)
+	local outward = Vector3.new(world.HubCenter.X, 0, world.HubCenter.Z) - Vector3.new(c.X, 0, c.Z)
+	Kit.Sign(t, CFrame.lookAt(archMid + V3(0, floorY + 11.6, 0), archMid + V3(0, floorY + 11.6, 0) + outward), V3(22, 3.4, 0.5), "TRAINING ARENA", RED)
+	Kit.Sign(t, CFrame.lookAt(archMid + V3(0, floorY + 11.6, 0), archMid + V3(0, floorY + 11.6, 0) - outward) * CF(0, 0, -0.6), V3(16, 2.2, 0.4), "TRAIN HARD · FIGHT DIRTY", RGB(255, 200, 120))
+
+	-- STANDS round the back: three stepped tiers of benches
+	for i, tier in { { R - 6.5, 1.0, 3.0 }, { R - 3.8, 2.0, 3.0 }, { R - 1.2, 3.0, 2.6 } } do
+		Kit.Ring(t, A * CF(0, floorY + tier[2] / 2, 0), tier[1], tier[2], tier[3], 26, i % 2 == 1 and RGB(70, 58, 52) or RGB(58, 48, 44), M.WoodPlanks, nil, -48, 48)
+		Kit.Ring(t, A * CF(0, floorY + tier[2] + 0.06, 0), tier[1] - tier[3] / 2 + 0.25, 0.12, 0.4, 26, RGB(150, 60, 60), M.Fabric, nil, -48, 48)
+	end
+
+	-- FLOODLIGHT MASTS outside the wall, each lamp bank aimed at the floor, a banner below it
+	for _, deg in { 72, 126, -72, -126 } do
+		local base = around(deg, R + 4.5, 0)
+		local foot = base.Position
+		disc(t, CF(foot + V3(0, 0.6, 0)), 3.2, 1.2, IRON, M.Metal)
+		cyl(t, foot, foot + V3(0, 27, 0), 1, IRON, M.Metal)
+		local head = CFrame.lookAt(foot + V3(0, 27.5, 0), Vector3.new(c.X, foot.Y + 27.5, c.Z))
+		P(t, head, V3(6, 0.5, 1.2), IRON, M.Metal)
+		for x = -2, 2, 2 do
+			local lamp = P(t, head * CF(x, -0.2, -0.75) * ANG(rad(-35), 0, 0), V3(1.6, 1.2, 0.4), RGB(255, 230, 180), M.Neon, glow)
+			if x == 0 then
+				Kit.Light(lamp, RGB(255, 225, 175), 3, 75, { Kind = "SpotLight", Face = Enum.NormalId.Front, Angle = 70, Shadows = true })
+			end
+		end
+		-- a long red banner hung from the mast, on the side facing the floor
+		P(t, head * CF(0, -7, -0.9), V3(3.4, 11, 0.15), RGB(130, 26, 30), M.Fabric, glow)
+		P(t, head * CF(0, -1.7, -0.9), V3(3.8, 0.4, 0.3), IRON, M.Metal)
+		P(t, head * CF(0, -7, -0.99), V3(1.2, 1.2, 0.05), RGB(255, 120, 100), M.Neon, glow)
+	end
+
+	-- THE STRIKING RANGE: a mat under the dummies, a chalk mark in front of each
+	local range = layout.Dummies
+	local first, last = range[1], range[#range]
+	local mid = (first + last) / 2 + V3(-2, 0, 0)
+	P(t, CA(mid.X, floorY + 0.03, mid.Z), V3(10, 0.06, (last.Z - first.Z) + 10), RGB(92, 30, 34), M.Fabric, { Name = "RangeMat" })
+	for _, spot in range do
+		local aim = (layout.RangeFacing - spot).Unit
+		local mark = spot + aim * 5
+		P(t, CFrame.lookAt(W(mark.X, floorY + 0.07, mark.Z), W(spot.X, floorY + 0.07, spot.Z)), V3(3, 0.04, 0.3), RGB(220, 214, 200), M.Fabric, glow)
+	end
+	Kit.Sign(t, CFrame.lookAt(W(-44, floorY + 5.5, 2), W(0, floorY + 5.5, 2)), V3(12, 2, 0.4), "STRIKING RANGE", RED)
+	cyl(t, W(-44.4, floorY, -3), W(-44.4, floorY + 5, -3), 0.4, IRON, M.Metal)
+	cyl(t, W(-44.4, floorY, 7), W(-44.4, floorY + 5, 7), 0.4, IRON, M.Metal)
+	-- the Guard Dummy's plaque
+	local g = layout.GuardDummy
+	P(t, CA(g.X, floorY + 0.03, g.Z), V3(7, 0.06, 7), RGB(30, 48, 80), M.Fabric)
+	Kit.Sign(t, CFrame.lookAt(W(g.X - 4.5, floorY + 1.6, g.Z - 3), W(g.X - 4.5 + 4, floorY + 1.6, g.Z - 3 - 6)), V3(6, 1.6, 0.3), "GUARD DUMMY: BREAK IT OR GO ROUND IT", RGB(120, 180, 255))
+	-- a weapon rack and sandbags by the range
+	local rack = CA(-34, 0, -30, 25)
+	P(t, rack * CF(0, floorY + 2.2, 0), V3(6, 0.4, 1), RGB(70, 52, 38), M.WoodPlanks)
+	P(t, rack * CF(0, floorY + 0.2, 0), V3(6, 0.4, 1.4), RGB(70, 52, 38), M.WoodPlanks)
+	for x = -2.4, 2.4, 1.2 do
+		cyl(t, (rack * CF(x, floorY + 0.4, 0)).Position, (rack * CF(x + 0.15, floorY + 4.6, 0.1)).Position, 0.22, RGB(120, 100, 80), M.Wood)
+	end
+	-- (sandbags stacked against the wall, right of the entrance)
+	for i = 0, 5 do
+		local row = i < 3 and 0 or 1
+		local col = i < 3 and i or i - 3 + 0.5
+		local bag = CA(30 + col * 1.9, floorY + 0.55 + row * 0.95, -33 + col * 1.1, -40 + i * 7)
+		P(t, bag, V3(1.8, 0.9, 1.1), RGB(150, 128, 92), M.Fabric)
+	end
+
+	-- THE PIT: a caged octagon (corners every 45°; two sides are gates: toward the centre aisle
+	-- and toward the entrance). The cage collides with you, not with what lives in it
+	-- (TrainingService only lets those fight inside it; a body thrown out walks back in).
+	local pit = layout.Pit
+	local pc = pit.Center
+	local pr = pit.Radius
+	disc(t, CA(pc.X, floorY + 0.03, pc.Z), pr * 2 - 0.6, 0.06, RGB(26, 26, 38), M.Fabric, { Name = "PitMat" })
+	Kit.Ring(t, CA(pc.X, floorY + 0.08, pc.Z), pr - 2, 0.05, 0.5, 40, RED, M.Neon, glow)
+	disc(t, CA(pc.X, floorY + 0.07, pc.Z), 6, 0.05, RGB(130, 26, 30), M.Fabric)
+	local function corner(k: number, y: number): Vector3
+		local a = rad(22.5 + 45 * k)
+		return W(pc.X + pr * math.cos(a), y, pc.Z + pr * math.sin(a))
+	end
+	local cage = {}
+	local function keep(p)
+		if p then
+			table.insert(cage, p)
+		end
+		return p
+	end
+	local postH = 7
+	for k = 0, 7 do
+		local foot = corner(k, floorY)
+		keep(cyl(t, foot, foot + V3(0, postH + 0.4, 0), 0.7, RGB(24, 22, 30), M.Metal))
+		ball(t, foot + V3(0, postH + 0.7, 0), 0.9, RED, M.Neon, glow)
+	end
+	for k = 0, 7 do
+		local sideMid = (45 * (k + 1)) % 360
+		if sideMid ~= 180 and sideMid ~= 270 then
+			local a, b = corner(k, floorY), corner(k + 1, floorY)
+			-- padded kickboard, two rails, and the bars
+			keep(rod(t, a + V3(0, 0.8, 0), b + V3(0, 0.8, 0), 0.5, 1.2, RGB(30, 28, 38), M.Fabric))
+			keep(cyl(t, a + V3(0, postH, 0), b + V3(0, postH, 0), 0.3, RGB(40, 38, 48), M.Metal))
+			keep(cyl(t, a + V3(0, 4.3, 0), b + V3(0, 4.3, 0), 0.22, RGB(40, 38, 48), M.Metal))
+			for i = 1, 6 do
+				local p = a:Lerp(b, i / 7)
+				keep(cyl(t, p + V3(0, 1.4, 0), p + V3(0, postH, 0), 0.14, RGB(70, 68, 80), M.DiamondPlate))
+			end
+		end
+	end
+	for _, p in cage do
+		p.CollisionGroup = "PitFence"
+	end
+	-- THE PIT's sign, over its front gate
+	local g1, g2 = corner(5, floorY + postH + 1.4), corner(6, floorY + postH + 1.4)
+	rod(t, g1, g2, 0.5, 0.5, IRON, M.Metal)
+	local gateMid = (g1 + g2) / 2
+	Kit.Sign(t, CFrame.lookAt(gateMid + V3(0, 1.4, 0), gateMid + V3(0, 1.4, 0) + (gateMid - W(pc.X, gateMid.Y - c.Y, pc.Z)) * Vector3.new(1, 0, 1)), V3(9, 2, 0.4), "THE PIT", RED)
+
+	Kit.Billboard(t, c + V3(0, 30, 0), "TRAINING ARENA", "Striking Range · Guard Dummy · The Pit", RED, Vector2.new(28, 6), 260)
 end
 
 local function buildHall(root)

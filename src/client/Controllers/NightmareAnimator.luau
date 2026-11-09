@@ -88,6 +88,13 @@ local ACTION_ARMS = {
 	Beast_Roll = "None",
 	Beast_TailWhip = "None",
 	Beast_Headbutt = "None",
+	-- UNLEASHED (possessed): whole-body keyframed blows too
+	Rage_Haymaker = "None",
+	Rage_Elbow = "None",
+	Rage_Uppercut = "None",
+	Rage_Smash = "None",
+	Rage_GrabSlam = "None",
+	Rage_Leap = "None",
 	-- footwork (NightmareAIService Fight)
 	StepBack = "Hop",
 	Sidestep = "Hop",

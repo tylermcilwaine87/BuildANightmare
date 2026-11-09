@@ -441,6 +441,12 @@ Config.Nightmare = {
 	Reactions = {
 		Combo1 = { "Jab" },
 		Combo2 = { "Cross" },
+		Rage_Haymaker = { "HookR" },
+		Rage_Elbow = { "Cross" },
+		Rage_Uppercut = { "Upper" },
+		Rage_Smash = { "Heavy" },
+		Rage_GrabSlam = { "Body", "Body", "Heavy" },
+		Rage_Leap = { "Heavy" },
 		Combo3 = { "HookL" },
 		Gym_ComboA = { "Jab", "Jab", "Cross" },
 		Gym_ComboB = { "Jab", "Cross", "HookL" },
@@ -502,6 +508,39 @@ Config.Enemies = {
 		StepIn = 3,
 		RespawnDelay = 6,
 		AIUpdateRate = 5,
+	},
+	-- THE GUARD DUMMY (Training Arena): a dummy with its padded arms up that never drops its
+	-- guard by itself (BlockService GuardSteady). Blows from the front are blocked like anyone's
+	-- guard; break it (heavies, grabs, guard breakers) or go round it (the guard only covers the
+	-- front). Broken, the pads fall for Config.Block.BrokenTime and come back up.
+	GuardDummy = {
+		DisplayName = "Guard Dummy",
+		MaxHealth = 600,
+		Defence = 0,
+		RespawnDelay = 3,
+		RegenDelay = 5,
+	},
+	-- SCRAP BRUTE (the Pit): a big, slow, armoured Scrapling. It winds up an overhead
+	-- two-fist SLAM (a long, wide telegraph: dodge, step back or block it) that hits hard and
+	-- knocks you flying. A Scrapling's rules (AggroRadius, LeashRadius, StepIn...) otherwise.
+	ScrapBrute = {
+		DisplayName = "Scrap Brute",
+		MaxHealth = 650,
+		Defence = 12,
+		WalkSpeed = 8,
+		AggroRadius = 26,
+		LeashRadius = 30,
+		AttackRange = 8,
+		AttackWidth = 7,
+		AttackDamage = 20,
+		AttackKnockback = 45,
+		AttackWindup = 1.1,
+		AttackCooldown = 2.6,
+		TrackTurnRate = 110,
+		TrackCommit = 0.25,
+		StepIn = 2,
+		RespawnDelay = 12,
+		Scale = 1.7, -- x a Scrapling's build
 	},
 }
 
@@ -627,13 +666,38 @@ Config.World = {
 	HubCenter = Vector3.new(0, 1, 0),
 	HubSpawn = Vector3.new(0, 4, 52), -- = WorldDefinitions.HubSpawn
 	WorkshopCenter = Vector3.new(-88, 1, -88), -- NW quarter
-	ArenaCenter = Vector3.new(88, 1, -88), -- Training Arena, NE quarter
-	ArenaSize = 70,
+	ArenaCenter = Vector3.new(82, 1, -82), -- Training Arena, NE quarter (World/Hub buildTraining)
+	ArenaRadius = 50, -- a round arena, 100 studs across (the old square one was 70)
 	ColosseumCenter = Vector3.new(92, 1, 92), -- SE quarter
-	DummyOffsets = { Vector3.new(-15, 0, -25), Vector3.new(0, 0, -25), Vector3.new(15, 0, -25) },
-	ScraplingOffsets = { Vector3.new(-14, 0, 18), Vector3.new(14, 0, 18) },
+	-- What's in the arena, in ITS frame: x to the right and z toward the back wall, standing at
+	-- the entrance (which faces the hub). TrainingService spawns these; Hub builds round them.
+	Arena = {
+		-- THE STRIKING RANGE (left): dummies to work combos on, facing the centre aisle
+		Dummies = { Vector3.new(-35, 0, -18), Vector3.new(-38, 0, -5), Vector3.new(-38, 0, 8), Vector3.new(-35, 0, 21) },
+		RangeFacing = Vector3.new(-12, 0, 2),
+		-- the GUARD DUMMY: holds its guard up for good (Config.Block); break it or go round it
+		GuardDummy = Vector3.new(-22, 0, 32),
+		GuardFacing = Vector3.new(-8, 0, 14),
+		-- THE PIT (right): a caged octagon. What's inside only fights what's inside.
+		Pit = { Center = Vector3.new(20, 0, 4), Radius = 15 },
+		Scraplings = { Vector3.new(-6, 0, -6), Vector3.new(6, 0, -6), Vector3.new(0, 0, 8) }, -- (from the pit's centre)
+		Brute = Vector3.new(0, 0, 0),
+	},
 	ApplyLighting = true,
 }
+
+-- The Training Arena's own frame: standing in its entrance looking in (away from the hub),
+-- -Z is toward the back wall and +X to the right. Config.World.Arena positions are given
+-- with z toward the back wall; ArenaPoint turns one into a world position (on the ground).
+function Config.ArenaFrame(): CFrame
+	local world = Config.World
+	local center = world.ArenaCenter
+	local back = Vector3.new(center.X - world.HubCenter.X, 0, center.Z - world.HubCenter.Z).Unit
+	return CFrame.lookAt(center, center + back)
+end
+function Config.ArenaPoint(offset: Vector3): Vector3
+	return Config.ArenaFrame() * Vector3.new(offset.X, offset.Y, -offset.Z)
+end
 
 ------------------------------------------------------------------------------------------
 -- PHASE 3: advanced combat
@@ -694,6 +758,46 @@ Config.Possession = {
 	DodgeInvulnerable = 0.3,
 	DodgeSpeed = 55,
 	DodgeDuration = 0.2,
+	-- UNLEASHED: while you drive it, your Nightmare fights with its own heavy-hitting moveset
+	-- (NightmareAIService:StartRage), not the companion's. The same keyframed strings as the
+	-- wild moveset (Hits = { time, damage x Nightmare.StringDamage, knockback, heavy, launch,
+	-- options }), each clip in NightmarePoses ("Rage_*", a four-legged body has its own).
+	Rampage = {
+		-- ATTACK: each press throws the next blow; pressed again within ResetTime of a blow's
+		-- recovery it carries on, else it starts over. A press during a blow is held for the
+		-- next one if it comes in the last BufferTime seconds.
+		ResetTime = 0.9,
+		BufferTime = 0.35,
+		Beats = {
+			-- a wild right HAYMAKER, the whole body thrown round behind it
+			{ Action = "Rage_Haymaker", Duration = 1.0, Recovery = 0.18, Hits = { { 0.36, 1.5, 14 } } },
+			-- a lead ELBOW smashed across, stepping in
+			{ Action = "Rage_Elbow", Duration = 0.95, Recovery = 0.16, Hits = { { 0.3, 1.4, 8 } } },
+			-- a launching UPPERCUT from a deep dip: up off their feet
+			{ Action = "Rage_Uppercut", Duration = 1.1, Recovery = 0.22, Hits = { { 0.34, 1.6, 0, false, { Lift = 40, Push = 8, Spin = 3 }, { Force = true, Up = 4 } } } },
+			-- both fists overhead and DOWN into the floor: a shockwave
+			{ Action = "Rage_Smash", Duration = 1.4, Recovery = 0.4, Display = "Combo_Rampage", Tags = { "Finisher", "GuardBreak" }, Hits = { { 0.52, 2.4, 30, true, { Lift = 30, Push = 14, Spin = 4 }, { Radius = 9, Force = true } } } },
+		},
+		-- HEAVY: within reach of something it can lift (Grab: an ordinary enemy; two arms, or
+		-- four legs and a head): grab it, hoist it overhead and SLAM it into the floor. Anything
+		-- else (out of reach, a boss, a player): a CRUSHING LEAP onto them (or straight ahead)
+		-- that lands in a shockwave.
+		HeavyCooldown = 2.2,
+		Grab = {
+			Action = "Rage_GrabSlam", Duration = 1.9, Recovery = 0.4, Display = "Combo_NightmareSlam", Tags = { "Grab", "Finisher", "GuardBreak" },
+			Clinch = true, Grab = true, ExtraReach = 1.5, GrabReach = 2.5,
+			Hold = { Path = { Vector3.new(0, 0, -3.6), Vector3.new(0, 7.5, -0.8), Vector3.new(0, 0, -4.2) } },
+			-- (beat 2 is the top of the lift, arms locked out overhead: the body is carried up
+			-- 0.3 -> 0.96 s with the squat and hoist, then driven down in 0.16 s with the slam)
+			Hits = { { 0.3, 0.3 }, { 0.96, 0.2 }, { 1.12, 2.8, 0, true, { Lift = -35, Push = 6, Spin = 3 }, { Radius = 10, Force = true } } },
+		},
+		Leap = {
+			Action = "Rage_Leap", Duration = 1.5, Recovery = 0.35, Display = "Combo_CrushingLeap", Tags = { "Rush", "Finisher", "GuardBreak" },
+			Leap = { At = 0.2, Time = 0.38, Max = 16, Ahead = 9 },
+			Hits = { { 0.6, 2.2, 0, true, { Lift = 42, Push = 16, Spin = 5 }, { Radius = 12, Force = true } } },
+		},
+		AimRange = 22, -- studs: the enemy in front it goes for (else it strikes the air ahead)
+	},
 }
 
 -- ULTIMATES

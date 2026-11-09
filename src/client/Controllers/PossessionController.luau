@@ -162,7 +162,12 @@ local function onStart(data)
 	tint.Parent = Lighting
 	TweenService:Create(tint, TweenInfo.new(0.5), { TintColor = Color3.fromRGB(220, 200, 255), Saturation = -0.15, Contrast = 0.08 }):Play()
 
-	controllers.HUDController:Toast("POSSESSION! You ARE your Nightmare.", Color3.fromRGB(200, 150, 255), 2)
+	-- UNLEASHED: it fights with its own heavy moveset while you drive it (Config.Possession.Rampage)
+	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local pad = UserInputService:GetLastInputType().Name:sub(1, 7) == "Gamepad"
+	local heavyKey = touch and "KICK" or pad and "X" or "Right-click"
+	local attackKey = touch and "ATTACK" or pad and "R2" or "Click"
+	controllers.HUDController:Toast(("UNLEASHED! %s: RAMPAGE combo  ·  %s: GRAB SLAM / CRUSHING LEAP"):format(attackKey, heavyKey), Color3.fromRGB(200, 150, 255), 3.5)
 	controllers.AudioController:Play("Possess")
 end
 

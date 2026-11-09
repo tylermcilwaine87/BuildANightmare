@@ -42,6 +42,9 @@ WorldBuilder.CollisionGroups = {
 	-- Client-side impact debris (EffectsController): bounces off the world, never trips or
 	-- blocks players, Nightmares or enemies.
 	Effects = "Effects",
+	-- The Training Arena's Pit cage: it stops players and Nightmares, but a Scrapling thrown
+	-- out over it can walk back in (World/Hub buildTraining).
+	PitFence = "PitFence",
 }
 
 local RGB = Color3.fromRGB
@@ -60,6 +63,7 @@ local function setupCollisionGroups()
 	for _, other in { "Characters", "Nightmares", "Enemies", "BossPhasing" } do
 		PhysicsService:CollisionGroupSetCollidable("Effects", other, false)
 	end
+	PhysicsService:CollisionGroupSetCollidable("PitFence", "Enemies", false)
 end
 
 -- Base lighting / sky / clouds. The client's WorldController blends the per-region look

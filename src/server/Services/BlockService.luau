@@ -197,7 +197,13 @@ function BlockService:Start()
 				continue
 			end
 			if state.Holding then
-				if now >= state.ActiveAt then
+				if body:GetAttribute("GuardSteady") then
+					-- (the Training Arena's Guard Dummy: it never tires of holding it, and it
+					-- recovers between your attempts, only blows wear it down)
+					if now >= state.RegenAt and state.Level < B.Max then
+						state.Level = math.min(B.Max, state.Level + B.RegenPerSecond * step)
+					end
+				elseif now >= state.ActiveAt then
 					state.Level = math.max(0, state.Level - B.HoldDrain * step)
 					if state.Level <= 0 then
 						self:Break(body, nil) -- it just couldn't hold it up any longer

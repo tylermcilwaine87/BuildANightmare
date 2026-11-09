@@ -14,8 +14,12 @@
 	  * The Handler channels: can't move or attack, takes 50% damage (not immune).
 	    A heavy/knockback hit on the Handler, or a Handler KO, INTERRUPTS possession
 	    and the remaining time is lost.
-	  * Attacks are still SERVER-TIMED: the client only requests NM_Light (3-hit combo),
-	    NM_Heavy, NM_Dodge, abilities and the Ultimate; this service validates them.
+	  * Attacks are still SERVER-TIMED: the client only requests NM_Light, NM_Heavy, NM_Dodge,
+	    abilities and the Ultimate; this service validates them.
+	  * UNLEASHED: a possessed Nightmare has its own heavy-hitting moveset (Config.Possession
+	    .Rampage, NightmareAIService:StartRage): ATTACK chains haymaker, elbow, launching
+	    uppercut and a two-fist floor smash; HEAVY grabs and slams what it can lift, or
+	    crushing-leaps onto anything else.
 	  * Anti-exploit: the server watches the Nightmare's position. Teleporting, moving
 	    faster than its stats allow or leaving the Handler's range ends possession and
 	    snaps it back.
@@ -206,16 +210,38 @@ function PossessionService:PossessedAction(player: Player, action: string)
 		return
 	end
 
-	local brain = activeBrain(self, player)
-	if not brain then
+	if action ~= "NM_Light" and action ~= "NM_Heavy" then
 		return
 	end
+	local kind = action == "NM_Light" and "Light" or "Heavy"
 	local ai = self.Services.NightmareAIService
-	if action == "NM_Light" then
-		ai:StartAttack(brain, now)
-	elseif action == "NM_Heavy" and ai:HeavyReady(brain, now) then
-		ai:StartHeavy(brain, now)
+	local brain, busyBrain = activeBrain(self, player)
+	if not brain then
+		-- UNLEASHED: a press in the last moments of a blow is held for the next one, so a
+		-- rhythm of clicks chains (one press held at most; a later one replaces it)
+		if busyBrain and not self.Services.BlockService:IsHolding(busyBrain.model) then
+			local wait = busyBrain.busyUntil - now
+			if wait > 0 and wait <= P.Rampage.BufferTime then
+				state.buffered = kind
+				local token = (state.bufferToken or 0) + 1
+				state.bufferToken = token
+				task.delay(wait + 0.01, function()
+					if state.bufferToken == token and state.buffered then
+						local queued = state.buffered
+						state.buffered = nil
+						local ready = activeBrain(self, player)
+						if ready then
+							ai:StartRage(ready, queued, os.clock())
+						end
+					end
+				end)
+			end
+		end
+		return
 	end
+	state.buffered = nil
+	-- (a possessed Nightmare doesn't fight like the companion: Config.Possession.Rampage)
+	ai:StartRage(brain, kind, now)
 end
 
 -- Blocking with the Nightmare you're controlling (hold; while it's up it can't attack).
