@@ -892,7 +892,88 @@ Config.Underground = {
 	RingHalf = 24, -- the fighting area inside the ropes: 48 x 48 studs
 	CornerInset = 15, -- where each fighter starts, from the centre along the diagonal
 	Rewards = Config.PvP.Rewards,
+
+	-- THE FIGHT (UndergroundFightService): how a fighter you're driving fights. Its own moveset,
+	-- not the possession RAMPAGE: single strikes you chain yourself, by input.
+	Fight = {
+		-- STAMINA (attribute UGStamina on the body): every strike costs it, body shots taken
+		-- drain it. It comes back after RegenDelay without throwing (slower behind a guard). At 0
+		-- the fighter is GASSED: strikes land for GassedDamage, no power shots until it's back
+		-- over Recovered.
+		Stamina = { Max = 100, RegenDelay = 0.7, Regen = 18, GuardRegen = 7, GassedDamage = 0.6, Recovered = 30, BlockedCost = 3 },
+		-- a string carries on if the next press comes within ResetTime of the last blow's
+		-- recovery; a press in the last BufferTime of a blow is held for it
+		ResetTime = 0.6,
+		BufferTime = 0.3,
+		-- PARRY: a guard raised within Window before a blow lands knocks it away: no damage,
+		-- the attacker is stunned AttackerStun (no guard, no strike), and the parrier's next
+		-- strike within CounterWindow is a COUNTER. Re-raising within Lockout doesn't parry
+		-- (no mashing the guard).
+		Parry = { Window = 0.2, Lockout = 0.5, AttackerStun = 0.75, StaminaGain = 10 },
+		-- SLIP (dodge + a direction): head off the line, i-frames for Invulnerable. A blow that
+		-- whiffs through a slip gives a COUNTER window. Speed / Time: the body's burst.
+		Slip = {
+			Cooldown = 0.75, Invulnerable = 0.28, Cost = 8,
+			Side = { Speed = 32, Time = 0.16, Action = "UG_Slip" }, -- left / right
+			Back = { Speed = 40, Time = 0.18, Action = "PullBack" }, -- pull straight back
+			In = { Speed = 30, Time = 0.16, Action = "RollUnder" }, -- duck under, stepping in
+		},
+		CounterWindow = 0.8,
+		CounterDamage = 1.35, -- x, for a strike thrown in a counter window
+		-- FEINT: raise the guard during a power shot's wind-up (up to FeintBefore s before it
+		-- lands) to pull it: costs Cost stamina, back in your stance in Recover.
+		Feint = { Cost = 10, FeintBefore = 0.1, Recover = 0.18, Action = "UG_Feint" },
+		-- GUARD HEIGHT: the guard covers the head; guard while pulling BACK on the stick to
+		-- drop it to the body. A blow at the other height goes round it.
+		-- STRIKES: StartString defs (Hits = { time, damage x Nightmare.StringDamage, knockback,
+		-- heavy, launch, options }) plus Cost (stamina), Height ("Head" / "Body"), Drain (body
+		-- shots: stamina taken off them), Power (a power shot: can be feinted, needs stamina).
+		Moves = {
+			Biped = {
+				UG_Jab = { Action = "UG_Jab", Duration = 0.62, Recovery = 0.1, Display = "JAB", Cost = 5, Height = "Head", Hits = { { 0.2, 0.7, 4 } } },
+				UG_Cross = { Action = "UG_Cross", Duration = 0.72, Recovery = 0.14, Display = "CROSS", Cost = 8, Height = "Head", Hits = { { 0.26, 1.0, 8 } } },
+				UG_HookL = { Action = "UG_HookL", Duration = 0.8, Recovery = 0.16, Display = "LEAD HOOK", Cost = 10, Height = "Head", Hits = { { 0.3, 1.2, 10 } } },
+				UG_Uppercut = { Action = "UG_Uppercut", Duration = 0.85, Recovery = 0.2, Display = "UPPERCUT", Cost = 11, Height = "Head", Hits = { { 0.32, 1.3, 6, false, nil, { Up = 2 } } } },
+				UG_LiverHook = { Action = "UG_LiverHook", Duration = 0.85, Recovery = 0.18, Display = "LIVER SHOT", Cost = 11, Height = "Body", Drain = 16, Hits = { { 0.32, 1.1, 6 } } },
+				UG_Overhand = { Action = "UG_Overhand", Duration = 1.15, Recovery = 0.32, Display = "OVERHAND", Cost = 18, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.5, 2.0, 22, true } } },
+				UG_Launcher = { Action = "UG_Launcher", Duration = 1.1, Recovery = 0.36, Display = "LAUNCHER", Cost = 20, Height = "Head", Power = true, Tags = { "Finisher" }, Hits = { { 0.44, 2.2, 0, true, { Lift = 34, Push = 8, Spin = 3 }, { Force = true, Up = 3 } } } },
+				UG_BodyBlast = { Action = "UG_BodyBlast", Duration = 1.05, Recovery = 0.3, Display = "BODY BLAST", Cost = 16, Height = "Body", Drain = 24, Power = true, Tags = { "GuardBreak" }, Hits = { { 0.42, 1.7, 16, true } } },
+			},
+			-- four legs: rakes, a headbutt, a rear-up and a crashing smash (the same buttons)
+			Quadruped = {
+				UG_Jab = { Action = "Rage_Haymaker", Duration = 1.0, Recovery = 0.12, Display = "RAKE", Cost = 7, Height = "Head", Hits = { { 0.36, 0.9, 6 } } },
+				UG_Cross = { Action = "Rage_Elbow", Duration = 0.95, Recovery = 0.12, Display = "CROSS RAKE", Cost = 9, Height = "Head", Hits = { { 0.3, 1.05, 8 } } },
+				UG_HookL = { Action = "Beast_Headbutt", Duration = 1.0, Recovery = 0.16, Display = "HEADBUTT", Cost = 11, Height = "Head", Hits = { { 0.4, 1.25, 12 } } },
+				UG_Uppercut = { Action = "Rage_Uppercut", Duration = 1.1, Recovery = 0.2, Display = "REAR UP", Cost = 12, Height = "Head", Hits = { { 0.34, 1.3, 0, false, { Lift = 28, Push = 6, Spin = 2 }, { Up = 4 } } } },
+				UG_LiverHook = { Action = "Beast_Headbutt", Duration = 1.0, Recovery = 0.16, Display = "GUT RAM", Cost = 11, Height = "Body", Drain = 16, Hits = { { 0.4, 1.1, 10 } } },
+				UG_Overhand = { Action = "Rage_Smash", Duration = 1.4, Recovery = 0.3, Display = "CRASH DOWN", Cost = 18, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.52, 2.0, 22, true } } },
+				UG_Launcher = { Action = "Rage_Uppercut", Duration = 1.1, Recovery = 0.3, Display = "LAUNCHER", Cost = 20, Height = "Head", Power = true, Tags = { "Finisher" }, Hits = { { 0.34, 2.2, 0, true, { Lift = 34, Push = 8, Spin = 3 }, { Force = true, Up = 4 } } } },
+				UG_BodyBlast = { Action = "Beast_TailWhip", Duration = 1.2, Recovery = 0.3, Display = "TAIL WHIP", Cost = 16, Height = "Body", Drain = 24, Power = true, Tags = { "GuardBreak" }, Hits = { { 0.52, 1.7, 16, true } } },
+			},
+		},
+		-- INPUT STRINGS: L = attack (click / R2 / ATTACK), H = power (right-click / X / KICK).
+		-- Each press extends the string you're in; anything not listed starts over from it.
+		Strings = {
+			L = "UG_Jab", LL = "UG_Cross", LLL = "UG_HookL", LLLL = "UG_Uppercut",
+			H = "UG_Overhand", LH = "UG_LiverHook", LHL = "UG_HookL", LLH = "UG_Overhand", LLLH = "UG_Launcher", LHH = "UG_BodyBlast",
+		},
+		-- what the string reads as when it lands (combo callouts)
+		Names = {
+			LL = "ONE-TWO", LLL = "ONE-TWO-THREE", LLLL = "FOUR-PIECE", LH = "JAB TO THE BODY", LHL = "BODY-HEAD",
+			LLH = "ONE-TWO-OVERHAND", LLLH = "THREE AND THE LAUNCHER", LHH = "DIG TO THE BODY",
+		},
+		Ends = { LLLL = true, LLLH = true, LHL = true, LLH = true, LHH = true, H = true },
+		PowerCooldown = 0.9, -- after a power shot, before the next one
+	},
 }
+
+-- how each Underground strike lands on the body it hits (NightmarePoses Reactions)
+do
+	local reactions = Config.Nightmare.Reactions
+	for action, react in { UG_Jab = "Jab", UG_Cross = "Cross", UG_HookL = "HookL", UG_Uppercut = "Upper", UG_LiverHook = "Body", UG_Overhand = "Heavy", UG_Launcher = "Upper", UG_BodyBlast = "Body" } do
+		reactions[action] = reactions[action] or { react }
+	end
+end
 
 ------------------------------------------------------------------------------------------
 -- Remote rate limits (token buckets, per player)

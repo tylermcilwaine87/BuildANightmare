@@ -36,6 +36,7 @@ local bound = false -- NIGHTMARE UNDERGROUND: in control for the whole round (no
 local endsAt = 0
 local tint: ColorCorrectionEffect? = nil
 local lastDodge = -math.huge
+local sentLow: boolean? = nil -- the guard height last sent (Underground)
 
 function PossessionController:Init(registry)
 	controllers = registry
@@ -52,6 +53,29 @@ end
 
 function PossessionController:TimeLeft(): number
 	return math.max(0, endsAt - os.clock())
+end
+
+-- NIGHTMARE UNDERGROUND: which way the stick points, relative to where the fighter faces:
+-- "Left" / "Right" / "Back" / "In", or nil with no input (Config.Underground.Fight Slip, the
+-- low guard).
+function PossessionController:InputRelative(): string?
+	local root = possessed and possessed:FindFirstChild("HumanoidRootPart")
+	local character = localPlayer.Character
+	local handlerHumanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local direction = handlerHumanoid and Util.FlatUnit(handlerHumanoid.MoveDirection)
+	if not root or not direction then
+		return nil
+	end
+	local relative = root.CFrame:VectorToObjectSpace(direction)
+	if math.abs(relative.X) > math.abs(relative.Z) then
+		return relative.X > 0 and "Right" or "Left"
+	end
+	return relative.Z > 0 and "Back" or "In"
+end
+
+-- Guard + pulling back: the guard drops to the body.
+function PossessionController:WantsLowGuard(): boolean
+	return bound and self:InputRelative() == "Back"
 end
 
 function PossessionController:IsBound(): boolean
@@ -118,16 +142,45 @@ function PossessionController:Dodge()
 	end
 	local cfg = Config.Possession
 	local now = os.clock()
-	if now - lastDodge < cfg.DodgeCooldown then
-		return
-	end
-	lastDodge = now
 	local root = possessed:FindFirstChild("HumanoidRootPart")
 	local humanoid = possessed:FindFirstChildOfClass("Humanoid")
 	local attachment = root and root:FindFirstChild("FacingAttachment")
 	if not attachment then
 		return
 	end
+	if bound then
+		-- NIGHTMARE UNDERGROUND: a SLIP the way the stick points (the server decides if it
+		-- went: it isn't while striking, stunned, knocked down or gassed)
+		local slip = Config.Underground.Fight.Slip
+		if now - lastDodge < slip.Cooldown or possessed:GetAttribute("Ragdolled") or possessed:GetAttribute("GuardBroken")
+			or (possessed:GetAttribute("UGStamina") or 100) < slip.Cost * 0.5 then
+			return
+		end
+		lastDodge = now
+		local which = self:InputRelative() or "Back"
+		local burst = (which == "Left" or which == "Right") and slip.Side or slip[which]
+		local look = Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis
+		local right = Util.FlatUnit(root.CFrame.RightVector) or Vector3.xAxis
+		local direction = which == "Left" and -right or which == "Right" and right or which == "Back" and -look or look
+		local mover = Instance.new("LinearVelocity")
+		mover.Attachment0 = attachment
+		mover.MaxForce = 1e6
+		mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+		mover.PrimaryTangentAxis = Vector3.xAxis
+		mover.SecondaryTangentAxis = Vector3.zAxis
+		mover.RelativeTo = Enum.ActuatorRelativeTo.World
+		mover.PlaneVelocity = Vector2.new(direction.X, direction.Z) * burst.Speed
+		mover.Parent = root
+		task.delay(burst.Time, function()
+			mover:Destroy()
+		end)
+		combatAction:FireServer("NM_Dodge", which)
+		return
+	end
+	if now - lastDodge < cfg.DodgeCooldown then
+		return
+	end
+	lastDodge = now
 	local direction = Util.FlatUnit(humanoid.MoveDirection) or -(Util.FlatUnit(root.CFrame.LookVector) or Vector3.zAxis)
 	local mover = Instance.new("LinearVelocity")
 	mover.Attachment0 = attachment
@@ -177,7 +230,7 @@ local function onStart(data)
 	if bound then
 		local guardKey = touch and "GUARD" or pad and "L2" or "Ctrl"
 		local dodgeKey = touch and "DIVE" or pad and "B" or "Shift"
-		controllers.HUDController:Toast(("YOU ARE YOUR NIGHTMARE  ·  %s combo  ·  %s heavy  ·  %s guard  ·  %s dodge"):format(attackKey, heavyKey, guardKey, dodgeKey), Color3.fromRGB(255, 120, 120), 4)
+		controllers.HUDController:Toast(("YOU ARE YOUR NIGHTMARE  ·  %s strikes  ·  %s power  ·  %s guard (+back: low)  ·  %s + direction: slip"):format(attackKey, heavyKey, guardKey, dodgeKey), Color3.fromRGB(255, 120, 120), 4)
 	else
 		controllers.HUDController:Toast(("UNLEASHED! %s: RAMPAGE combo  ·  %s: GRAB SLAM / CRUSHING LEAP"):format(attackKey, heavyKey), Color3.fromRGB(200, 150, 255), 3.5)
 		controllers.AudioController:Play("Possess")
@@ -280,6 +333,16 @@ function PossessionController:Start()
 		end
 		local direction = handlerHumanoid.MoveDirection
 		humanoid:Move(Vector3.new(direction.X, 0, direction.Z), false)
+		-- NIGHTMARE UNDERGROUND: the guard follows the stick (back = low), sent when it changes
+		if bound and controllers.CombatController:IsGuarding() then
+			local low = self:WantsLowGuard()
+			if low ~= sentLow then
+				sentLow = low
+				combatAction:FireServer("NM_GuardLow", low)
+			end
+		else
+			sentLow = nil
+		end
 	end)
 end
 

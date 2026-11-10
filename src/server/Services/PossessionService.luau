@@ -242,9 +242,19 @@ local function activeBrain(self, player: Player)
 	return brain
 end
 
-function PossessionService:PossessedAction(player: Player, action: string)
+function PossessionService:PossessedAction(player: Player, action: string, direction: string?)
 	local now = os.clock()
 	local state = states[player]
+	-- NIGHTMARE UNDERGROUND: a bound fighter has its own moveset (UndergroundFightService)
+	if state and state.Active and state.Bound then
+		local fight = self.Services.UndergroundFightService
+		if action == "NM_Dodge" then
+			fight:Dodge(player, direction)
+		elseif action == "NM_Light" or action == "NM_Heavy" then
+			fight:Action(player, action == "NM_Light" and "L" or "H")
+		end
+		return
+	end
 	if action == "NM_Dodge" then
 		local brain = state and state.Active and state.Brain
 		if brain and now >= state.DodgeReadyAt and not self.Services.StatusService:IsStaggered(brain.model) and not self.Services.DuelService:IsFrozen(player) then
@@ -290,10 +300,14 @@ function PossessionService:PossessedAction(player: Player, action: string)
 end
 
 -- Blocking with the Nightmare you're controlling (hold; while it's up it can't attack).
-function PossessionService:PossessedGuard(player: Player, wanted: boolean)
+function PossessionService:PossessedGuard(player: Player, wanted: boolean, low: boolean?)
 	local state = states[player]
 	local brain = state and state.Active and state.Brain
 	if not brain then
+		return
+	end
+	if state.Bound then
+		self.Services.UndergroundFightService:Guard(player, wanted, low) -- (parries, feints, height)
 		return
 	end
 	local block = self.Services.BlockService

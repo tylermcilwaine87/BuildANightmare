@@ -95,6 +95,21 @@ local ACTION_ARMS = {
 	Rage_Smash = "None",
 	Rage_GrabSlam = "None",
 	Rage_Leap = "None",
+	-- NIGHTMARE UNDERGROUND: single keyframed strikes (Config.Underground.Fight)
+	UG_Jab = "None",
+	UG_Cross = "None",
+	UG_HookL = "None",
+	UG_Uppercut = "None",
+	UG_LiverHook = "None",
+	UG_Overhand = "None",
+	UG_Launcher = "None",
+	UG_BodyBlast = "None",
+	UG_Parried = "None",
+	UG_Feint = "None",
+	Slip_L = "None",
+	Slip_R = "None",
+	PullBack = "None",
+	RollUnder = "None",
 	-- footwork (NightmareAIService Fight)
 	StepBack = "Hop",
 	Sidestep = "Hop",
@@ -443,7 +458,9 @@ local function applyGuard(state, weight: number, now: number)
 	end
 	local model, motors = state.model, state.motors
 	local library = POSES[model:GetAttribute("Archetype") or "Biped"]
-	local hold = (library and library.Guard_Hold or POSES.Common.Guard_Hold).Keys[3]
+	-- (the Underground's LOW guard: dropped to the body while pulling back)
+	local low = model:GetAttribute("GuardLow") and ((library and library.Guard_Low) or POSES.Common.Guard_Low)
+	local hold = (low or (library and library.Guard_Hold) or POSES.Common.Guard_Hold).Keys[3]
 	local failing = math.clamp(1 - (model:GetAttribute("GuardLevel") or Config.Block.Max) / Config.Block.CrackAt, 0, 1)
 	local shake = math.sin(now * 42) * failing * 2.5
 	for joint, value in hold do

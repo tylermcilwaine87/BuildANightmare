@@ -814,6 +814,7 @@ function NightmareAIService:StartString(brain, def, target: Model?, now: number)
 					Status = (index == #hits and elementOf(brain, def)) or rollOnHitStatus(brain, index == #hits and 3 or 1),
 					React = NM.Reactions[def.Action] and NM.Reactions[def.Action][index] or nil,
 					Source = "NightmareString",
+					Move = def, -- (the Underground reads its Height / Drain: UndergroundFightService)
 				})
 			end
 		end)

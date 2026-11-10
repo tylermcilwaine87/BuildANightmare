@@ -155,9 +155,11 @@ function CombatService:Start()
 		elseif action == "Possess" then
 			possession:Toggle(player)
 		elseif action == "NM_Light" or action == "NM_Heavy" or action == "NM_Dodge" then
-			possession:PossessedAction(player, action)
+			possession:PossessedAction(player, action, type(arg) == "string" and arg or nil)
 		elseif action == "NM_Guard" then
-			possession:PossessedGuard(player, arg == true)
+			possession:PossessedGuard(player, arg == true, arg2 == true)
+		elseif action == "NM_GuardLow" then
+			self.Services.UndergroundFightService:SetGuardLow(player, arg == true)
 		end
 	end)
 end
@@ -317,6 +319,14 @@ function CombatService:ApplyDamage(params): number
 		end
 	end
 
+	-- NIGHTMARE UNDERGROUND: slips, parries, the guard's height, counters (UndergroundFightService)
+	local fight = self.Services.UndergroundFightService
+	if fight:IsFighter(target) then
+		amount = fight:Incoming(attacker, target, amount, params)
+		if amount <= 0 then
+			return 0
+		end
+	end
 	if targetPlayer then
 		amount = self.Services.HandlerService:ModifyIncomingDamage(targetPlayer, amount, params)
 	elseif CollectionService:HasTag(target, "Nightmare") and self.Services.PossessionService:IsNightmareInvulnerable(target) then
@@ -330,6 +340,7 @@ function CombatService:ApplyDamage(params): number
 	if amount > 0 then
 		amount, guarded, guardBroken = self.Services.BlockService:Resolve(target, amount, attacker, params)
 	end
+	params.WasGuarded = (guarded and not guardBroken) or nil
 	-- a boss's own timed cover (the Mirror Warden): light blows are mostly absorbed; a Heavy
 	-- smashes it open and staggers it harder
 	if (target:GetAttribute("NightmareGuard") or 0) > Workspace:GetServerTimeNow() and not params.Unblockable then

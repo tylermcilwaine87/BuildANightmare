@@ -1938,6 +1938,155 @@ POSES.Quadruped.Combo_PredatorRushII = extend(POSES.Quadruped.Combo_PredatorRush
 	{ 1.65, "Whoosh" }, { 1.82, "JawSnap" }, { 2.05, "Rip" },
 })
 
+------------------------------------------------------------------------------------------
+-- NIGHTMARE UNDERGROUND (Config.Underground.Fight Moves.Biped): ONE strike per clip, thrown
+-- by the player and chained by input. Heavyweight: each one shifts the weight before it goes,
+-- stops dead on the contact (the server's hit time), carries on past it (PoseTools overshoot)
+-- and comes back to the guard. Contact frames: jab 0.2, cross 0.26, hook 0.3, uppercut and
+-- liver 0.32, body blast 0.42, launcher 0.44, overhand 0.5.
+------------------------------------------------------------------------------------------
+local UG = {
+	-- the lead hand: a small step in behind it, snapped out and straight back
+	UG_Jab = {
+		Duration = 0.62,
+		Markers = { { 0.13, "Whoosh" }, { 0.2, "Strike" }, { 0.2, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.1, { Joint_CorePos = { 0, 0.1, -0.08 }, Joint_Core = { -8, -8, 0 }, Joint_Legs = { 8, 8, 0 }, Joint_LeftArm = { 66, 0, 42 }, Sub_LeftArm_Fore = { 78, 0, 0 } }),
+			blow(0.2, P_JAB),
+			pose(0.32, P_JAB_BACK),
+			pose(0.46, GUARD_REST),
+			pose(0.62),
+		},
+	},
+	-- the rear hand down the middle: the right hip turns over and the weight goes onto the lead leg
+	UG_Cross = {
+		Duration = 0.72,
+		Markers = { { 0.18, "Whoosh" }, { 0.26, "Strike" }, { 0.26, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.12, P_CROSS_LOAD),
+			blow(0.26, P_CROSS),
+			pose(0.4, { Joint_CorePos = { 0, 0.15, -0.3 }, Joint_Core = { -8, 14, 0 }, Joint_Legs = { 8, -14, 0 } }),
+			pose(0.56, GUARD_REST),
+			pose(0.72),
+		},
+	},
+	-- the lead hook: the hips wind right, then the whole trunk turns through it, elbow level
+	UG_HookL = {
+		Duration = 0.8,
+		Markers = { { 0.22, "Whoosh" }, { 0.3, "Strike" }, { 0.3, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.15, P_HOOK_LOAD),
+			blow(0.3, P_HOOK),
+			pose(0.42, P_HOOK_FOLLOW),
+			pose(0.6, { Joint_CorePos = { 0, 0.1, -0.1 } }),
+			pose(0.8),
+		},
+	},
+	-- the rear uppercut out of a dip: legs first, then the hip, then the fist up the middle
+	UG_Uppercut = {
+		Duration = 0.85,
+		Markers = { { 0.24, "Whoosh" }, { 0.32, "Strike" }, { 0.32, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.16, P_UPPER_LOAD),
+			blow(0.32, P_UPPER),
+			pose(0.46, { Joint_CorePos = { 0, 0.2, -0.25 }, Joint_Core = { 4, 20, 0 }, Joint_Legs = { -4, -20, 0 }, Joint_RightArm = { 118, 0, -32 }, Sub_RightArm_Fore = { 72, 0, 0 } }),
+			pose(0.66, GUARD_REST),
+			pose(0.85),
+		},
+	},
+	-- level change, the lead hand dug in under the ribs
+	UG_LiverHook = {
+		Duration = 0.85,
+		Markers = { { 0.24, "Whoosh" }, { 0.32, "Strike" }, { 0.32, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.16, P_BODY_LOAD),
+			blow(0.32, P_BODY),
+			pose(0.46, { Joint_CorePos = { 0, -0.15, -0.3 }, Joint_Core = { -14, -38, 4 }, Joint_Legs = { 14, 38, -4 }, Joint_LeftArm = { 50, 0, 50 }, Sub_LeftArm_Fore = { 86, 0, 0 } }),
+			pose(0.66, GUARD_REST),
+			pose(0.85),
+		},
+	},
+	-- POWER: rocks back to load, the rear hand comes over the top and everything falls through it
+	UG_Overhand = {
+		Duration = 1.15,
+		Markers = { { 0.4, "Whoosh" }, { 0.5, "Strike" }, { 0.5, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.12, { Joint_CorePos = { 0, 0.08, 0.18 }, Joint_Core = { 4, -14, 0 }, Joint_Legs = { -4, 14, 0 } }),
+			pose(0.32, P_OVER_LOAD),
+			blow(0.5, P_OVERHAND),
+			pose(0.68, P_OVER_FOLLOW),
+			pose(0.9, { Joint_CorePos = { 0, 0.1, -0.35 } }),
+			pose(1.15),
+		},
+	},
+	-- POWER: sunk all the way down, coiled, then exploding up through them onto the toes
+	UG_Launcher = {
+		Duration = 1.1,
+		Markers = { { 0.14, "StepL" }, { 0.36, "Whoosh" }, { 0.44, "Strike" }, { 0.44, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.14, { Joint_CorePos = { 0, -0.55, -0.1 }, Joint_Core = { -26, -22, 0 }, Joint_Legs = { 26, 22, 0 }, Joint_Head = { -10, 8, 0 }, Joint_RightArm = { 30, 0, -40 }, Sub_RightArm_Fore = { 115, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -30, 0, 0 } }),
+			pose(0.3, { Joint_CorePos = { 0, -0.66, -0.15 }, Joint_Core = { -28, -30, 0 }, Joint_Legs = { 28, 30, 0 }, Joint_Head = { -10, 12, 0 }, Joint_RightArm = { 20, 0, -36 }, Sub_RightArm_Fore = { 120, 0, 0 }, Sub_Legs_L = { 44, 0, 0 }, Sub_Legs_R = { -32, 0, 0 } }),
+			blow(0.44, { Joint_CorePos = { 0, 0.45, -0.45 }, Joint_Core = { 8, 34, 0 }, Joint_Legs = { -8, -34, 0 }, Joint_Head = { 6, -12, 0 }, Joint_RightArm = { 150, 0, -20 }, Sub_RightArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -24, 0, 0 } }),
+			pose(0.6, { Joint_CorePos = { 0, 0.35, -0.35 }, Joint_Core = { 12, 40, 0 }, Joint_Legs = { -12, -40, 0 }, Joint_RightArm = { 165, 0, -15 }, Sub_RightArm_Fore = { 30, 0, 0 } }),
+			pose(0.85, GUARD_REST),
+			pose(1.1),
+		},
+	},
+	-- POWER: dropped level, the rear hand driven straight through the stomach
+	UG_BodyBlast = {
+		Duration = 1.05,
+		Markers = { { 0.2, "StepL" }, { 0.34, "Whoosh" }, { 0.42, "Strike" }, { 0.42, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.22, { Joint_CorePos = { 0, -0.3, 0 }, Joint_Core = { -16, -16, 0 }, Joint_Legs = { 16, 16, 0 }, Joint_Head = { -8, 8, 0 }, Joint_RightArm = { 40, 0, -45 }, Sub_RightArm_Fore = { 110, 0, 0 }, Sub_Legs_L = { 30, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } }),
+			blow(0.42, { Joint_CorePos = { 0, -0.45, -0.6 }, Joint_Core = { -24, 30, 0 }, Joint_Legs = { 24, -30, 0 }, Joint_Head = { -8, -10, 0 }, Joint_RightArm = { 70, 0, -18 }, Sub_RightArm_Fore = { 12, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -26, 0, 0 } }),
+			pose(0.6, { Joint_CorePos = { 0, -0.45, -0.7 }, Joint_Core = { -26, 38, 0 }, Joint_Legs = { 26, -38, 0 }, Joint_RightArm = { 60, 0, -30 }, Sub_RightArm_Fore = { 30, 0, 0 } }),
+			pose(0.8, { Joint_CorePos = { 0, -0.1, -0.2 } }),
+			pose(1.05),
+		},
+	},
+	-- PARRIED: the strike knocked away, the arms flung wide, it reels a step back open
+	UG_Parried = {
+		Duration = 0.7,
+		Markers = { { 0.3, "StepR" } },
+		Keys = {
+			pose(0),
+			{ T = 0.08, Ease = "Snap", Joint_CorePos = { 0, 0.05, 0.4 }, Joint_Core = { 14, 18, 0 }, Joint_Legs = { -6, -10, 0 }, Joint_Head = { -14, 10, 0 }, Joint_RightArm = { 30, 0, -80 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 80, 0, 70 }, Sub_LeftArm_Fore = { 40, 0, 0 }, Sub_Legs_L = { 12, 0, 0 }, Sub_Legs_R = { -20, 0, 0 } },
+			pose(0.3, { Joint_CorePos = { 0, -0.1, 0.5 }, Joint_Core = { 6, 8, 0 }, Joint_Legs = { -2, -6, 0 }, Joint_RightArm = { 30, 0, -60 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 50, 0, 60 }, Sub_LeftArm_Fore = { 60, 0, 0 } }),
+			pose(0.7),
+		},
+	},
+	-- FEINT: the power shot's load pulled back into the stance before it goes
+	UG_Feint = {
+		Duration = 0.45,
+		Curve = "Spline",
+		Keys = {
+			pose(0, P_OVER_LOAD),
+			pose(0.18, { Joint_CorePos = { 0, 0.1, 0.15 }, Joint_Core = { 4, -8, 0 }, Joint_Legs = { -4, 8, 0 } }),
+			pose(0.45),
+		},
+	},
+}
+local UGPoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))
+for name, def in UG do
+	if name ~= "UG_Feint" then
+		POSES.Common[name] = UGPoseTools.Punch(def, 0.3)
+	else
+		POSES.Common[name] = def
+	end
+end
+-- LOW GUARD (Underground: guard + pulling back): elbows clamped to the ribs, forearms across
+-- the stomach, sunk and bent over it, chin tucked (NightmareAnimator plays Keys[3] while held)
+local LOW_GUARD = { Joint_CorePos = { 0, -0.4, 0.1 }, Joint_Core = { -18, -6, 0 }, Joint_Legs = { 18, 6, 0 }, Joint_Head = { -22, 6, 0 }, Joint_RightArm = { 28, 0, -30 }, Sub_RightArm_Fore = { 120, 0, 0 }, Joint_LeftArm = { 32, 0, 28 }, Sub_LeftArm_Fore = { 118, 0, 0 }, Sub_Legs_L = { 24, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }
+POSES.Common.Guard_Low = { Duration = 1.0, Keys = { { T = 0 }, at(0.12, LOW_GUARD), at(0.5, LOW_GUARD), { T = 1.0 } } }
+
 for name, def in GYM do
 	POSES.Common[name] = def
 end
@@ -1955,7 +2104,7 @@ for name, def in ULTIMATE do
 	POSES.Common[name] = def
 end
 -- (every ability and Ultimate on a four-legged body: its quadruped variant, found before Common)
-local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true }
+local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true, UG_Parried = true, UG_Feint = true }
 for name, def in POSES.Common do
 	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" or RING_CLIPS[name] then
 		POSES.Quadruped[name] = forQuadruped(def)
@@ -2306,6 +2455,14 @@ aim(POSES.Biped, "Heavy", { { 0.45, "R" } })
 -- and the grab aren't a straight arm)
 aim(POSES.Common, "Rage_Haymaker", { { 0.36, "R" } })
 aim(POSES.Common, "Rage_Uppercut", { { 0.34, "R" } })
+-- NIGHTMARE UNDERGROUND: every strike reaches the body it hits (head or body, by Height)
+aim(POSES.Common, "UG_Jab", { { 0.2, "L" } })
+aim(POSES.Common, "UG_Cross", { { 0.26, "R" } })
+aim(POSES.Common, "UG_HookL", { { 0.3, "L" } })
+aim(POSES.Common, "UG_Uppercut", { { 0.32, "R" } })
+aim(POSES.Common, "UG_LiverHook", { { 0.32, "L", "B" } })
+aim(POSES.Common, "UG_Overhand", { { 0.5, "R" } })
+aim(POSES.Common, "UG_BodyBlast", { { 0.42, "R", "B" } })
 aim(POSES.Quadruped, "Rage_Haymaker", { { 0.36, "FrontRight", "B" } })
 aim(POSES.Quadruped, "Rage_Elbow", { { 0.3, "FrontLeft", "B" } })
 

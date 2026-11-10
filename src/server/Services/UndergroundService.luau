@@ -220,10 +220,19 @@ function UndergroundService:PrepareFighter(match, player: Player)
 	model:SetAttribute("UGFighter", true)
 	-- (the two fighters collide with each other: Nightmares normally walk through one another)
 	self.Services.WorldBuilder.SetCollisionGroup(model, self.Services.WorldBuilder.CollisionGroups.UGFighters)
-	local side = match.Side[player]
+	self.Services.UndergroundFightService:Register(model, player) -- (fresh stamina, no guard)
+	-- (once per body: a body kept from the round before mustn't count a knockdown twice; the
+	-- match is looked up when it happens, not kept from the first one)
+	if model:GetAttribute("UGWatched") then
+		return
+	end
+	model:SetAttribute("UGWatched", true)
 	model:GetAttributeChangedSignal("Ragdolled"):Connect(function()
-		local ug = match.UG
-		if model:GetAttribute("Ragdolled") and match.State == "Live" and humanoid.Health > 0 and not model:GetAttribute("UGKO") then
+		local now = self.Services.DuelService:GetMatch(player)
+		local ug = now and now.Mode == "Underground" and now.UG
+		local side = now and now.Side[player]
+		if ug and side and model:GetAttribute("Ragdolled") and now.State == "Live" and humanoid.Health > 0 and not model:GetAttribute("UGKO") then
+			match = now
 			-- (a knockdown scores for the other side)
 			ug.Knockdowns[3 - side] += 1
 			self.Services.DuelService:Broadcast(match, "Banner", { Title = "KNOCKDOWN!", Subtitle = string.upper(player.DisplayName) .. " IS DOWN" })

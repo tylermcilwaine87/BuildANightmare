@@ -55,6 +55,7 @@ local LOAD_ORDER = {
 	"BossService",
 	"DuelService",
 	"UndergroundService",
+	"UndergroundFightService",
 	"CraftingService",
 	"ChallengeService",
 	"PartyService",

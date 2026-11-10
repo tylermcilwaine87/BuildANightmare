@@ -9,7 +9,9 @@
 	  TOP RIGHT    the opponent, the same
 	  TOP CENTRE   ROUND n / 3, the round clock, the score
 	  BOTTOM LEFT  your stance and the controls
-	  CALLOUTS     what your blows just did: HEAVY IMPACT, GUARD BREAK, KNOCKDOWN, n HIT COMBO
+	  CALLOUTS     what your blows just did: HEAVY IMPACT, GUARD BREAK, KNOCKDOWN, n HIT COMBO,
+	               and the fight's own (UndergroundFightService "UGCallout": PARRY!, SLIPPED,
+	               COUNTER!, GASSED, FEINT, the combo's name) under the plate of who it's about
 	Also the "searching for an opponent" pill while you're in the queue (DuelEvent "UGQueue").
 ]]
 
@@ -17,6 +19,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -88,7 +91,7 @@ local function plate(parent: Instance, right: boolean, color: Color3)
 	local frame = UIKit.New("Frame", {
 		AnchorPoint = Vector2.new(right and 1 or 0, 0),
 		Position = right and UDim2.new(1, -16, 0, 60) or UDim2.new(0, 16, 0, 60), -- (below Roblox's top bar)
-		Size = UDim2.fromOffset(380, 92),
+		Size = UDim2.fromOffset(380, 98),
 		BackgroundColor3 = STEEL,
 		BackgroundTransparency = 0.15,
 		Parent = parent,
@@ -107,7 +110,16 @@ local function plate(parent: Instance, right: boolean, color: Color3)
 		p.Guard.Frame.Position = UDim2.new(1, -14, 0, 72)
 	end
 	p.Guard.Label.Visible = false
-	p.Pips = UIKit.Label({ AnchorPoint = Vector2.new(right and 0 or 1, 0), Position = right and UDim2.fromOffset(14, 68) or UDim2.new(1, -14, 0, 68), Size = UDim2.fromOffset(110, 18), TextXAlignment = right and Enum.TextXAlignment.Left or Enum.TextXAlignment.Right, TextColor3 = C.Warn, MaxTextSize = 14, Parent = frame })
+	-- stamina (UndergroundFightService): under the guard, gold, red when gassed
+	p.Stamina = UIKit.Bar({ Position = UDim2.fromOffset(14, 84), Size = UDim2.new(0.62, -14, 0, 6), Color = RGB(255, 200, 60), Parent = frame })
+	if right then
+		p.Stamina.Frame.AnchorPoint = Vector2.new(1, 0)
+		p.Stamina.Frame.Position = UDim2.new(1, -14, 0, 84)
+	end
+	p.Stamina.Label.Visible = false
+	-- what just happened to this fighter (PARRY!, SLIPPED, GASSED, a combo's name), under the plate
+	p.Flash = UIKit.Label({ AnchorPoint = Vector2.new(right and 1 or 0, 0), Position = right and UDim2.new(1, -4, 1, 6) or UDim2.new(0, 4, 1, 6), Size = UDim2.fromOffset(372, 26), TextXAlignment = align, Font = UIKit.FontPunch, TextColor3 = C.Warn, TextStrokeTransparency = 0.2, MaxTextSize = 24, Visible = false, Parent = frame })
+	p.Pips =UIKit.Label({ AnchorPoint = Vector2.new(right and 0 or 1, 0), Position = right and UDim2.fromOffset(14, 68) or UDim2.new(1, -14, 0, 68), Size = UDim2.fromOffset(110, 18), TextXAlignment = right and Enum.TextXAlignment.Left or Enum.TextXAlignment.Right, TextColor3 = C.Warn, MaxTextSize = 14, Parent = frame })
 	p.Frame = frame
 	return p
 end
@@ -126,7 +138,7 @@ function UndergroundController:BuildGui()
 	ui.Score = UIKit.Label({ Position = UDim2.fromOffset(0, 68), Size = UDim2.new(1, 0, 0, 26), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextColor3 = C.Warn, MaxTextSize = 24, Parent = clock })
 
 	-- your stance and the controls, bottom left
-	local hints = UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.fromOffset(330, 66), BackgroundColor3 = STEEL, BackgroundTransparency = 0.25, Parent = gui }, { UIKit.Corner(6), UIKit.Padding(8) })
+	local hints = UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.fromOffset(470, 88), BackgroundColor3 = STEEL, BackgroundTransparency = 0.25, Parent = gui }, { UIKit.Corner(6), UIKit.Padding(8) })
 	UIKit.AutoScale(hints)
 	ui.Stance = UIKit.Label({ Size = UDim2.new(1, 0, 0, 20), TextColor3 = C.Warn, MaxTextSize = 15, Parent = hints })
 	ui.Controls = UIKit.Label({ Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -22), TextColor3 = C.SubText, Font = UIKit.FontBody, TextYAlignment = Enum.TextYAlignment.Top, MaxTextSize = 12, Parent = hints })
@@ -221,6 +233,9 @@ local function updatePlate(p, model: Model?)
 	local guard = model:GetAttribute("GuardLevel") or Config.Block.Max
 	UIKit.SetBar(p.Guard, guard, Config.Block.Max)
 	p.Guard.Fill.BackgroundColor3 = model:GetAttribute("GuardBroken") and C.Bad or (guard < Config.Block.CrackAt and C.Warn or RGB(235, 225, 200))
+	local stamina = Config.Underground.Fight.Stamina
+	UIKit.SetBar(p.Stamina, model:GetAttribute("UGStamina") or stamina.Max, stamina.Max)
+	p.Stamina.Fill.BackgroundColor3 = model:GetAttribute("UGGassed") and C.Bad or RGB(255, 200, 60)
 	local name = model:GetAttribute("NightmareName") or "Nightmare"
 	local archetype = model:GetAttribute("Archetype") or ""
 	p.Sub.Text = ("%s  ·  %s"):format(string.upper(name), string.upper(archetype))
@@ -265,23 +280,66 @@ function UndergroundController:UpdateFrame()
 	local status
 	if mine and mine:GetAttribute("GuardBroken") then
 		status = "GUARD BROKEN"
-	elseif mine and mine:GetAttribute("Guarding") then
-		status = "GUARD UP"
 	elseif mine and mine:GetAttribute("Ragdolled") then
 		status = "DOWN!"
+	elseif mine and mine:GetAttribute("Guarding") then
+		status = mine:GetAttribute("GuardLow") and "LOW GUARD (body)" or "HIGH GUARD (head)"
 	else
 		status = phase == "Live" and "FIGHTING" or (phase == "Countdown" and "IN YOUR CORNER" or "BETWEEN ROUNDS")
 	end
+	if mine and mine:GetAttribute("UGGassed") then
+		status ..= "  ·  GASSED"
+	end
 	ui.Stance.Text = ("STANCE  ·  %s"):format(status)
-	if UIKit.IsTouchOnly() then
-		ui.Controls.Text = "ATTACK combo  ·  KICK heavy  ·  GUARD  ·  DIVE dodge"
-	else
-		ui.Controls.Text = "LMB: combo (haymaker, elbow, uppercut, smash)  ·  RMB: grab slam / leap\nCtrl: guard  ·  Shift: dodge  ·  Q/E: abilities  ·  Z: lock on"
+	local touch = UIKit.IsTouchOnly()
+	local pad = not touch and UserInputService:GetLastInputType().Name:sub(1, 7) == "Gamepad"
+	local L, H = touch and "ATK" or pad and "R2" or "LMB", touch and "KICK" or pad and "X" or "RMB"
+	local G, D = touch and "GUARD" or pad and "L2" or "Ctrl", touch and "DIVE" or pad and "B" or "Shift"
+	-- (the strings, Config.Underground.Fight Strings: presses of one button chain, the power
+	-- button finishes)
+	ui.Controls.Text = ("%s ×1-4: jab, cross, hook, uppercut  ·  %s: overhand\n%s then %s: liver  ·  ×2 then %s: overhand  ·  ×3 then %s: LAUNCHER\n%s: guard (+back: low)  ·  just as they swing: PARRY  ·  %s+dir: slip")
+		:format(L, H, L, H, H, H, G, D)
+end
+
+-- A callout from the server (UndergroundFightService): under the plate of the fighter it's
+-- about; your own combos also big in the middle.
+local CALLOUT_COLORS = { Good = RGB(120, 255, 150), Bad = RGB(255, 90, 90), Combo = RGB(255, 210, 90), Info = RGB(220, 220, 230) }
+function UndergroundController:Flash(p, text: string, color: Color3)
+	p.Flash.Text = text
+	p.Flash.TextColor3 = color
+	p.Flash.TextTransparency = 0
+	p.Flash.Visible = true
+	local token = (p.FlashToken or 0) + 1
+	p.FlashToken = token
+	task.delay(1.2, function()
+		if p.FlashToken == token then
+			TweenService:Create(p.Flash, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+		end
+	end)
+end
+
+local function onCallout(data)
+	if not state or typeof(data.Target) ~= "Instance" or type(data.Text) ~= "string" then
+		return
+	end
+	local mine, theirs = fighters()
+	local color = CALLOUT_COLORS[data.Kind] or C.Warn
+	if data.Target == mine then
+		UndergroundController:Flash(ui.Me, data.Text, color)
+		if data.Kind == "Combo" or data.Text == "COUNTER!" or data.Text == "PARRY!" then
+			UndergroundController:Callout(data.Text, chain.Count >= 2 and ("%d HIT COMBO"):format(chain.Count) or nil, color)
+		end
+	elseif data.Target == theirs then
+		UndergroundController:Flash(ui.Them, data.Text, color)
 	end
 end
 
 -- A blow you landed on the other fighter: the callout says what it did.
 local function onFeedback(kind: string, data)
+	if kind == "UGCallout" and type(data) == "table" then
+		onCallout(data)
+		return
+	end
 	if not state or kind ~= "Damage" or type(data) ~= "table" then
 		return
 	end

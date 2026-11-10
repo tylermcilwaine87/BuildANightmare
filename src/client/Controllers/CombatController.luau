@@ -354,7 +354,8 @@ function CombatController:SetGuard(wanted: boolean)
 		character:SetAttribute("GuardHeld", wanted or nil)
 	end
 	if controllers.PossessionController:IsPossessing() then
-		combatAction:FireServer("NM_Guard", wanted)
+		-- (the Underground: guard while pulling back = the low guard)
+		combatAction:FireServer("NM_Guard", wanted, wanted and controllers.PossessionController:WantsLowGuard() or nil)
 	else
 		combatAction:FireServer("Guard", wanted)
 	end
