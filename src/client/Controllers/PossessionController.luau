@@ -32,6 +32,7 @@ local localPlayer = Players.LocalPlayer
 local controllers
 local combatAction: RemoteEvent
 local possessed: Model? = nil
+local bound = false -- NIGHTMARE UNDERGROUND: in control for the whole round (no timer, F does nothing)
 local endsAt = 0
 local tint: ColorCorrectionEffect? = nil
 local lastDodge = -math.huge
@@ -53,9 +54,12 @@ function PossessionController:TimeLeft(): number
 	return math.max(0, endsAt - os.clock())
 end
 
+function PossessionController:IsBound(): boolean
+	return possessed ~= nil and bound
+end
 
 function PossessionController:Toggle()
-	if controllers.WorkshopController:IsOpen() then
+	if controllers.WorkshopController:IsOpen() or bound then
 		return
 	end
 	if not possessed then
@@ -148,31 +152,74 @@ local function onStart(data)
 		return
 	end
 	possessed = model
-	endsAt = os.clock() + (data.Duration or Config.Possession.Duration)
+	bound = data.Bound == true
+	endsAt = bound and math.huge or os.clock() + (data.Duration or Config.Possession.Duration)
 	controllers.CombatController:SetGuard(false)
 
 	local camera = Workspace.CurrentCamera
 	camera.CameraSubject = humanoid
-	TweenService:Create(camera, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { FieldOfView = 78 }):Play()
+	TweenService:Create(camera, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { FieldOfView = bound and 74 or 78 }):Play()
 
+	-- (the Underground ring has its own lighting: just a touch more contrast there)
 	tint = Instance.new("ColorCorrectionEffect")
 	tint.Name = "PossessionTint"
 	tint.TintColor = Color3.new(1, 1, 1)
 	tint.Saturation = 0
 	tint.Parent = Lighting
-	TweenService:Create(tint, TweenInfo.new(0.5), { TintColor = Color3.fromRGB(220, 200, 255), Saturation = -0.15, Contrast = 0.08 }):Play()
+	local look = bound and { TintColor = Color3.fromRGB(255, 240, 235), Saturation = 0.05, Contrast = 0.12 } or { TintColor = Color3.fromRGB(220, 200, 255), Saturation = -0.15, Contrast = 0.08 }
+	TweenService:Create(tint, TweenInfo.new(0.5), look):Play()
 
 	-- UNLEASHED: it fights with its own heavy moveset while you drive it (Config.Possession.Rampage)
 	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	local pad = UserInputService:GetLastInputType().Name:sub(1, 7) == "Gamepad"
 	local heavyKey = touch and "KICK" or pad and "X" or "Right-click"
 	local attackKey = touch and "ATTACK" or pad and "R2" or "Click"
-	controllers.HUDController:Toast(("UNLEASHED! %s: RAMPAGE combo  ·  %s: GRAB SLAM / CRUSHING LEAP"):format(attackKey, heavyKey), Color3.fromRGB(200, 150, 255), 3.5)
-	controllers.AudioController:Play("Possess")
+	if bound then
+		local guardKey = touch and "GUARD" or pad and "L2" or "Ctrl"
+		local dodgeKey = touch and "DIVE" or pad and "B" or "Shift"
+		controllers.HUDController:Toast(("YOU ARE YOUR NIGHTMARE  ·  %s combo  ·  %s heavy  ·  %s guard  ·  %s dodge"):format(attackKey, heavyKey, guardKey, dodgeKey), Color3.fromRGB(255, 120, 120), 4)
+	else
+		controllers.HUDController:Toast(("UNLEASHED! %s: RAMPAGE combo  ·  %s: GRAB SLAM / CRUSHING LEAP"):format(attackKey, heavyKey), Color3.fromRGB(200, 150, 255), 3.5)
+		controllers.AudioController:Play("Possess")
+	end
+end
+
+-- A blow (or a knockdown) on the Nightmare we're driving: the server can't move a body our
+-- client simulates, so it sends the push here (CombatService:PushDriven, RagdollService).
+local function onBodyPush(kind: string, data)
+	local model = data.Model
+	local root = typeof(model) == "Instance" and model:FindFirstChild("HumanoidRootPart")
+	if not root or typeof(data.Velocity) ~= "Vector3" or root.Anchored then
+		return
+	end
+	if kind == "BodyImpulse" then
+		if data.Set then
+			root.AssemblyLinearVelocity = data.Velocity
+		else
+			root.AssemblyLinearVelocity += data.Velocity
+		end
+		return
+	end
+	-- BodyRagdoll: limp now, then thrown as one (every limb gets the launch plus its share
+	-- of the tumble round the root, like RagdollService.Throw)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.PlatformStand = true
+	end
+	local spin = typeof(data.Spin) == "Vector3" and data.Spin or Vector3.zero
+	local center = root.Position
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and not part.Anchored and part.AssemblyRootPart == part then
+			part.AssemblyLinearVelocity = data.Velocity + spin:Cross(part.Position - center)
+			part.AssemblyAngularVelocity = spin
+		end
+	end
 end
 
 local function onEnd(data)
 	possessed = nil
+	local wasBound = bound
+	bound = false
 	local camera = Workspace.CurrentCamera
 	local character = localPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -196,7 +243,9 @@ local function onEnd(data)
 		NightmareDown = "Possession ended: your Nightmare fell.",
 		TooFar = "Possession ended: too far from your Handler.",
 	}
-	controllers.HUDController:Toast(reasons[data.Reason] or "Possession ended.", nil, 2)
+	if not wasBound then
+		controllers.HUDController:Toast(reasons[data.Reason] or "Possession ended.", nil, 2)
+	end
 end
 
 function PossessionController:Start()
@@ -210,6 +259,8 @@ function PossessionController:Start()
 			onEnd(data)
 		elseif kind == "PossessDenied" and type(data.Text) == "string" then
 			controllers.HUDController:Toast(data.Text, nil, 2)
+		elseif kind == "BodyImpulse" or kind == "BodyRagdoll" then
+			onBodyPush(kind, data)
 		end
 	end)
 

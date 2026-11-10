@@ -22,6 +22,7 @@ local LOAD_ORDER = {
 	"BossController",
 	"RewardController",
 	"PvPController",
+	"UndergroundController",
 	"CraftingController",
 	"CodexController",
 	"GoalsController",

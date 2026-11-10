@@ -328,14 +328,17 @@ function NightmareSpawnService:OnDefeated(player: Player, model: Model)
 	active[player] = nil
 	local token = bumpToken(player)
 
-	task.delay(1.5, function()
+	-- (NIGHTMARE UNDERGROUND: a knocked-out fighter stays on the canvas until the next round)
+	local duel = self.Services.DuelService
+	local match = duel:GetMatch(player)
+	local linger = match and match.Mode == "Underground" and Config.Underground.BetweenRoundsTime - 0.2 or 1.5
+	task.delay(linger, function()
 		if model.Parent then
 			model:Destroy()
 		end
 	end)
 
 	-- In a duel, a defeated Nightmare loses the round; DuelService handles respawning.
-	local duel = self.Services.DuelService
 	if duel:IsInMatch(player) then
 		duel:OnNightmareDefeated(player)
 		return

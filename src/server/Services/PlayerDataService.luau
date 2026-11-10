@@ -126,6 +126,7 @@ local function makeDefaultProfile()
 		Stats = { BossWins = 0 },
 		ArenaTokens = 0,
 		PvP = { Wins = 0, Losses = 0, Draws = 0 },
+		Underground = { Wins = 0, Losses = 0, Draws = 0 }, -- NIGHTMARE UNDERGROUND fight record
 		Settings = { AllowDuels = true },
 		Mutations = {}, -- { [partId] = { [mutationId] = count } } (also counted in Inventory)
 		MutationBook = {}, -- { [mutationId] = { Found = n, Parts = { [partId] = true } } }
@@ -720,6 +721,7 @@ function PlayerDataService:Snapshot(player: Player)
 		Tutorial = Util.DeepCopy(data.Tutorial),
 		ArenaTokens = data.ArenaTokens,
 		PvP = Util.DeepCopy(data.PvP),
+		Underground = Util.DeepCopy(data.Underground),
 		Settings = Util.DeepCopy(data.Settings),
 		Mutations = Util.DeepCopy(data.Mutations),
 		MutationBook = Util.DeepCopy(data.MutationBook),

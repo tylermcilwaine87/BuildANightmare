@@ -97,6 +97,10 @@ function PossessionService:ResetForDuel(player: Player)
 end
 
 function PossessionService:Toggle(player: Player)
+	local state = states[player]
+	if state and state.Bound then
+		return -- (NIGHTMARE UNDERGROUND: you ARE the Nightmare until the round's over)
+	end
 	if self:IsPossessing(player) then
 		self:End(player, "Released")
 	else
@@ -104,36 +108,70 @@ function PossessionService:Toggle(player: Player)
 	end
 end
 
-function PossessionService:Begin(player: Player)
+-- NIGHTMARE UNDERGROUND (UndergroundService): the player drives their Nightmare until the
+-- round is over. No meter, no timer, no cooldown, no Handler leash, and F doesn't let go.
+function PossessionService:Bind(player: Player): boolean
+	local state = getState(player)
+	if state.Active then
+		self:End(player, "Rebind")
+	end
+	return self:Begin(player, true)
+end
+
+function PossessionService:IsBound(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and state.Active and state.Bound == true
+end
+
+-- A body we know is about to move fast (thrown by a blow, knocked down): the anti-teleport
+-- check lets it through for a moment.
+function PossessionService:AllowBurst(model: Model, seconds: number?)
+	for _, state in states do
+		if state.Active and state.Brain and state.Brain.model == model then
+			state.BurstUntil = math.max(state.BurstUntil or 0, os.clock() + (seconds or 1))
+		end
+	end
+end
+
+function PossessionService:Begin(player: Player, bound: boolean?)
 	local state = getState(player)
 	local now = os.clock()
-	if state.Active or state.Meter < P.MeterMax or now < state.CooldownUntil or self.Services.DuelService:IsFrozen(player) then
-		return
+	if state.Active then
+		return false
+	end
+	if not bound and (state.Meter < P.MeterMax or now < state.CooldownUntil or self.Services.DuelService:IsFrozen(player)) then
+		return false
 	end
 	local character = player.Character
 	local handlerHumanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local brain = self.Services.NightmareAIService:GetBrain(player)
 	if not handlerHumanoid or handlerHumanoid.Health <= 0 then
-		return
+		return false
 	end
 	-- (the meter's full, so the HUD says READY: say why it isn't happening)
 	if not brain or brain.humanoid.Health <= 0 then
 		self.PlayerFX:FireClient(player, "PossessDenied", { Text = "Your Nightmare isn't here to possess." })
-		return
+		return false
 	end
-	if self.Services.StatusService:IsStaggered(brain.model) then
+	if not bound and self.Services.StatusService:IsStaggered(brain.model) then
 		self.PlayerFX:FireClient(player, "PossessDenied", { Text = "Your Nightmare is staggered. Try again in a moment!" })
-		return
+		return false
 	end
 
 	state.Active = true
-	state.Meter = 0
-	state.EndsAt = now + P.Duration
+	state.Bound = bound == true
+	state.BurstUntil = 0
+	if not bound then
+		state.Meter = 0 -- (a bound fight leaves the companion meter as it was)
+	end
+	state.EndsAt = bound and math.huge or now + P.Duration
 	state.Brain = brain
 	state.LastPosition = brain.root.Position
 	state.LastCheck = now
 
-	self.Services.ChallengeService:Notify(player, "Possessed")
+	if not bound then
+		self.Services.ChallengeService:Notify(player, "Possessed")
+	end
 
 	-- Hand the body over to the player (your own guard comes down: you're not in that body now).
 	if player.Character then
@@ -151,11 +189,12 @@ function PossessionService:Begin(player: Player)
 	end)
 	if not ok then
 		self:End(player, "Failed")
-		return
+		return false
 	end
 
 	publish(player, state)
-	self.PlayerFX:FireClient(player, "PossessStart", { Model = brain.model, Duration = P.Duration })
+	self.PlayerFX:FireClient(player, "PossessStart", { Model = brain.model, Duration = not bound and P.Duration or nil, Bound = bound == true })
+	return true
 end
 
 function PossessionService:End(player: Player, reason: string)
@@ -163,8 +202,11 @@ function PossessionService:End(player: Player, reason: string)
 	if not state or not state.Active then
 		return
 	end
+	local wasBound = state.Bound
 	state.Active = false
-	state.CooldownUntil = os.clock() + P.Cooldown
+	state.Bound = false
+	-- (a bound fight never starts the companion's possession cooldown)
+	state.CooldownUntil = wasBound and state.CooldownUntil or os.clock() + P.Cooldown
 	local brain = state.Brain
 	state.Brain = nil
 	if brain and brain.model.Parent then
@@ -191,6 +233,9 @@ local function activeBrain(self, player: Player)
 		return nil
 	end
 	local brain = state.Brain
+	if self.Services.DuelService:IsFrozen(player) then
+		return nil -- (in your corner before FIGHT, or the round's over)
+	end
 	if brain.humanoid.Health <= 0 or self.Services.NightmareAIService:IsBusy(brain) or self.Services.BlockService:IsHolding(brain.model) then
 		return nil, brain
 	end
@@ -202,7 +247,7 @@ function PossessionService:PossessedAction(player: Player, action: string)
 	local state = states[player]
 	if action == "NM_Dodge" then
 		local brain = state and state.Active and state.Brain
-		if brain and now >= state.DodgeReadyAt and not self.Services.StatusService:IsStaggered(brain.model) then
+		if brain and now >= state.DodgeReadyAt and not self.Services.StatusService:IsStaggered(brain.model) and not self.Services.DuelService:IsFrozen(player) then
 			state.DodgeReadyAt = now + P.DodgeCooldown
 			invulnerableNightmares[brain.model] = now + P.DodgeInvulnerable
 			state.DodgeAllowanceUntil = now + P.DodgeDuration + 0.3 -- let the burst through the speed check
@@ -268,10 +313,14 @@ function PossessionService:PossessedAbility(player: Player, slot: number)
 	if not abilities:IsReady(brain, slot) then
 		return
 	end
-	-- Aim: the nearest enemy roughly in front, else straight ahead.
+	-- Aim: the nearest enemy roughly in front (a duel's opponents too), else straight ahead.
 	local best, bestDistance = nil, 30
 	local look = Util.FlatUnit(brain.root.CFrame.LookVector) or Vector3.zAxis
-	for _, enemy in game:GetService("CollectionService"):GetTagged("Enemy") do
+	local candidates = table.clone(game:GetService("CollectionService"):GetTagged("Enemy"))
+	for _, model in self.Services.DuelService:GetOpponentModels(player) do
+		table.insert(candidates, model)
+	end
+	for _, enemy in candidates do
 		local root = enemy:FindFirstChild("HumanoidRootPart")
 		local humanoid = enemy:FindFirstChildOfClass("Humanoid")
 		if root and humanoid and humanoid.Health > 0 then
@@ -362,11 +411,19 @@ function PossessionService:Start()
 				if state.DodgeAllowanceUntil and now < state.DodgeAllowanceUntil then
 					allowed += P.DodgeSpeed
 				end
+				if now < (state.BurstUntil or 0) then
+					allowed += 160 -- (thrown by a blow: AllowBurst)
+				end
 				if speed > allowed + 60 then -- abilities like Blink Dash also move fast briefly
 					self.Services.AntiExploitService:Flag(player, "PossessionSpeed")
 					brain.model:PivotTo(CFrame.new(state.LastPosition) * brain.root.CFrame.Rotation)
-					self:End(player, "Invalid")
-				elseif Util.FlatDistance(position, handlerRoot.Position) > P.MaxDistanceFromHandler then
+					if state.Bound then
+						-- (a fight goes on: snapped back to where it was, not taken away)
+						state.LastCheck = now
+					else
+						self:End(player, "Invalid")
+					end
+				elseif not state.Bound and Util.FlatDistance(position, handlerRoot.Position) > P.MaxDistanceFromHandler then
 					self:End(player, "TooFar")
 				else
 					state.LastPosition = position

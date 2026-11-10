@@ -83,6 +83,11 @@ function LockOnController:Pick(): Model?
 	if not myRoot then
 		return nil
 	end
+	-- NIGHTMARE UNDERGROUND: there's only one enemy, wherever it is
+	local opponent = controllers.UndergroundController:GetOpponent()
+	if opponent and alive(opponent) then
+		return opponent
+	end
 	local best, bestDistance = nil, CFG.Range
 	for _, model in CollectionService:GetTagged("Boss") do
 		local root = rootOf(model)
@@ -132,9 +137,16 @@ function LockOnController:Release()
 	end
 end
 
+-- When the player last let go of a lock themselves (Z): an automatic lock (the Underground)
+-- leaves them alone after that.
+function LockOnController:ReleasedByPlayerAt(): number
+	return self.PlayerReleasedAt or -math.huge
+end
+
 function LockOnController:Toggle()
 	if target then
 		self:Release()
+		self.PlayerReleasedAt = os.clock()
 		return
 	end
 	local picked = self:Pick()

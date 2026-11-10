@@ -73,6 +73,14 @@ function HUDController:SetPvPMode(enabled: boolean)
 	ui.PvPButton.Visible = not enabled
 end
 
+-- NIGHTMARE UNDERGROUND: its fight HUD replaces the normal one's top half (ApplyParts).
+function HUDController:SetUndergroundMode(enabled: boolean)
+	if ui.Underground ~= enabled then
+		ui.Underground = enabled
+		self:ApplyParts()
+	end
+end
+
 function HUDController:SetVisible(visible: boolean)
 	if ui.Gui then
 		ui.Gui.Enabled = visible
@@ -667,7 +675,7 @@ local function buildHints(gui: ScreenGui)
 	UIKit.AutoScale(hint)
 	-- Settings: ControlHints
 	local function apply()
-		hint.Visible = controllers.SettingsController:Get("ControlHints") ~= false and not ui.HideAll
+		hint.Visible = controllers.SettingsController:Get("ControlHints") ~= false and not ui.HideAll and not ui.Underground
 	end
 	ui.ApplyHint = apply
 	apply()
@@ -687,10 +695,13 @@ function HUDController:ApplyParts()
 	local function shown(key: string): boolean
 		return not ui.HideAll and settings:Get(key) ~= false
 	end
-	ui.StatusPanel.Visible = shown("HudStatus")
+	-- (NIGHTMARE UNDERGROUND draws its own fight HUD: the Handler's status, the menu row, the
+	-- meters and the weapon hotbar step aside; the abilities stay, you use them)
+	local fight = ui.Underground == true
+	ui.StatusPanel.Visible = shown("HudStatus") and not fight
 	ui.AbilityBar.Visible = shown("HudAbilities")
-	ui.Meters.Visible = shown("HudMeters")
-	ui.TopButtons.Visible = shown("HudButtons")
+	ui.Meters.Visible = shown("HudMeters") and not fight
+	ui.TopButtons.Visible = shown("HudButtons") and not fight
 	ui.HurtLayer.Enabled = shown("HudHurtEdges")
 	ui.TargetAllowed = shown("HudTarget")
 	if not ui.TargetAllowed then
@@ -702,7 +713,7 @@ function HUDController:ApplyParts()
 	if ui.ApplyHint then
 		ui.ApplyHint()
 	end
-	controllers.MeleeController:SetHudVisible(shown("HudHotbar"))
+	controllers.MeleeController:SetHudVisible(shown("HudHotbar") and not fight)
 	controllers.BossController:SetBarAllowed(not ui.HideAll)
 	-- a way back, always: the corner button, whenever the top row is gone
 	ui.ShowHudButton.Visible = ui.HideAll == true or settings:Get("HudButtons") == false
@@ -935,7 +946,11 @@ end
 function HUDController:RefreshMeters(character: Model?, nightmare: Model?)
 	local possession = controllers.PossessionController
 	local P = Config.Possession
-	if possession:IsPossessing() then
+	if possession:IsBound() then
+		-- NIGHTMARE UNDERGROUND: no timer, you're it until the round's over
+		UIKit.SetBar(ui.PossessionBar, 1, 1)
+		ui.PossessionBar.Label.Text = UIKit.IsTouchOnly() and "YOU ARE YOUR NIGHTMARE" or "YOU ARE YOUR NIGHTMARE   ·   LMB combo · RMB heavy · Ctrl guard · Shift dodge · Q/E abilities"
+	elseif possession:IsPossessing() then
 		local left = possession:TimeLeft()
 		UIKit.SetBar(ui.PossessionBar, left, P.Duration)
 		ui.PossessionBar.Label.Text = (UIKit.IsTouchOnly() and "POSSESSED  %.1fs" or "POSSESSED  %.1fs   ·   LMB combo · RMB heavy · Ctrl block · Shift dodge · F exit"):format(left)

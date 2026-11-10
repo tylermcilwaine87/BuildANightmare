@@ -45,6 +45,9 @@ WorldBuilder.CollisionGroups = {
 	-- The Training Arena's Pit cage: it stops players and Nightmares, but a Scrapling thrown
 	-- out over it can walk back in (World/Hub buildTraining).
 	PitFence = "PitFence",
+	-- NIGHTMARE UNDERGROUND's two fighters: they stand their ground against each other (bodies
+	-- collide, so a blow lands in front of you, never inside you), but not against the Handlers.
+	UGFighters = "UGFighters",
 }
 
 local RGB = Color3.fromRGB
@@ -60,10 +63,12 @@ local function setupCollisionGroups()
 	PhysicsService:CollisionGroupSetCollidable("Nightmares", "Nightmares", false)
 	PhysicsService:CollisionGroupSetCollidable("BossPhasing", "Characters", false)
 	PhysicsService:CollisionGroupSetCollidable("BossPhasing", "Nightmares", false)
-	for _, other in { "Characters", "Nightmares", "Enemies", "BossPhasing" } do
+	for _, other in { "Characters", "Nightmares", "Enemies", "BossPhasing", "UGFighters" } do
 		PhysicsService:CollisionGroupSetCollidable("Effects", other, false)
 	end
 	PhysicsService:CollisionGroupSetCollidable("PitFence", "Enemies", false)
+	PhysicsService:CollisionGroupSetCollidable("UGFighters", "Characters", false)
+	PhysicsService:CollisionGroupSetCollidable("UGFighters", "Nightmares", false)
 end
 
 -- Base lighting / sky / clouds. The client's WorldController blends the per-region look

@@ -285,6 +285,7 @@ function PvPController:RefreshPrep()
 end
 
 function PvPController:ApplyState(state)
+	controllers.UndergroundController:ApplyState(state) -- (its own fight HUD in Underground matches)
 	if state.State == "None" then
 		matchState = nil
 		ui.Scoreboard.Visible = false
@@ -305,8 +306,8 @@ function PvPController:ApplyState(state)
 		setResetEnabled(false)
 		controllers.HUDController:SetPvPMode(true)
 	end
-	ui.Scoreboard.Visible = true
-	ui.Score.Text = ("YOU  %d  —  %d  %s"):format(state.MyScore or 0, state.OpponentScore or 0, string.upper(state.OpponentName or "?"))
+	ui.Scoreboard.Visible = state.Mode ~= "Underground"
+	ui.Score.Text =("YOU  %d  —  %d  %s"):format(state.MyScore or 0, state.OpponentScore or 0, string.upper(state.OpponentName or "?"))
 	ui.RoundInfo.Text = ("%sRound %d  ·  Best of %d"):format(state.Ranked and "RANKED  ·  " or "", math.max(state.Round or 0, 1), state.BestOf or 1)
 	if (state.TeamSize or 1) > 1 then
 		local function standing(list)
@@ -593,6 +594,8 @@ function PvPController:Start()
 		elseif kind == "Queue" then
 			queueState = data
 			self:RefreshRanked()
+		elseif kind == "UGQueue" then
+			controllers.UndergroundController:SetQueue(data)
 		end
 	end)
 

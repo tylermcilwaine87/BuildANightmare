@@ -870,6 +870,31 @@ Config.PvP = {
 }
 
 ------------------------------------------------------------------------------------------
+-- NIGHTMARE UNDERGROUND (UndergroundService): 1v1 where each player IS their Nightmare.
+-- The Handlers watch from their corners; DuelService runs the match (Mode "Underground").
+------------------------------------------------------------------------------------------
+Config.Underground = {
+	BestOf = 3,
+	PrepTime = 10, -- pick the Nightmare you'll fight as (PvP-legal builds)
+	CountdownTime = 4, -- in your corner, in control, frozen until FIGHT
+	RoundTime = 90, -- then a decision
+	BetweenRoundsTime = 5, -- the knocked-out body stays down this long
+	-- every fighter has the same health: a build changes HOW it fights, not how long it lasts
+	FighterHealth = 600,
+	-- the decision when time runs out: damage landed, plus this much per knockdown scored
+	-- (a round within DrawMargin points is drawn)
+	KnockdownPoints = 40,
+	DrawMargin = 5,
+	-- the arenas: closed halls high above the map, out of sight of the hub
+	ArenaOrigin = Vector3.new(0, 400, -2400),
+	ArenaSpacing = 260,
+	MaxArenas = 6,
+	RingHalf = 24, -- the fighting area inside the ropes: 48 x 48 studs
+	CornerInset = 15, -- where each fighter starts, from the centre along the diagonal
+	Rewards = Config.PvP.Rewards,
+}
+
+------------------------------------------------------------------------------------------
 -- Remote rate limits (token buckets, per player)
 ------------------------------------------------------------------------------------------
 Config.RateLimits = {

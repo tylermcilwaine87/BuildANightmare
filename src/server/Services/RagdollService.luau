@@ -259,6 +259,11 @@ function RagdollService:Ragdoll(model: Model, throw: Vector3?, direction: Vector
 		self.PlayerFX:FireClient(player, "Ragdoll", { Velocity = throw or Vector3.zero, Spin = spin, Duration = length })
 	elseif root:GetNetworkOwner() == nil then
 		RagdollService.Throw(model, throw or root.AssemblyLinearVelocity, spin or Vector3.zero)
+	elseif model:GetAttribute("PossessedBy") and root:GetNetworkOwner().UserId == model:GetAttribute("PossessedBy") then
+		-- a Nightmare its player is driving (NIGHTMARE UNDERGROUND): their client simulates
+		-- it, so the throw happens there
+		self.Services.PossessionService:AllowBurst(model, length + 0.5)
+		self.PlayerFX:FireClient(root:GetNetworkOwner(), "BodyRagdoll", { Model = model, Velocity = throw or Vector3.zero, Spin = spin or Vector3.zero })
 	end
 	task.delay(length, restoreWhenSettled, model, record, root)
 	return true

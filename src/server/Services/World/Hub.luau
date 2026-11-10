@@ -594,6 +594,28 @@ local function buildColosseum(root)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = podium
 	Kit.Billboard(col, c + V3(0, 24, 0), "THE NIGHTMARE COLOSSEUM", "Duels · Ranked · Team fights", trim, Vector2.new(26, 6), 300)
+
+	-- NIGHTMARE UNDERGROUND's sign-up terminal (UndergroundService), beside the podium, its
+	-- screen facing the way in from the hub
+	local spot = c + V3(8, 0, 8)
+	local face = CFrame.lookAt(spot, spot + V3(-1, 0, -1))
+	local UG_RED = RGB(255, 50, 60)
+	local body = P(col, face * CF(0, 3.2, 0), V3(5, 6, 2.4), RGB(22, 20, 26), M.DiamondPlate)
+	for _, x in { -2.55, 2.55 } do
+		P(col, face * CF(x, 3.2, 0), V3(0.2, 6.2, 2.6), UG_RED, M.Neon, glow)
+	end
+	P(col, face * CF(0, 6.35, 0), V3(5.3, 0.3, 2.7), UG_RED, M.Neon, glow)
+	Kit.Sign(col, face * CF(0, 4.4, -1.25), V3(4.4, 2.2, 0.1), "NIGHTMARE\nUNDERGROUND", UG_RED, { Color = RGB(10, 8, 12) })
+	Kit.Sign(col, face * CF(0, 2.4, -1.25), V3(4.4, 1.2, 0.1), "1v1 · YOU ARE YOUR NIGHTMARE", RGB(235, 225, 230), { Color = RGB(10, 8, 12) })
+	local ugPrompt = Instance.new("ProximityPrompt")
+	ugPrompt.Name = "UndergroundQueue"
+	ugPrompt.ActionText = "Find a fight"
+	ugPrompt.ObjectText = "Nightmare Underground"
+	ugPrompt.HoldDuration = 0.3
+	ugPrompt.MaxActivationDistance = 10
+	ugPrompt.RequiresLineOfSight = false
+	ugPrompt.Parent = body
+	Kit.Billboard(col, spot + V3(0, 11, 0), "NIGHTMARE UNDERGROUND", "Fight AS your Nightmare", UG_RED, Vector2.new(10, 2.6), 160)
 end
 
 function Hub.Build(root)

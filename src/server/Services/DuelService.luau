@@ -23,6 +23,12 @@
 	               everyone returned to the Forge with their normal active Nightmare.
 	  Leaving / disconnecting = forfeit.
 
+	NIGHTMARE UNDERGROUND (StartMatch opts.Mode = "Underground", UndergroundService): the same
+	match flow with its own ring, timings (Config.Underground) and rules: the Handlers watch
+	from their corner booths, each player drives their Nightmare for the whole round, only
+	the Nightmares can hurt each other, a round ends on a KNOCKOUT or a points DECISION at the
+	bell (no sudden death), and the result goes on the profile's Underground record.
+
 	PVP RULES live in CombatService (opponent check, Nightmare->Handler x0.45 damage,
 	Ultimate cap 45% of max HP per cast) and here (Handler KOs never actually kill).
 	Remote DuelRequest (RemoteFunction): "Challenge", userId, bestOf | "Respond", id, bool |
@@ -178,7 +184,7 @@ function DuelService:GetOpponent(player: Player): Player?
 	return enemies and enemies[1]
 end
 
--- Every enemy Handler + Nightmare that can be fought right now.
+-- Every enemy Handler + Nightmare that can be fought right now (Underground: the Nightmare).
 function DuelService:GetOpponentModels(player: Player): { Model }
 	local list = {}
 	local match = playerMatch[player]
@@ -187,7 +193,7 @@ function DuelService:GetOpponentModels(player: Player): { Model }
 	end
 	for _, enemy in match.Teams[3 - match.Side[player]] do
 		if self:AreOpponents(player, enemy) then
-			if enemy.Character then
+			if enemy.Character and match.Mode ~= "Underground" then
 				table.insert(list, enemy.Character)
 			end
 			local nightmare = self.Services.NightmareSpawnService:GetNightmare(enemy)
@@ -296,6 +302,8 @@ function DuelService:SendState(match)
 			local opponent = match.Teams[other][1]
 			self.DuelEvent:FireClient(player, "State", {
 				MatchId = match.Id,
+				Mode = match.Mode,
+				MyName = player.DisplayName,
 				State = match.State,
 				Round = match.Round,
 				BestOf = match.BestOf,
@@ -482,10 +490,18 @@ end
 ------------------------------------------------------------------------------------------
 -- a / b: a Player (1v1) or a list of Players (a team: 2v2 / 3v3).
 -- opts.Ranked = true: a ranked match (RankedService queue); ratings change at the end.
+-- opts.Mode = "Underground": NIGHTMARE UNDERGROUND (UndergroundService): 1v1, each player IS
+-- their Nightmare, in an Underground ring.
 function DuelService:StartMatch(a, b, bestOf: number, opts)
-	local slot, arena = reserveArena()
+	local mode = opts and opts.Mode or nil
+	local slot, arena
+	if mode == "Underground" then
+		slot, arena = self.Services.UndergroundService:ReserveArena()
+	else
+		slot, arena = reserveArena()
+	end
 	if not slot then
-		return { Ok = false, Error = "All Colosseum arenas are busy. Try again soon." }
+		return { Ok = false, Error = mode == "Underground" and "Every Underground ring is taken. Try again soon." or "All Colosseum arenas are busy. Try again soon." }
 	end
 	local teams = { typeof(a) == "Instance" and { a } or a, typeof(b) == "Instance" and { b } or b }
 	local function teamName(team)
@@ -494,6 +510,7 @@ function DuelService:StartMatch(a, b, bestOf: number, opts)
 	local ranked = opts and opts.Ranked == true
 	local match = {
 		Id = HttpService:GenerateGUID(false),
+		Mode = mode,
 		Ranked = ranked,
 		BestOf = bestOf,
 		Teams = teams,
@@ -531,8 +548,11 @@ function DuelService:StartMatch(a, b, bestOf: number, opts)
 		self.Services.PossessionService:End(player, "Duel")
 		-- Anyone still searching for a ranked match stops (they're in a duel now).
 		self.Services.RankedService:Leave(player, nil)
+		self.Services.UndergroundService:Leave(player, nil)
 	end
-	if ranked then
+	if mode == "Underground" then
+		self:Broadcast(match, "Banner", { Title = "NIGHTMARE UNDERGROUND", Subtitle = ("%s  vs  %s  ·  Best of %d  ·  You ARE your Nightmare"):format(match.TeamNames[1], match.TeamNames[2], bestOf) })
+	elseif ranked then
 		local function label(player: Player)
 			local record = RankDefinitions.Record(self.Services.PlayerDataService:Get(player))
 			return ("%s (%s %d)"):format(player.DisplayName, RankDefinitions.TierFor(record.Rating).DisplayName, record.Rating)
@@ -556,6 +576,10 @@ function DuelService:SpawnFor(match, player: Player): CFrame
 end
 
 function DuelService:PlacePlayer(match, player: Player)
+	if match.Mode == "Underground" then
+		self.Services.UndergroundService:Place(match, player) -- (Handler to its booth, Nightmare to its corner)
+		return
+	end
 	local spawnCF = self:SpawnFor(match, player)
 	local character = player.Character
 	if character and character.Parent then
@@ -579,19 +603,28 @@ function DuelService:ResetPlayer(match, player: Player)
 	self.Services.NightmareSpawnService:ForceSpawn(player, match.BuildChoice[player])
 	self:PlacePlayer(match, player)
 	setDuelAttributes(self, match, player, true)
+	if match.Mode == "Underground" then
+		self.Services.UndergroundService:PrepareFighter(match, player)
+	end
+end
+
+-- The timings for this match's mode (Underground has its own).
+local function timing(match, key: string): number
+	return match.Mode == "Underground" and Config.Underground[key] or PVP[key]
 end
 
 function DuelService:BeginPrep(match)
 	match.Token += 1
 	match.State = "Prep"
-	match.PhaseEndsAt = serverNow() + PVP.PrepTime
+	local prepTime = timing(match, "PrepTime")
+	match.PhaseEndsAt = serverNow() + prepTime
 	match.SuddenDeathStart, match.SuddenDeathEnd = nil, nil
 	for _, player in match.Players do
 		self:ResetPlayer(match, player)
 	end
 	self:SendState(match)
 	local token = match.Token
-	task.delay(PVP.PrepTime, function()
+	task.delay(prepTime, function()
 		if match.Token == token and match.State == "Prep" then
 			self:BeginCountdown(match)
 		end
@@ -610,6 +643,9 @@ function DuelService:SelectBuild(player: Player, index)
 	self.Services.NightmareSpawnService:ForceSpawn(player, index)
 	self:PlacePlayer(match, player)
 	setDuelAttributes(self, match, player, true)
+	if match.Mode == "Underground" then
+		self.Services.UndergroundService:PrepareFighter(match, player)
+	end
 	self:SendState(match)
 	return { Ok = true }
 end
@@ -629,16 +665,26 @@ function DuelService:BeginCountdown(match)
 	for _, player in match.Players do
 		self:ResetPlayer(match, player)
 	end
-	match.PhaseEndsAt = serverNow() + PVP.CountdownTime
+	local underground = match.Mode == "Underground"
+	if underground then
+		-- in control of your Nightmare, frozen in your corner until FIGHT
+		self.Services.UndergroundService:BeginCountdown(match)
+		self:Broadcast(match, "Banner", { Title = ("ROUND %d"):format(match.Round), Subtitle = ("%s  vs  %s"):format(match.TeamNames[1], match.TeamNames[2]) })
+	end
+	local countdown = timing(match, "CountdownTime")
+	match.PhaseEndsAt = serverNow() + countdown
 	self:SendState(match)
 	local token = match.Token
-	task.delay(PVP.CountdownTime, function()
+	task.delay(countdown, function()
 		if match.Token == token and match.State == "Countdown" then
 			match.State = "Live"
 			match.RoundStart = os.clock()
-			match.PhaseEndsAt = serverNow() + PVP.RoundTime
+			match.PhaseEndsAt = serverNow() + timing(match, "RoundTime")
+			if underground then
+				self.Services.UndergroundService:BeginLive(match)
+			end
 			self:SendState(match)
-			self:Broadcast(match, "Banner", { Title = ("ROUND %d"):format(match.Round), Subtitle = "FIGHT!" })
+			self:Broadcast(match, "Banner", { Title = underground and "FIGHT!" or ("ROUND %d"):format(match.Round), Subtitle = underground and "" or "FIGHT!" })
 		end
 	end)
 end
@@ -684,8 +730,26 @@ function DuelService:EndRound(match, winnerSide: number?, reason: string)
 	if winnerSide then
 		match.Score[winnerSide] += 1
 	end
-	for _, player in match.Players do
-		self.Services.PossessionService:End(player, "RoundOver")
+	local underground = match.Mode == "Underground"
+	if underground then
+		-- the bell: nobody moves; the loser stays down where they fell
+		self.Services.UndergroundService:Freeze(match)
+	end
+	if underground and reason == "NightmareDefeated" then
+		-- a knockout: the winner keeps the fight camera on the body going down for a moment
+		-- (frozen, nothing can be thrown) before going back to the corner
+		local token = match.Token
+		task.delay(2.5, function()
+			if match.Token == token then
+				for _, player in match.Players do
+					self.Services.PossessionService:End(player, "RoundOver")
+				end
+			end
+		end)
+	else
+		for _, player in match.Players do
+			self.Services.PossessionService:End(player, "RoundOver")
+		end
 	end
 	local teamMatch = match.TeamSize > 1
 	local reasonText = ({
@@ -695,12 +759,27 @@ function DuelService:EndRound(match, winnerSide: number?, reason: string)
 		Time = "Time! Decided by remaining health.",
 		Forfeit = "Opponent forfeited.",
 	})[reason] or reason
-	self:Broadcast(match, "Banner", { Title = winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " WINS THE ROUND") or "ROUND DRAWN", Subtitle = reasonText })
+	if underground then
+		local card = match.UG and match.UG.Scorecard
+		local cardText = card and ("Scorecard  %d — %d"):format(math.floor(card[1] + 0.5), math.floor(card[2] + 0.5)) or ""
+		local title, subtitle
+		if reason == "NightmareDefeated" then
+			title, subtitle = "KNOCKOUT!", winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " WINS ROUND " .. match.Round) or ""
+		elseif reason == "Decision" then
+			title = winnerSide and "DECISION" or "ROUND DRAWN"
+			subtitle = (winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " TAKES ROUND " .. match.Round .. "  ·  ") or "Too close to call  ·  ") .. cardText
+		else
+			title, subtitle = winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " WINS THE ROUND") or "ROUND DRAWN", reasonText
+		end
+		self:Broadcast(match, "Banner", { Title = title, Subtitle = subtitle })
+	else
+		self:Broadcast(match, "Banner", { Title = winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " WINS THE ROUND") or "ROUND DRAWN", Subtitle = reasonText })
+	end
 	self:SendState(match)
 
 	local needed = math.ceil(match.BestOf / 2)
 	local token = match.Token
-	task.delay(PVP.BetweenRoundsTime, function()
+	task.delay(timing(match, "BetweenRoundsTime"), function()
 		if match.Token ~= token or match.State ~= "RoundOver" then
 			return
 		end
@@ -749,7 +828,9 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 				local eligible = duration >= PVP.MinMatchSecondsForRewards and #log < PVP.MaxRewardedMatchesPerHour
 				if profile then
 					local key = result == "Win" and "Wins" or (result == "Loss" and "Losses" or "Draws")
-					profile.PvP[key] = (profile.PvP[key] or 0) + 1
+					-- (NIGHTMARE UNDERGROUND keeps its own fight record)
+					local record = match.Mode == "Underground" and profile.Underground or profile.PvP
+					record[key] = (record[key] or 0) + 1
 					if eligible then
 						table.insert(log, now)
 						summary = self.Services.ProgressionService:Award(player, PVP.Rewards[result])
@@ -769,7 +850,7 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 					Ranked = ratingChanges[player], -- { Old, New, Delta } for ranked matches
 					ReturnIn = PVP.ResultsTime,
 				})
-				local kind = match.Ranked and "Ranked" or (match.TeamSize > 1 and ("Team%dv%d"):format(match.TeamSize, match.TeamSize) or "Casual")
+				local kind = match.Mode == "Underground" and "Underground" or match.Ranked and "Ranked" or (match.TeamSize > 1 and ("Team%dv%d"):format(match.TeamSize, match.TeamSize) or "Casual")
 				self.Services.GameAnalyticsService:Event(player, "DuelEnd", math.floor(duration), { kind, result, reason })
 			end
 		end
@@ -789,6 +870,10 @@ function DuelService:Cleanup(match)
 		if playerMatch[player] == match then
 			playerMatch[player] = nil
 			setDuelAttributes(self, match, player, false)
+			if match.Mode == "Underground" then
+				self.Services.PossessionService:End(player, "MatchOver")
+				self.Services.UndergroundService:Unpark(player)
+			end
 			if player.Parent then
 				local character = player.Character
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -804,7 +889,11 @@ function DuelService:Cleanup(match)
 		end
 	end
 	matches[match.Id] = nil
-	slotInUse[match.Slot] = nil
+	if match.Mode == "Underground" then
+		self.Services.UndergroundService:ReleaseArena(match.Slot)
+	else
+		slotInUse[match.Slot] = nil
+	end
 end
 
 -- FORFEIT forfeits for your whole side (team duels included).
@@ -877,8 +966,8 @@ end
 ------------------------------------------------------------------------------------------
 function DuelService:OnHandlerKO(player: Player)
 	local match = playerMatch[player]
-	if not match or not LIVE_STATES[match.State] then
-		return
+	if not match or not LIVE_STATES[match.State] or match.Mode == "Underground" then
+		return -- (Underground: the Handler isn't in the fight)
 	end
 	local character = player.Character
 	if match.Out[player] or (character and character:FindFirstChildOfClass("ForceField")) then
@@ -1011,7 +1100,10 @@ function DuelService:Start()
 			damageClock = 0
 		end
 		for _, match in matches do
-			if match.State == "Live" and serverNow() >= match.PhaseEndsAt then
+			if match.State == "Live" and serverNow() >= match.PhaseEndsAt and match.Mode == "Underground" then
+				-- the bell: a decision on points (UndergroundService:Decide)
+				self:EndRound(match, self.Services.UndergroundService:Decide(match), "Decision")
+			elseif match.State == "Live" and serverNow() >= match.PhaseEndsAt then
 				self:StartSuddenDeath(match)
 			elseif match.State == "SuddenDeath" then
 				if serverNow() >= match.SuddenDeathEnd then

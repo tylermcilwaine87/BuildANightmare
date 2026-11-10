@@ -107,6 +107,19 @@ end
 function CombatService:Init(services)
 	self.Services = services
 	self.Feedback = Net.Get("CombatFeedback")
+	self.PlayerFX = Net.Get("PlayerFX")
+end
+
+-- A Nightmare its player is driving is simulated by that player's client: a blow's push has
+-- to happen there (Set: replace its velocity instead of adding to it). True if it was sent.
+function CombatService:PushDriven(target: Model, root: BasePart, velocity: Vector3, set: boolean?): boolean
+	local owner = root:GetNetworkOwner()
+	if owner and CollectionService:HasTag(target, "Nightmare") and target:GetAttribute("PossessedBy") == owner.UserId then
+		self.Services.PossessionService:AllowBurst(target, 0.8)
+		self.PlayerFX:FireClient(owner, "BodyImpulse", { Model = target, Velocity = velocity, Set = set == true })
+		return true
+	end
+	return false
 end
 
 function CombatService:Start()
@@ -168,7 +181,15 @@ function CombatService:CanDamage(attacker: Model?, target: Model): boolean
 	-- Player vs player (Handlers and Nightmares): ONLY between opponents in a live duel.
 	local attackerOwner, targetOwner = self:GetOwnerPlayer(attacker), self:GetOwnerPlayer(target)
 	if attackerOwner and targetOwner then
-		return attackerOwner ~= targetOwner and self.Services.DuelService:AreOpponents(attackerOwner, targetOwner)
+		if attackerOwner == targetOwner or not self.Services.DuelService:AreOpponents(attackerOwner, targetOwner) then
+			return false
+		end
+		-- NIGHTMARE UNDERGROUND: only the two Nightmares fight; the Handlers just watch
+		local match = self.Services.DuelService:GetMatch(attackerOwner)
+		if match and match.Mode == "Underground" then
+			return CollectionService:HasTag(attacker, "Nightmare") and CollectionService:HasTag(target, "Nightmare")
+		end
+		return true
 	end
 	-- Otherwise: monsters (tagged "Enemy") vs players' side.
 	return self:IsEnemy(attacker) ~= self:IsEnemy(target)
@@ -349,6 +370,27 @@ function CombatService:ApplyDamage(params): number
 		return 0
 	end
 
+	-- NIGHTMARE UNDERGROUND: the blow that finishes a fighter puts it on the floor, thrown the
+	-- way that blow drove it (a launcher flips it, an overhand folds it where it stands)
+	if attacker and amount >= humanoid.Health and target:GetAttribute("UGFighter") and not target:GetAttribute("Ragdolled") then
+		local koRoot = target:FindFirstChild("HumanoidRootPart")
+		local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection))
+			or (koRoot and Util.FlatUnit(koRoot.Position - attacker:GetPivot().Position)) or Vector3.zAxis
+		local force = math.max(params.Knockback or 0, RAG.MinThrow)
+		local throw
+		local options = {}
+		if params.Launch then
+			throw = direction * params.Launch.Push + Vector3.new(0, params.Launch.Lift, 0)
+			options.Flip = params.Launch.Spin
+		elseif params.Crumple then
+			throw = direction * force * RAG.Launch * 0.3 + Vector3.new(0, -force * 0.25, 0)
+		else
+			throw = direction * force * RAG.Launch + Vector3.new(0, force * 0.45, 0)
+		end
+		target:SetAttribute("UGKO", true)
+		self.Services.RagdollService:Ragdoll(target, throw, direction, Config.Underground.BetweenRoundsTime + 2, options)
+	end
+
 	local before = humanoid.Health
 	humanoid:TakeDamage(amount) -- respects ForceFields
 	local dealt = before - humanoid.Health
@@ -374,10 +416,15 @@ function CombatService:ApplyDamage(params): number
 	if Passives.Has(target, "Sturdy") then
 		knockback *= Passives.ById.Sturdy.KnockbackMultiplier -- (passive) planted
 	end
-	if attacker and knockback > 0 and root and not root.Anchored and not target:GetAttribute("KnockbackImmune") and (self:IsEnemy(target) or CollectionService:HasTag(target, "Nightmare")) and root:GetNetworkOwner() == nil then
+	if attacker and knockback > 0 and root and not root.Anchored and not target:GetAttribute("KnockbackImmune") and (self:IsEnemy(target) or CollectionService:HasTag(target, "Nightmare")) then
 		local direction = Util.FlatUnit(position - attacker:GetPivot().Position)
 		if direction then
-			root:ApplyImpulse((direction * knockback + Vector3.new(0, knockback * 0.3, 0)) * root.AssemblyMass)
+			local push = direction * knockback + Vector3.new(0, knockback * 0.3, 0)
+			if root:GetNetworkOwner() == nil then
+				root:ApplyImpulse(push * root.AssemblyMass)
+			else
+				self:PushDriven(target, root, push) -- (a possessed Nightmare: its player's client)
+			end
 		end
 	end
 
@@ -443,10 +490,15 @@ function CombatService:ApplyDamage(params): number
 
 	-- already down and flying (a launcher's follow-up in the air, a spike): the blow sends
 	-- the loose body where it says instead
-	if not knockedDown and attacker and params.Launch and target:GetAttribute("Ragdolled") and root and not root.Anchored and root:GetNetworkOwner() == nil then
+	if not knockedDown and attacker and params.Launch and target:GetAttribute("Ragdolled") and root and not root.Anchored then
 		local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis
 		local scale = sizeFactor(RAG.SizeThrow, attacker, target)
-		root.AssemblyLinearVelocity = direction * params.Launch.Push * scale + Vector3.new(0, params.Launch.Lift * scale, 0)
+		local velocity = direction * params.Launch.Push * scale + Vector3.new(0, params.Launch.Lift * scale, 0)
+		if root:GetNetworkOwner() == nil then
+			root.AssemblyLinearVelocity = velocity
+		else
+			self:PushDriven(target, root, velocity, true)
+		end
 	end
 
 	if humanoid.Health > 0 then
