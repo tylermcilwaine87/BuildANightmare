@@ -196,7 +196,7 @@ function RagdollService:Ragdoll(model: Model, throw: Vector3?, direction: Vector
 		return false -- (passive) it just drifts with the blow: never floored
 	end
 	local now = os.clock()
-	if lastDown[model] and now - lastDown[model] < CFG.Cooldown then
+	if lastDown[model] and now - lastDown[model] < CFG.Cooldown and not (options and options.IgnoreCooldown) then
 		return false
 	end
 	local humanoid = model:FindFirstChildOfClass("Humanoid")

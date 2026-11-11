@@ -389,17 +389,27 @@ function CombatService:ApplyDamage(params): number
 			or (koRoot and Util.FlatUnit(koRoot.Position - attacker:GetPivot().Position)) or Vector3.zAxis
 		local force = math.max(params.Knockback or 0, RAG.MinThrow)
 		local throw
-		local options = {}
+		local options = { IgnoreCooldown = true }
+		local move = params.Move
 		if params.Launch then
+			-- an uppercut knockout: lifted off its feet and over
 			throw = direction * params.Launch.Push + Vector3.new(0, params.Launch.Lift, 0)
 			options.Flip = params.Launch.Spin
-		elseif params.Crumple then
+		elseif params.Crumple or (move and move.Height == "Body") then
+			-- a body-shot knockout: it folds where it stands
 			throw = direction * force * RAG.Launch * 0.3 + Vector3.new(0, -force * 0.25, 0)
+			options.SpinScale = 0.5
+		elseif params.Heavy then
+			-- an overhand / power knockout: thrown back off its feet
+			throw = direction * math.max(force, 40) * RAG.Launch + Vector3.new(0, math.max(force, 40) * 0.45, 0)
 		else
-			throw = direction * force * RAG.Launch + Vector3.new(0, force * 0.45, 0)
+			-- caught by a clean shot: it goes stiff and topples like a tree
+			throw = direction * 14 + Vector3.new(0, 5, 0)
+			options.SpinScale = 0.6
 		end
 		target:SetAttribute("UGKO", true)
-		self.Services.RagdollService:Ragdoll(target, throw, direction, Config.Underground.BetweenRoundsTime + 2, options)
+		fight:NoteFinish(attacker, target, params)
+		self.Services.RagdollService:Ragdoll(target, throw, direction, Config.Underground.BetweenRoundsTime + 3, options)
 	end
 
 	local before = humanoid.Health
@@ -460,11 +470,17 @@ function CombatService:ApplyDamage(params): number
 		local big = dealt >= humanoid.MaxHealth * cfg.DamageFraction or total >= humanoid.MaxHealth * cfg.BurstFraction
 		local boss = isBoss(target)
 		local worthy = if boss then special else (special or big or knockback >= cfg.MinKnockback)
+		-- NIGHTMARE UNDERGROUND: a fighter only goes down by the fight's own rules (a clean power
+		-- shot that's a counter / on a gassed or hurt fighter / the launcher), never on a roll
+		local ugRule = nil
+		if fight:IsFighter(target) then
+			ugRule = fight:KnockdownRule(attacker, target, params, guarded)
+		end
 		-- NoKnockdown: the blow holds them instead (a bite's clamp keeps them in its jaws)
-		if (worthy or (params.Thrown and not boss)) and not params.NoKnockdown and not guarded then
+		if ugRule ~= false and (ugRule or ((worthy or (params.Thrown and not boss)) and not params.NoKnockdown and not guarded)) then
 			local chance = self:KnockdownChance(attacker, target, big or params.Launch ~= nil)
-			if params.Thrown and not boss then
-				chance = 1 -- (a throw, a signature's last blow: they go down)
+			if ugRule or (params.Thrown and not boss) then
+				chance = 1 -- (a throw, a signature's last blow, an Underground knockdown: they go down)
 			end
 			if chance > 0 and random:NextNumber() < chance then
 				local direction = (params.HitDirection and Util.FlatUnit(params.HitDirection)) or Util.FlatUnit(position - attacker:GetPivot().Position) or Vector3.zAxis
@@ -478,7 +494,7 @@ function CombatService:ApplyDamage(params): number
 					local scale = math.max(sizeFactor(RAG.SizeThrow, attacker, target), launch.MinScale or 0)
 					throw = direction * launch.Push * scale + Vector3.new(0, launch.Lift * scale, 0)
 					options.Flip = launch.Spin
-				elseif params.Crumple then
+				elseif params.Crumple or (ugRule and ugRule.Body) then
 					-- the legs go: a short stagger the way the blow drove them, folding down
 					throw = direction * force * cfg.Launch * 0.3 + Vector3.new(0, -force * 0.25, 0)
 				else
@@ -487,9 +503,15 @@ function CombatService:ApplyDamage(params): number
 				if boss then
 					throw *= cfg.Boss.ThrowScale
 				end
-				if self.Services.RagdollService:Ragdoll(target, throw, direction, boss and cfg.Boss.Duration or nil, options) then
+				if ugRule then
+					options.IgnoreCooldown = true -- (the rules decide, not the anti-juggle timer)
+				end
+				if self.Services.RagdollService:Ragdoll(target, throw, direction, (ugRule and ugRule.Duration) or (boss and cfg.Boss.Duration) or nil, options) then
 					recentDamage[target] = nil
 					knockedDown = true
+					if ugRule then
+						fight:OnKnockdown(attacker, target, ugRule)
+					end
 					if boss then
 						bossDownAt[target] = now
 						Net.FireNearby(self.Feedback, position, Config.Performance.EffectRadius, "KnockedDown", { Target = target, Position = position, Boss = true })

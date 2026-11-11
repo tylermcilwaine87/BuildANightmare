@@ -12,12 +12,20 @@
 	    Nightmare for the whole round (PossessionService:Bind: no meter, no timer)
 	  * the fighters are frozen in their corners until FIGHT, and again when the round ends
 	  * every fighter gets the same health (a build changes how it fights, not how long)
-	  * a round ends on a KNOCKOUT (the Nightmare goes down for good) or, at the bell, on a
-	    DECISION: damage landed + KnockdownPoints per knockdown; too close to call = drawn
+	  * a round ends on a KNOCKOUT (the Nightmare goes down for good), a TKO (its third
+	    knockdown of the round, or a knockdown it can't get up from: Config.Underground.TKO)
+	    or, at the bell, on a DECISION: the judge's points for clean work (Config.Underground
+	    .Score); too close to call = drawn
+	  * the scorecard: what each side threw, landed, countered, parried, slipped and floored,
+	    per round and for the match (Stat, RecordRound), shown between rounds and at the end
+	  * a match is at most BestOf rounds: first to 2, else rounds won, else the match's points,
+	    else a draw (Verdict)
+	  * after it: REMATCH (both ask) or QUEUE AGAIN (After, AfterCleanup)
 	  * the in-server queue: the UndergroundQueue prompt (the kiosk at the Colosseum) pairs
 	    the first two players who use it
 
-	Remote DuelEvent (server -> client) "UGQueue" { Searching, Waiting }.
+	Remote DuelEvent (server -> client): "UGQueue" { Searching, Waiting }, "UGCount" (a fighter
+	is down: the count), "UGRound" (the round's card), "UGRematch" (the other fighter asked).
 ]]
 
 local Players = game:GetService("Players")
@@ -220,24 +228,174 @@ function UndergroundService:PrepareFighter(match, player: Player)
 	model:SetAttribute("UGFighter", true)
 	-- (the two fighters collide with each other: Nightmares normally walk through one another)
 	self.Services.WorldBuilder.SetCollisionGroup(model, self.Services.WorldBuilder.CollisionGroups.UGFighters)
-	self.Services.UndergroundFightService:Register(model, player) -- (fresh stamina, no guard)
-	-- (once per body: a body kept from the round before mustn't count a knockdown twice; the
-	-- match is looked up when it happens, not kept from the first one)
-	if model:GetAttribute("UGWatched") then
+	-- (fresh stamina, no guard; it reports knockdowns back here: UndergroundService:Knockdown)
+	self.Services.UndergroundFightService:Register(model, player)
+end
+
+------------------------------------------------------------------------------------------
+-- The scorecard (Config.Underground Score)
+------------------------------------------------------------------------------------------
+local STAT_KEYS = { "Thrown", "Landed", "Power", "Counters", "Parries", "Slips", "Combos", "Knockdowns", "Damage" }
+
+local function blankStats()
+	local stats = {}
+	for _, key in STAT_KEYS do
+		stats[key] = 0
+	end
+	return stats
+end
+
+local function liveMatch(self, player: Player?)
+	local match = player and self.Services.DuelService:GetMatch(player)
+	if match and match.Mode == "Underground" and match.State == "Live" and match.UG then
+		return match
+	end
+	return nil
+end
+
+-- Something `player` did this round (UndergroundFightService): only counted while it's live.
+function UndergroundService:Stat(player: Player, key: string, amount: number?)
+	local match = liveMatch(self, player)
+	if match then
+		local stats = match.UG.Stats[match.Side[player]]
+		stats[key] = (stats[key] or 0) + (amount or 1)
+	end
+end
+
+-- What a round's work is worth to the judge.
+local function pointsOf(stats): number
+	local S = UG.Score
+	return stats.Damage + stats.Landed * S.Landed + stats.Counters * S.Counter + stats.Parries * S.Parry + stats.Slips * S.Slip
+		+ stats.Combos * S.Combo + stats.Knockdowns * S.Knockdown
+end
+
+-- A fighter went down (UndergroundFightService:OnKnockdown). info = { Count (its knockdowns
+-- this round), Duration, TKO = "ThreeKnockdowns" | "Count" | nil, Move }.
+function UndergroundService:Knockdown(downed: Player, by: Player?, info)
+	local match = liveMatch(self, downed)
+	if not match then
 		return
 	end
-	model:SetAttribute("UGWatched", true)
-	model:GetAttributeChangedSignal("Ragdolled"):Connect(function()
-		local now = self.Services.DuelService:GetMatch(player)
-		local ug = now and now.Mode == "Underground" and now.UG
-		local side = now and now.Side[player]
-		if ug and side and model:GetAttribute("Ragdolled") and now.State == "Live" and humanoid.Health > 0 and not model:GetAttribute("UGKO") then
-			match = now
-			-- (a knockdown scores for the other side)
-			ug.Knockdowns[3 - side] += 1
-			self.Services.DuelService:Broadcast(match, "Banner", { Title = "KNOCKDOWN!", Subtitle = string.upper(player.DisplayName) .. " IS DOWN" })
+	local duel = self.Services.DuelService
+	local side = match.Side[downed]
+	match.UG.Stats[3 - side].Knockdowns += 1
+	match.UG.Downs[side] += 1
+	if info.TKO then
+		-- the fight is stopped
+		match.UG.Finish = { Move = info.Move, Stop = info.TKO }
+		duel:EndRound(match, 3 - side, "TKO")
+		return
+	end
+	duel:Broadcast(match, "Banner", { Title = "KNOCKDOWN!", Subtitle = ("%s IS DOWN  ·  %s"):format(string.upper(downed.DisplayName), info.Move or "") })
+	-- (the count, on both HUDs, until it's back on its feet)
+	duel:Broadcast(match, "UGCount", {
+		UserId = downed.UserId, Duration = info.Duration, Interval = UG.Knockdown.CountInterval,
+		Count = info.Count, Left = UG.TKO.Knockdowns - info.Count,
+	})
+end
+
+-- The blow that knocked a fighter out (UndergroundFightService:NoteFinish).
+function UndergroundService:Finish(by: Player, move: string)
+	local match = liveMatch(self, by)
+	if match then
+		match.UG.Finish = { Move = move }
+	end
+end
+
+-- The round is over (DuelService:EndRound): work out the judge's card and keep it for the
+-- match. Returns the card: { Round, Winner (side?), Method, Move, Points, Judge, Stats }.
+function UndergroundService:RecordRound(match, winnerSide: number?, reason: string)
+	local ug = match.UG or { Stats = { blankStats(), blankStats() }, Downs = { 0, 0 } }
+	local points = { pointsOf(ug.Stats[1]), pointsOf(ug.Stats[2]) }
+	local method = (reason == "NightmareDefeated" and "KO") or (reason == "TKO" and "TKO") or (reason == "Decision" and (winnerSide and "DEC" or "DRAW")) or reason
+	local judge = { 10, 10 }
+	if winnerSide then
+		-- ten to the winner; nine to the loser, less a point for every time it was floored
+		judge[3 - winnerSide] = math.max(7, 9 - ug.Downs[3 - winnerSide])
+	end
+	local card = {
+		Round = match.Round, Winner = winnerSide, Method = method, Move = ug.Finish and ug.Finish.Move or nil, Stop = ug.Finish and ug.Finish.Stop or nil,
+		Points = points, Judge = judge, Stats = ug.Stats,
+	}
+	local whole = match.UGMatch
+	if not whole then
+		whole = { Rounds = {}, Stats = { blankStats(), blankStats() }, Points = { 0, 0 } }
+		match.UGMatch = whole
+	end
+	table.insert(whole.Rounds, card)
+	for side = 1, 2 do
+		whole.Points[side] += points[side]
+		for _, key in STAT_KEYS do
+			whole.Stats[side][key] += ug.Stats[side][key]
 		end
-	end)
+	end
+	return card
+end
+
+-- After a round: is the match over? Returns over, winning side (nil = a draw), why.
+function UndergroundService:Verdict(match)
+	local needed = math.ceil(match.BestOf / 2)
+	for side = 1, 2 do
+		if match.Score[side] >= needed then
+			return true, side, "Score"
+		end
+	end
+	if match.Round < match.BestOf then
+		return false
+	end
+	-- every round fought and nobody has two: rounds won, then the judge's points for the match
+	if match.Score[1] ~= match.Score[2] then
+		return true, match.Score[1] > match.Score[2] and 1 or 2, "Score"
+	end
+	local points = match.UGMatch and match.UGMatch.Points or { 0, 0 }
+	if math.abs(points[1] - points[2]) <= UG.DrawMargin then
+		return true, nil, "Draw"
+	end
+	return true, points[1] > points[2] and 1 or 2, "Scorecards"
+end
+
+-- What `player` sees on the results screen (DuelService:EndMatch "MatchEnd").
+function UndergroundService:Results(match, player: Player, winnerSide: number?, reason: string)
+	local side = match.Side[player]
+	local other = 3 - side
+	local whole = match.UGMatch or { Rounds = {}, Stats = { blankStats(), blankStats() }, Points = { 0, 0 } }
+	local last = whole.Rounds[#whole.Rounds]
+	local method = "DECISION"
+	if reason == "Forfeit" or reason == "Left" then
+		method = reason == "Forfeit" and "FORFEIT" or "OPPONENT LEFT"
+	elseif not winnerSide then
+		method = "DRAW"
+	elseif last and last.Winner == winnerSide and (last.Method == "KO" or last.Method == "TKO") then
+		method = last.Method == "KO" and "KNOCKOUT" or "TKO"
+	elseif reason == "Scorecards" then
+		method = "THE SCORECARDS"
+	elseif winnerSide and match.Score[winnerSide] < math.ceil(match.BestOf / 2) then
+		method = "ROUNDS WON" -- (every round fought: more of them won, not two)
+	end
+	local rounds = {}
+	for _, card in whole.Rounds do
+		table.insert(rounds, {
+			Round = card.Round, Method = card.Method, Move = card.Move,
+			Result = (card.Winner == nil and "Draw") or (card.Winner == side and "Win" or "Loss"),
+			Mine = card.Judge[side], Theirs = card.Judge[other],
+		})
+	end
+	local winner = winnerSide and match.Teams[winnerSide][1]
+	local winnerBody = winner and fighterOf(self, winner)
+	local profile = self.Services.PlayerDataService:Get(player)
+	return {
+		Method = method,
+		Move = last and (last.Method == "KO" or last.Method == "TKO") and last.Move or nil,
+		Stop = last and last.Stop or nil,
+		FinalRound = last and last.Round or match.Round,
+		WinnerName = winner and winner.DisplayName or nil,
+		WinnerUserId = winner and winner.UserId or nil,
+		WinnerNightmare = winnerBody and winnerBody:GetAttribute("NightmareName") or nil,
+		Rounds = rounds,
+		Mine = whole.Stats[side], Theirs = whole.Stats[other],
+		MyPoints = math.floor(whole.Points[side] + 0.5), TheirPoints = math.floor(whole.Points[other] + 0.5),
+		Record = profile and profile.Underground or nil,
+	}
 end
 
 local function setFrozen(self, match, frozen: boolean)
@@ -253,7 +411,8 @@ end
 
 -- Countdown: everyone in control of their Nightmare, frozen in their corner.
 function UndergroundService:BeginCountdown(match)
-	match.UG = { Points = { [1] = 0, [2] = 0 }, Knockdowns = { [1] = 0, [2] = 0 }, Landed = { [1] = 0, [2] = 0 } }
+	-- (this round's work: what each side did, and how often each was floored)
+	match.UG = { Stats = { blankStats(), blankStats() }, Downs = { 0, 0 } }
 	setFrozen(self, match, true)
 	-- (the new bodies were just put in their corners: let that reach the clients before they
 	-- take over the physics, or a client still holding the old spot drags it back)
@@ -279,21 +438,148 @@ function UndergroundService:Freeze(match)
 	setFrozen(self, match, true)
 end
 
--- The bell: the winning side on points (damage + knockdowns), nil when it's too close.
+-- The bell: the winning side on the judge's points, nil when it's too close to call.
 function UndergroundService:Decide(match): number?
 	local ug = match.UG
 	if not ug then
 		return nil
 	end
-	local score = {}
-	for side = 1, 2 do
-		score[side] = ug.Points[side] + ug.Knockdowns[side] * UG.KnockdownPoints
-	end
-	match.UG.Scorecard = score
-	if math.abs(score[1] - score[2]) <= UG.DrawMargin then
+	local a, b = pointsOf(ug.Stats[1]), pointsOf(ug.Stats[2])
+	if math.abs(a - b) <= UG.DrawMargin then
 		return nil
 	end
-	return score[1] > score[2] and 1 or 2
+	return a > b and 1 or 2
+end
+
+-- The round has ended (DuelService:EndRound, already RoundOver): everyone stops, the card
+-- goes up, the players let go of their Nightmares (after the knockout camera, on a stoppage)
+-- and the fighters still standing go back to their corners to get their breath.
+function UndergroundService:EndRound(match, winnerSide: number?, reason: string)
+	local duel = self.Services.DuelService
+	local ai = self.Services.NightmareAIService
+	setFrozen(self, match, true)
+	local card = self:RecordRound(match, winnerSide, reason)
+	local stoppage = reason == "NightmareDefeated" or reason == "TKO"
+	local token = match.Token
+
+	local function act(player: Player, action: string, duration: number)
+		local model = fighterOf(self, player)
+		local brain = model and ai:GetBrainByModel(model)
+		local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+		if brain and humanoid and humanoid.Health > 0 and not model:GetAttribute("Ragdolled") then
+			ai:PlayAction(brain, action, 0, duration)
+		end
+	end
+	local function release()
+		if match.Token ~= token then
+			return
+		end
+		for _, player in match.Players do
+			self.Services.PossessionService:End(player, "RoundOver")
+		end
+		if stoppage then
+			return -- (the winner stays over the fighter it stopped)
+		end
+		for _, player in match.Players do
+			local model = fighterOf(self, player)
+			local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 and not model:GetAttribute("Ragdolled") and player.Parent and not match.Left[player] then
+				self.Services.NightmareSpawnService:TeleportNightmare(player, match.Arena.Starts[match.Side[player]])
+				act(player, "Gym_Rest", 3.2)
+			end
+		end
+	end
+	if stoppage then
+		-- the winner celebrates where it stands while the camera stays on the body going down
+		if winnerSide then
+			act(match.Teams[winnerSide][1], "UG_Victory", 2.6)
+		end
+		task.delay(UG.KOCamTime, release)
+	else
+		release()
+	end
+
+	-- the call
+	local winnerName = winnerSide and string.upper(match.TeamNames[winnerSide]) or nil
+	local title, subtitle
+	if reason == "NightmareDefeated" then
+		title = "KNOCKOUT!"
+		subtitle = ("%s%s WINS ROUND %d"):format(card.Move and (card.Move .. " KNOCKOUT  ·  ") or "", winnerName or "", match.Round)
+	elseif reason == "TKO" then
+		title = "TKO!"
+		subtitle = ("%s  ·  %s WINS ROUND %d"):format(card.Stop == "ThreeKnockdowns" and "THREE KNOCKDOWNS: THE FIGHT IS STOPPED" or "IT CAN'T BEAT THE COUNT", winnerName or "", match.Round)
+	elseif reason == "Decision" then
+		title = winnerSide and "DECISION" or "ROUND DRAWN"
+		subtitle = winnerSide and ("%s TAKES ROUND %d  ·  %d — %d"):format(winnerName, match.Round, card.Judge[winnerSide], card.Judge[3 - winnerSide])
+			or "Too close to call  ·  10 — 10"
+	else
+		title = winnerSide and (winnerName .. " WINS THE ROUND") or "ROUND DRAWN"
+		subtitle = reason == "Left" and "The other fighter left." or reason == "Forfeit" and "Opponent forfeited." or ""
+	end
+	duel:Broadcast(match, "Banner", { Title = title, Subtitle = subtitle })
+	-- the scorecard, each player's own side first (deferred: the blow that ended the round is
+	-- still being dealt, and it belongs on the card)
+	task.defer(function()
+		local points = { pointsOf(card.Stats[1]), pointsOf(card.Stats[2]) }
+		for _, player in match.Players do
+			if player.Parent then
+				local side = match.Side[player]
+				duel.DuelEvent:FireClient(player, "UGRound", {
+					Round = card.Round, Method = card.Method, Move = card.Move, Stoppage = stoppage,
+					Result = (winnerSide == nil and "Draw") or (winnerSide == side and "Win" or "Loss"),
+					WinnerUserId = winnerSide and match.Teams[winnerSide][1].UserId or nil,
+					LoserUserId = winnerSide and match.Teams[3 - winnerSide][1].UserId or nil,
+					Mine = card.Stats[side], Theirs = card.Stats[3 - side],
+					MyJudge = card.Judge[side], TheirJudge = card.Judge[3 - side],
+					MyPoints = math.floor(points[side] + 0.5), TheirPoints = math.floor(points[3 - side] + 0.5),
+					CamTime = stoppage and UG.KOCamTime or nil,
+					ShowFor = UG.BetweenRoundsTime,
+				})
+			end
+		end
+	end)
+end
+
+------------------------------------------------------------------------------------------
+-- After the match: REMATCH (both have to ask) or QUEUE AGAIN (DuelRequest "UGAfter")
+------------------------------------------------------------------------------------------
+function UndergroundService:After(player: Player, choice)
+	local match = self.Services.DuelService:GetMatch(player)
+	if not match or match.Mode ~= "Underground" or match.State ~= "Ended" or (choice ~= "Rematch" and choice ~= "Queue" and choice ~= "None") then
+		return { Ok = false, Error = "The fight isn't over." }
+	end
+	match.UGAfter = match.UGAfter or {}
+	match.UGAfter[player] = choice ~= "None" and choice or nil
+	if choice == "Rematch" then
+		local other = match.Teams[3 - match.Side[player]][1]
+		if other and other.Parent then
+			self.Services.DuelService.DuelEvent:FireClient(other, "UGRematch", { From = player.DisplayName, Both = match.UGAfter[other] == "Rematch" })
+		end
+	end
+	return { Ok = true, Both = choice == "Rematch" and match.UGAfter[match.Teams[3 - match.Side[player]][1]] == "Rematch" }
+end
+
+-- Both players are back at the Forge (DuelService:Cleanup): start what they asked for.
+function UndergroundService:AfterCleanup(match)
+	local wants = match.UGAfter
+	if not wants then
+		return
+	end
+	local a, b = match.Players[1], match.Players[2]
+	task.defer(function()
+		if a and b and a.Parent and b.Parent and wants[a] == "Rematch" and wants[b] == "Rematch" then
+			local result = self.Services.DuelService:StartMatch(a, b, UG.BestOf, { Mode = "Underground" })
+			if result.Ok then
+				return
+			end
+		end
+		-- (a rematch nobody answered goes back in the queue too)
+		for _, player in { a, b } do
+			if player and player.Parent and wants[player] and not table.find(queue, player) then
+				self:Join(player)
+			end
+		end
+	end)
 end
 
 ------------------------------------------------------------------------------------------
@@ -379,16 +665,37 @@ function UndergroundService:Start()
 	local duel = self.Services.DuelService
 
 	-- the decision: what each side landed on the other's Nightmare during a live round
-	self.Services.CombatService:OnDamaged(function(target, attacker, amount)
-		if not attacker or amount <= 0 or not target:GetAttribute("UGFighter") then
+	-- (clean blows only: one that was blocked scores nothing)
+	self.Services.CombatService:OnDamaged(function(target, attacker, amount, params)
+		if not attacker or amount <= 0 or not target:GetAttribute("UGFighter") or params.WasGuarded then
+			return
+		end
+		-- (strikes, abilities and Ultimates: not a passive's splinters or a burn ticking)
+		local source = params.Source or ""
+		if not params.Move and source:sub(1, 8) ~= "Ability:" and source:sub(1, 9) ~= "Ultimate:" then
 			return
 		end
 		local owner = self.Services.CombatService:GetOwnerPlayer(attacker)
-		local match = owner and duel:GetMatch(owner)
-		if match and match.Mode == "Underground" and match.State == "Live" and match.UG and duel:IsOpponentModel(owner, target) then
+		local match = liveMatch(self, owner)
+		-- (the blow that ends the round may already have ended it by now: it still counts,
+		-- on the round's card and the match's)
+		local late = false
+		if not match and owner then
+			local ended = duel:GetMatch(owner)
+			match = ended and ended.Mode == "Underground" and ended.State == "RoundOver" and ended.UG and ended or nil
+			late = match ~= nil
+		end
+		if match and duel:GetMatch(self.Services.CombatService:GetOwnerPlayer(target)) == match and attacker ~= target then
 			local side = match.Side[owner]
-			match.UG.Points[side] += amount
-			match.UG.Landed[side] += 1
+			local power = params.Move and params.Move.Power and 1 or 0
+			for _, stats in { match.UG.Stats[side], late and match.UGMatch and match.UGMatch.Stats[side] or nil } do
+				stats.Damage += amount
+				stats.Landed += 1
+				stats.Power += power
+			end
+			if late and match.UGMatch then
+				match.UGMatch.Points[side] += amount + UG.Score.Landed
+			end
 		end
 	end)
 

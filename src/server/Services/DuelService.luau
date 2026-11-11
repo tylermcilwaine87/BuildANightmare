@@ -731,22 +731,7 @@ function DuelService:EndRound(match, winnerSide: number?, reason: string)
 		match.Score[winnerSide] += 1
 	end
 	local underground = match.Mode == "Underground"
-	if underground then
-		-- the bell: nobody moves; the loser stays down where they fell
-		self.Services.UndergroundService:Freeze(match)
-	end
-	if underground and reason == "NightmareDefeated" then
-		-- a knockout: the winner keeps the fight camera on the body going down for a moment
-		-- (frozen, nothing can be thrown) before going back to the corner
-		local token = match.Token
-		task.delay(2.5, function()
-			if match.Token == token then
-				for _, player in match.Players do
-					self.Services.PossessionService:End(player, "RoundOver")
-				end
-			end
-		end)
-	else
+	if not underground then
 		for _, player in match.Players do
 			self.Services.PossessionService:End(player, "RoundOver")
 		end
@@ -760,18 +745,9 @@ function DuelService:EndRound(match, winnerSide: number?, reason: string)
 		Forfeit = "Opponent forfeited.",
 	})[reason] or reason
 	if underground then
-		local card = match.UG and match.UG.Scorecard
-		local cardText = card and ("Scorecard  %d — %d"):format(math.floor(card[1] + 0.5), math.floor(card[2] + 0.5)) or ""
-		local title, subtitle
-		if reason == "NightmareDefeated" then
-			title, subtitle = "KNOCKOUT!", winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " WINS ROUND " .. match.Round) or ""
-		elseif reason == "Decision" then
-			title = winnerSide and "DECISION" or "ROUND DRAWN"
-			subtitle = (winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " TAKES ROUND " .. match.Round .. "  ·  ") or "Too close to call  ·  ") .. cardText
-		else
-			title, subtitle = winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " WINS THE ROUND") or "ROUND DRAWN", reasonText
-		end
-		self:Broadcast(match, "Banner", { Title = title, Subtitle = subtitle })
+		-- the bell: nobody moves, the call, the judge's card, the knockout camera, back to the
+		-- corners (UndergroundService)
+		self.Services.UndergroundService:EndRound(match, winnerSide, reason)
 	else
 		self:Broadcast(match, "Banner", { Title = winnerSide and (string.upper(match.TeamNames[winnerSide]) .. " WINS THE ROUND") or "ROUND DRAWN", Subtitle = reasonText })
 	end
@@ -781,6 +757,16 @@ function DuelService:EndRound(match, winnerSide: number?, reason: string)
 	local token = match.Token
 	task.delay(timing(match, "BetweenRoundsTime"), function()
 		if match.Token ~= token or match.State ~= "RoundOver" then
+			return
+		end
+		if underground then
+			-- (its own rule: at most BestOf rounds, then rounds won, then the scorecards)
+			local over, side, why = self.Services.UndergroundService:Verdict(match)
+			if over then
+				self:EndMatch(match, side, why)
+			else
+				self:BeginPrep(match)
+			end
 			return
 		end
 		for side = 1, 2 do
@@ -848,7 +834,9 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 					Rewards = summary,
 					RewardNote = (not eligible) and (duration < PVP.MinMatchSecondsForRewards and "Match too short for rewards." or "Hourly reward limit reached.") or nil,
 					Ranked = ratingChanges[player], -- { Old, New, Delta } for ranked matches
-					ReturnIn = PVP.ResultsTime,
+					ReturnIn = timing(match, "ResultsTime"),
+					-- (NIGHTMARE UNDERGROUND: how it ended, the round cards, both fighters' numbers)
+					Underground = match.Mode == "Underground" and self.Services.UndergroundService:Results(match, player, winnerSide, reason) or nil,
 				})
 				local kind = match.Mode == "Underground" and "Underground" or match.Ranked and "Ranked" or (match.TeamSize > 1 and ("Team%dv%d"):format(match.TeamSize, match.TeamSize) or "Casual")
 				self.Services.GameAnalyticsService:Event(player, "DuelEnd", math.floor(duration), { kind, result, reason })
@@ -856,7 +844,7 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 		end
 	end
 
-	task.delay(PVP.ResultsTime, function()
+	task.delay(timing(match, "ResultsTime"), function()
 		self:Cleanup(match)
 	end)
 end
@@ -891,6 +879,7 @@ function DuelService:Cleanup(match)
 	matches[match.Id] = nil
 	if match.Mode == "Underground" then
 		self.Services.UndergroundService:ReleaseArena(match.Slot)
+		self.Services.UndergroundService:AfterCleanup(match) -- (a rematch, or back in the queue)
 	else
 		slotInUse[match.Slot] = nil
 	end
@@ -1038,6 +1027,8 @@ function DuelService:Start()
 			return { Ok = true }
 		elseif action == "QueueRanked" then
 			return self.Services.RankedService:Join(player)
+		elseif action == "UGAfter" then
+			return self.Services.UndergroundService:After(player, a1) -- (REMATCH / QUEUE AGAIN)
 		elseif action == "LeaveQueue" then
 			self.Services.RankedService:Leave(player, "You stopped searching.")
 			return { Ok = true }

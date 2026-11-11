@@ -2073,10 +2073,28 @@ local UG = {
 			pose(0.45),
 		},
 	},
+	-- VICTORY (the winner, over a fighter it has stopped): both fists thrown up, chest out,
+	-- head back and roaring; pumped twice, turning to the crowd; back to its stance
+	UG_Victory = {
+		Duration = 2.6,
+		Curve = "Spline",
+		Markers = { { 0.5, "StepL" }, { 1.25, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.22, { Joint_CorePos = { 0, 0.02, 0.05 }, Joint_Core = { -10, 0, 0 }, Joint_Legs = { 10, 0, 0 }, Joint_Head = { -6, 0, 0 }, Joint_RightArm = { 40, 0, -20 }, Sub_RightArm_Fore = { 110, 0, 0 }, Joint_LeftArm = { 40, 0, 20 }, Sub_LeftArm_Fore = { 110, 0, 0 } }),
+			pose(0.5, { Joint_CorePos = { 0, 0.25, 0.1 }, Joint_Core = { 14, 0, 0 }, Joint_Legs = { -6, 0, 0 }, Joint_Head = { 22, 0, 0 }, Sub_Head_Jaw = { -40, 0, 0 }, Joint_RightArm = { 165, 0, 26 }, Sub_RightArm_Fore = { 18, 0, 0 }, Joint_LeftArm = { 165, 0, -26 }, Sub_LeftArm_Fore = { 18, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } }),
+			pose(0.9, { Joint_CorePos = { 0, 0.05, 0.05 }, Joint_Core = { 6, 12, 0 }, Joint_Legs = { -2, -12, 0 }, Joint_Head = { 10, 8, 0 }, Sub_Head_Jaw = { -14, 0, 0 }, Joint_RightArm = { 138, 0, 20 }, Sub_RightArm_Fore = { 62, 0, 0 }, Joint_LeftArm = { 138, 0, -20 }, Sub_LeftArm_Fore = { 62, 0, 0 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } }),
+			pose(1.25, { Joint_CorePos = { 0, 0.28, 0.1 }, Joint_Core = { 16, 22, 0 }, Joint_Legs = { -6, -22, 0 }, Joint_Head = { 24, 10, 0 }, Sub_Head_Jaw = { -44, 0, 0 }, Joint_RightArm = { 168, 0, 28 }, Sub_RightArm_Fore = { 14, 0, 0 }, Joint_LeftArm = { 168, 0, -28 }, Sub_LeftArm_Fore = { 14, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } }),
+			pose(1.65, { Joint_CorePos = { 0, 0.05, 0.05 }, Joint_Core = { 6, -14, 0 }, Joint_Legs = { -2, 14, 0 }, Joint_Head = { 10, -10, 0 }, Sub_Head_Jaw = { -14, 0, 0 }, Joint_RightArm = { 138, 0, 20 }, Sub_RightArm_Fore = { 62, 0, 0 }, Joint_LeftArm = { 138, 0, -20 }, Sub_LeftArm_Fore = { 62, 0, 0 }, Sub_Legs_L = { 10, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } }),
+			pose(2.0, { Joint_CorePos = { 0, 0.26, 0.1 }, Joint_Core = { 14, -20, 0 }, Joint_Legs = { -6, 20, 0 }, Joint_Head = { 22, -10, 0 }, Sub_Head_Jaw = { -40, 0, 0 }, Joint_RightArm = { 165, 0, 26 }, Sub_RightArm_Fore = { 18, 0, 0 }, Joint_LeftArm = { 165, 0, -26 }, Sub_LeftArm_Fore = { 18, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -6, 0, 0 } }),
+			pose(2.35, { Joint_CorePos = { 0, 0.08, 0.02 }, Joint_Core = { -2, -6, 0 }, Joint_Legs = { 2, 6, 0 } }),
+			pose(2.6),
+		},
+	},
 }
 local UGPoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))
 for name, def in UG do
-	if name ~= "UG_Feint" then
+	if name ~= "UG_Feint" and name ~= "UG_Victory" then
 		POSES.Common[name] = UGPoseTools.Punch(def, 0.3)
 	else
 		POSES.Common[name] = def
@@ -2104,7 +2122,7 @@ for name, def in ULTIMATE do
 	POSES.Common[name] = def
 end
 -- (every ability and Ultimate on a four-legged body: its quadruped variant, found before Common)
-local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true, UG_Parried = true, UG_Feint = true }
+local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true, UG_Parried = true, UG_Feint = true, UG_Victory = true }
 for name, def in POSES.Common do
 	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" or RING_CLIPS[name] then
 		POSES.Quadruped[name] = forQuadruped(def)

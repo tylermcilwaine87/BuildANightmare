@@ -590,12 +590,22 @@ function PvPController:Start()
 		elseif kind == "Banner" then
 			self:Banner(data.Title or "", data.Subtitle)
 		elseif kind == "MatchEnd" then
-			self:ShowResults(data)
+			if data.Underground then
+				controllers.UndergroundController:ShowResults(data) -- (its own results screen)
+			else
+				self:ShowResults(data)
+			end
 		elseif kind == "Queue" then
 			queueState = data
 			self:RefreshRanked()
 		elseif kind == "UGQueue" then
 			controllers.UndergroundController:SetQueue(data)
+		elseif kind == "UGCount" then
+			controllers.UndergroundController:Count(data)
+		elseif kind == "UGRound" then
+			controllers.UndergroundController:RoundCard(data)
+		elseif kind == "UGRematch" then
+			controllers.UndergroundController:RematchAsked(data)
 		end
 	end)
 

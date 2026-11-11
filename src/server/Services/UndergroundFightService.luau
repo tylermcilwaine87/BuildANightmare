@@ -39,6 +39,8 @@ local UndergroundFightService = {}
 
 local F = Config.Underground.Fight
 local S = F.Stamina
+local KD = Config.Underground.Knockdown
+local TKO = Config.Underground.TKO
 local SLIP_ACTIONS = { Left = "Slip_L", Right = "Slip_R", Back = "PullBack", In = "RollUnder" }
 
 local fighters: { [Model]: any } = {} -- [body] = its fight state
@@ -60,6 +62,8 @@ local function newState(player: Player)
 		LastGuardPress = -math.huge,
 		GuardLow = false,
 		Current = nil, -- the strike being thrown: { Def, Seq, HitAt, Token }
+		Downs = 0, -- times floored this round (a fresh state every round)
+		GraceUntil = 0, -- just back up: can't be hit until then
 	}
 end
 
@@ -81,9 +85,101 @@ end
 -- A fresh fighter (UndergroundService:PrepareFighter, and every round's countdown).
 function UndergroundFightService:Register(model: Model, player: Player)
 	local state = newState(player)
+	local known = fighters[model] ~= nil
 	fighters[model] = state
 	model:SetAttribute("GuardLow", nil)
 	publish(model, state)
+	-- back on its feet after a knockdown: a moment to get up (nothing thrown), and it can't
+	-- be hit until it's ready (once per body)
+	if not known and not model:GetAttribute("UGGetUpWatched") then
+		model:SetAttribute("UGGetUpWatched", true)
+		model:GetAttributeChangedSignal("Ragdolled"):Connect(function()
+			local current = fighters[model]
+			if current and not model:GetAttribute("Ragdolled") then
+				local now = os.clock()
+				current.GraceUntil = now + KD.GetUpTime + KD.GraceAfter
+				local brain = self.Services.NightmareAIService:GetBrainByModel(model)
+				if brain then
+					brain.busyUntil = math.max(brain.busyUntil, now + KD.GetUpTime)
+					brain.cancelableAt = brain.busyUntil
+				end
+			end
+		end)
+	end
+end
+
+-- Counts something for the scorecard (UndergroundService:Stat: only in a live round).
+local function stat(self, player: Player?, key: string, amount: number?)
+	if player then
+		self.Services.UndergroundService:Stat(player, key, amount or 1)
+	end
+end
+
+------------------------------------------------------------------------------------------
+-- Knockdowns and stoppages (Config.Underground Knockdown / TKO)
+------------------------------------------------------------------------------------------
+-- Does this blow floor `target`? Called by CombatService for every blow that did damage to a
+-- fighter still on its feet. Returns false, or { Duration, TKO = reason?, Move, Why }.
+function UndergroundFightService:KnockdownRule(attacker: Model?, target: Model, params, guarded: boolean)
+	local state = fighters[target]
+	local humanoid = target:FindFirstChildOfClass("Humanoid")
+	if not state or not attacker or not humanoid or guarded or params.NoKnockdown or target:GetAttribute("Ragdolled") then
+		return false
+	end
+	local move = params.Move
+	local source = params.Source or ""
+	-- a power shot: one of the fight's own, or a Heavy from an ability / Ultimate
+	local power = (move and move.Power) or (params.Heavy and (source:sub(1, 8) == "Ability:" or source:sub(1, 9) == "Ultimate:"))
+	if not power then
+		return false
+	end
+	local health = humanoid.Health / math.max(humanoid.MaxHealth, 1)
+	local why = (params.Launch and params.Thrown and "Launcher") or (params.UGCounter and "Counter") or (state.Gassed and "Gassed")
+		or (health <= KD.HurtHealth and "Hurt") or nil
+	if not why then
+		return false
+	end
+	local downs = state.Downs + 1
+	local stop = (downs >= TKO.Knockdowns and "ThreeKnockdowns") or (health <= TKO.StopHealth and "Count") or nil
+	return {
+		Duration = stop and (Config.Underground.BetweenRoundsTime + 3) or (KD.DownTime + KD.DownTimeStep * state.Downs),
+		TKO = stop,
+		Why = why,
+		Move = move and move.Display or "POWER SHOT",
+		Body = move ~= nil and move.Height == "Body",
+	}
+end
+
+-- It went down (CombatService, once the ragdoll has started).
+function UndergroundFightService:OnKnockdown(attacker: Model, target: Model, rule)
+	local state = fighters[target]
+	if not state then
+		return
+	end
+	state.Downs += 1
+	state.Chain = ""
+	state.Current = nil
+	state.Buffered = nil
+	state.GuardWanted = false
+	self.Services.BlockService:Release(target)
+	local attackerState = fighters[attacker]
+	if rule.TKO then
+		target:SetAttribute("UGKO", true) -- (it stays down: the fight's been stopped)
+	end
+	self.Services.UndergroundService:Knockdown(state.Player, attackerState and attackerState.Player, {
+		Count = state.Downs, Duration = rule.Duration, TKO = rule.TKO, Move = rule.Move, Why = rule.Why,
+	})
+end
+
+-- The blow that finished it (CombatService, just before the health goes): what kind of
+-- knockout it was, for the call and the results.
+function UndergroundFightService:NoteFinish(attacker: Model?, target: Model, params)
+	local state = fighters[target]
+	local attackerState = attacker and fighters[attacker]
+	if state and attackerState then
+		local move = params.Move
+		self.Services.UndergroundService:Finish(attackerState.Player, move and move.Display or "POWER SHOT")
+	end
 end
 
 function UndergroundFightService:IsFighter(model: Model?): boolean
@@ -177,6 +273,7 @@ function UndergroundFightService:Throw(player: Player, brain, state, kind: strin
 		return false
 	end
 	spend(brain.model, state, def.Cost, now)
+	stat(self, player, "Thrown")
 	-- the next press comes as soon as this strike has landed and recovered
 	local speedScale = 100 / brain.stats.AttackSpeed
 	brain.busyUntil = now + (def.Hits[#def.Hits][1] + def.Recovery) * speedScale
@@ -318,6 +415,7 @@ function UndergroundFightService:Parried(attacker: Model, target: Model, targetS
 	targetState.CounterUntil = now + F.CounterWindow
 	gain(target, targetState, F.Parry.StaminaGain)
 	self:Callout(target, "PARRY!", "Good")
+	stat(self, targetState.Player, "Parries")
 	local position = target:GetPivot().Position
 	Net.FireNearby(self.Feedback, position, Config.Performance.EffectRadius, "Parried", { Target = target, Attacker = attacker, Position = position })
 end
@@ -369,12 +467,17 @@ function UndergroundFightService:Incoming(attacker: Model?, target: Model, amoun
 	local now = os.clock()
 	local attackerState = fighters[attacker]
 	local block = self.Services.BlockService
+	-- DOWN, or only just back up: nobody hits a fighter on the floor
+	if target:GetAttribute("Ragdolled") or now < targetState.GraceUntil then
+		return 0
+	end
 	-- SLIPPED: it went past the head
 	if now < targetState.SlipUntil then
 		if not targetState.SlipCredited then
 			targetState.SlipCredited = true
 			targetState.CounterUntil = now + F.CounterWindow
 			self:Callout(target, "SLIPPED", "Good")
+			stat(self, targetState.Player, "Slips")
 		end
 		return 0
 	end
@@ -423,6 +526,7 @@ function UndergroundFightService:Start()
 		if attackerState and not params.WasGuarded then
 			if params.UGCounter then
 				self:Callout(attacker, "COUNTER!", "Good")
+				stat(self, attackerState.Player, "Counters")
 			end
 			local current = attackerState.Current
 			if current and move == current.Def and not current.Called then
@@ -430,6 +534,7 @@ function UndergroundFightService:Start()
 				local name = F.Names[current.Seq]
 				if name then
 					self:Callout(attacker, name, "Combo")
+					stat(self, attackerState.Player, "Combos")
 				end
 			end
 		end

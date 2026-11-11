@@ -878,11 +878,31 @@ Config.Underground = {
 	PrepTime = 10, -- pick the Nightmare you'll fight as (PvP-legal builds)
 	CountdownTime = 4, -- in your corner, in control, frozen until FIGHT
 	RoundTime = 90, -- then a decision
-	BetweenRoundsTime = 5, -- the knocked-out body stays down this long
-	-- every fighter has the same health: a build changes HOW it fights, not how long it lasts
+	BetweenRoundsTime = 7, -- the scorecard is up, the knocked-out body stays down this long
+	KOCamTime = 2.6, -- after a knockout: the fight camera stays on the body going down
+	ResultsTime = 14, -- the results screen, before both players go back to the Forge
+	-- every fighter has the same health (and starts every round fresh): a build changes HOW
+	-- it fights, not how long it lasts
 	FighterHealth = 600,
-	-- the decision when time runs out: damage landed, plus this much per knockdown scored
-	-- (a round within DrawMargin points is drawn)
+
+	-- THE RULES (shown to players: UndergroundController's rules line)
+	--   A match is at most BestOf rounds; the first to win 2 wins. A drawn round still counts.
+	--   If nobody has 2 after the last round: more rounds won wins; level on rounds, the judge's
+	--   points over the whole match decide; within DrawMargin of each other, the match is a DRAW.
+
+	-- KNOCKDOWNS are earned, never random (UndergroundFightService:KnockdownRule). A CLEAN power
+	-- shot (not blocked) floors a fighter when it's a COUNTER, when they're GASSED, when they're
+	-- HURT (health under HurtHealth), or when it's the LAUNCHER. They're down for the count
+	-- (DownTime, + DownTimeStep for each earlier knockdown that round) and can't be hit while
+	-- down or for GraceAfter once they're up.
+	Knockdown = { HurtHealth = 0.35, DownTime = 2.4, DownTimeStep = 0.6, GraceAfter = 1.0, GetUpTime = 0.9, CountInterval = 0.6 },
+	-- TKO: the fight is stopped on a fighter's 3rd knockdown in a round, or on any knockdown
+	-- that leaves it under StopHealth of its health (it can't beat the count).
+	TKO = { Knockdowns = 3, StopHealth = 0.08 },
+	-- THE SCORECARD (UndergroundService:Decide): what a round is judged on. Clean damage is
+	-- worth its own number; nothing is scored for swinging at air or for blows that were blocked.
+	-- A round within DrawMargin points is drawn (10 — 10).
+	Score = { Landed = 1, Counter = 8, Parry = 5, Slip = 3, Combo = 4, Knockdown = 40 },
 	KnockdownPoints = 40,
 	DrawMargin = 5,
 	-- the arenas: closed halls high above the map, out of sight of the hub
