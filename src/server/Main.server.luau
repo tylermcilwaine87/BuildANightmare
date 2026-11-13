@@ -60,6 +60,7 @@ local LOAD_ORDER = {
 	"ChallengeService",
 	"PartyService",
 	"LeaderboardService",
+	"DistrictService",
 	"RankedService",
 	"ShowcaseService",
 	"ExplorationService",

@@ -150,7 +150,7 @@ function UndergroundController:BuildGui()
 	-- the queue pill (outside a match)
 	local queueGui = UIKit.New("ScreenGui", { Name = "UndergroundQueueGui", ResetOnSpawn = false, DisplayOrder = 16, Enabled = false, Parent = localPlayer.PlayerGui })
 	ui.QueueGui = queueGui
-	local pill = UIKit.New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 60), Size = UDim2.fromOffset(420, 40), BackgroundColor3 = STEEL, BackgroundTransparency = 0.1, Parent = queueGui }, { UIKit.Corner(20), UIKit.Stroke(RED, 2, 0.2) })
+	local pill = UIKit.New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 104), Size = UDim2.fromOffset(560, 40), BackgroundColor3 = STEEL, BackgroundTransparency = 0.1, Parent = queueGui }, { UIKit.Corner(20), UIKit.Stroke(RED, 2, 0.2) })
 	UIKit.AutoScale(pill)
 	ui.QueueText = UIKit.Label({ Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Text, MaxTextSize = 15, Parent = pill })
 
@@ -306,13 +306,14 @@ function UndergroundController:KnockoutCamera(winnerUserId: number?, loserUserId
 		if not loserRoot.Parent or not winnerRoot.Parent then
 			k = 1
 		else
-			-- between the two of them, drifting onto the one on the floor
-			local between = winnerRoot.Position:Lerp(loserRoot.Position, 0.65)
-			focus = focus:Lerp(Vector3.new(between.X, floor - 0.5, between.Z), 0.12)
-			local distance = 17 - 4 * k
+			-- from beyond the one going down, low, looking back at it with the winner standing
+			-- over it (the winner is the far side of the shot: never against the lens)
+			local between = winnerRoot.Position:Lerp(loserRoot.Position, 0.7)
+			focus = focus:Lerp(Vector3.new(between.X, floor + 0.5, between.Z), 0.12)
+			local push = 9 - 2 * k
 			camera.CameraType = Enum.CameraType.Scriptable
-			camera.FieldOfView = 52
-			camera.CFrame = CFrame.lookAt(focus + side * distance - away * 3 + Vector3.new(0, 4.5 - 1.5 * k, 0), focus)
+			camera.FieldOfView = 55
+			camera.CFrame = CFrame.lookAt(loserRoot.Position * Vector3.new(1, 0, 1) + Vector3.new(0, floor, 0) + away * push + side * 6 + Vector3.new(0, 3.2 - 1.2 * k, 0), focus)
 		end
 		if k >= 1 then
 			RunService:UnbindFromRenderStep("UGKnockoutCamera")
@@ -453,7 +454,7 @@ function UndergroundController:ShowResults(data)
 	elseif ug.Method == "KNOCKOUT" or ug.Method == "TKO" then
 		method = ("BY %s%s  ·  ROUND %d"):format(ug.Method, (ug.Stop and STOP_TEXT[ug.Stop] and ("  ·  " .. STOP_TEXT[ug.Stop])) or (ug.Move and ("  ·  " .. ug.Move)) or "", ug.FinalRound or 1)
 	end
-	ui.ResultsMethod.Text = method
+	ui.ResultsMethod.Text = (ug.Ranked and "RANKED  ·  " or "") .. method
 	ui.ResultsScore.Text = ("%d — %d"):format(data.MyScore or 0, data.OpponentScore or 0)
 	local rounds = {}
 	for _, round in ug.Rounds or {} do
@@ -589,7 +590,7 @@ function UndergroundController:ApplyState(data)
 	ui.Them.Name.Text = string.upper(data.OpponentName or "?")
 	ui.Me.Pips.Text = pips(data.MyScore or 0, needed)
 	ui.Them.Pips.Text = pips(data.OpponentScore or 0, needed)
-	ui.Round.Text = ("ROUND %d / %d"):format(math.max(data.Round or 1, 1), data.BestOf or 3)
+	ui.Round.Text = ("%sROUND %d / %d"):format(data.UGRanked and "RANKED · " or "", math.max(data.Round or 1, 1), data.BestOf or 3)
 	ui.Score.Text = ("%d — %d"):format(data.MyScore or 0, data.OpponentScore or 0)
 end
 
@@ -600,7 +601,7 @@ function UndergroundController:SetQueue(data)
 	local searching = data.Searching == true and not state
 	ui.QueueGui.Enabled = searching
 	if searching then
-		ui.QueueText.Text = ("NIGHTMARE UNDERGROUND  ·  searching for an opponent  ·  %d in the queue"):format(data.Waiting or 1)
+		ui.QueueText.Text = ("NIGHTMARE UNDERGROUND  ·  %ssearching for an opponent  ·  %d in the queue"):format(data.Kind == "Ranked" and "RANKED  ·  " or "", data.Waiting or 1)
 	end
 end
 

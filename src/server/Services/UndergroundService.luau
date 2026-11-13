@@ -53,7 +53,7 @@ local CORNER_COLORS = { RGB(255, 60, 70), RGB(70, 140, 255) } -- side 1 red, sid
 
 local arenas = {} -- [slot] = arena
 local slotInUse = {}
-local queue: { Player } = {}
+local queues: { [string]: { Player } } = { Casual = {}, Ranked = {} }
 
 ------------------------------------------------------------------------------------------
 -- The arena: a raised ring in a dark concrete hall, crowds on the bleachers, the
@@ -354,6 +354,30 @@ function UndergroundService:Verdict(match)
 	return true, points[1] > points[2] and 1 or 2, "Scorecards"
 end
 
+-- The fight is over (DuelService:EndMatch): add what `player` did to their career numbers
+-- (profile.Underground: the Fighter Stats terminal, the district's leaderboards).
+function UndergroundService:AddCareer(match, player: Player, record)
+	local whole = match.UGMatch
+	local side = match.Side[player]
+	if not whole or not side then
+		return
+	end
+	for _, key in STAT_KEYS do
+		record[key] = (record[key] or 0) + math.floor((whole.Stats[side][key] or 0) + 0.5)
+	end
+	for _, card in whole.Rounds do
+		if card.Winner == side and card.Method == "KO" then
+			record.KOs = (record.KOs or 0) + 1
+		elseif card.Winner == side and card.Method == "TKO" then
+			record.TKOs = (record.TKOs or 0) + 1
+		end
+	end
+	record.Fights = (record.Fights or 0) + 1
+	if match.UGRanked then
+		record.RankedFights = (record.RankedFights or 0) + 1
+	end
+end
+
 -- What `player` sees on the results screen (DuelService:EndMatch "MatchEnd").
 function UndergroundService:Results(match, player: Player, winnerSide: number?, reason: string)
 	local side = match.Side[player]
@@ -395,6 +419,7 @@ function UndergroundService:Results(match, player: Player, winnerSide: number?, 
 		Mine = whole.Stats[side], Theirs = whole.Stats[other],
 		MyPoints = math.floor(whole.Points[side] + 0.5), TheirPoints = math.floor(whole.Points[other] + 0.5),
 		Record = profile and profile.Underground or nil,
+		Ranked = match.UGRanked == true,
 	}
 end
 
@@ -568,6 +593,8 @@ function UndergroundService:AfterCleanup(match)
 	local a, b = match.Players[1], match.Players[2]
 	task.defer(function()
 		if a and b and a.Parent and b.Parent and wants[a] == "Rematch" and wants[b] == "Rematch" then
+			-- (always casual: a ranked fight only ever comes from the ranked queue, so two players
+			-- can't farm the ladder by rematching each other)
 			local result = self.Services.DuelService:StartMatch(a, b, UG.BestOf, { Mode = "Underground" })
 			if result.Ok then
 				return
@@ -575,30 +602,47 @@ function UndergroundService:AfterCleanup(match)
 		end
 		-- (a rematch nobody answered goes back in the queue too)
 		for _, player in { a, b } do
-			if player and player.Parent and wants[player] and not table.find(queue, player) then
-				self:Join(player)
+			if player and player.Parent and wants[player] and not self:IsQueued(player) then
+				self:Join(player, match.UGRanked and "Ranked" or "Casual")
 			end
 		end
 	end)
 end
 
 ------------------------------------------------------------------------------------------
--- The in-server queue (the kiosk at the Colosseum)
+-- The in-server queues: CASUAL (the Colosseum kiosk, the district's red terminals) and
+-- RANKED (the district's gold terminals). Two separate pools: a ranked player is only ever
+-- paired with another ranked player.
 ------------------------------------------------------------------------------------------
+local QUEUE_TEXT = { Casual = "", Ranked = "RANKED  ·  " }
+
 local function tell(self, player: Player, text: string)
 	self.Services.DuelService.DuelEvent:FireClient(player, "RequestResult", { Text = text })
 end
 
 local function publishQueue(self)
-	for _, player in queue do
-		self.Services.DuelService.DuelEvent:FireClient(player, "UGQueue", { Searching = true, Waiting = #queue })
+	for kind, list in queues do
+		for _, player in list do
+			self.Services.DuelService.DuelEvent:FireClient(player, "UGQueue", { Searching = true, Waiting = #list, Kind = kind })
+		end
 	end
 end
 
+-- Which queue `player` is in, and where.
+local function queuedIn(player: Player): (string?, number?)
+	for kind, list in queues do
+		local index = table.find(list, player)
+		if index then
+			return kind, index
+		end
+	end
+	return nil, nil
+end
+
 function UndergroundService:Leave(player: Player, message: string?)
-	local index = table.find(queue, player)
-	if index then
-		table.remove(queue, index)
+	local kind, index = queuedIn(player)
+	if kind then
+		table.remove(queues[kind], index)
 		if player.Parent then
 			self.Services.DuelService.DuelEvent:FireClient(player, "UGQueue", { Searching = false })
 			if message then
@@ -608,11 +652,17 @@ function UndergroundService:Leave(player: Player, message: string?)
 	end
 end
 
-function UndergroundService:Join(player: Player)
+-- kind: "Casual" (default) or "Ranked". Using the same kind of terminal again cancels; the
+-- other kind moves you over.
+function UndergroundService:Join(player: Player, kind: string?)
+	kind = kind == "Ranked" and "Ranked" or "Casual"
 	local duel = self.Services.DuelService
-	if table.find(queue, player) then
+	local current = queuedIn(player)
+	if current == kind then
 		self:Leave(player, "You left the Underground queue.")
 		return { Ok = true }
+	elseif current then
+		self:Leave(player, nil)
 	end
 	local busy, why = duel:IsBusy(player)
 	if busy then
@@ -623,31 +673,33 @@ function UndergroundService:Join(player: Player)
 		tell(self, player, "None of your saved Nightmares fit the PvP Power budget (100).")
 		return { Ok = false }
 	end
-	table.insert(queue, player)
-	tell(self, player, "NIGHTMARE UNDERGROUND: searching for an opponent... (use the terminal again to cancel)")
+	table.insert(queues[kind], player)
+	tell(self, player, ("NIGHTMARE UNDERGROUND: %ssearching for an opponent... (use the terminal again to cancel)"):format(QUEUE_TEXT[kind]))
 	publishQueue(self)
 	self:TryPair()
 	return { Ok = true }
 end
 
 function UndergroundService:TryPair()
-	-- drop anyone who can't fight any more
-	for i = #queue, 1, -1 do
-		local player = queue[i]
-		if not player.Parent or self.Services.DuelService:IsBusy(player) then
-			table.remove(queue, i)
+	for kind, list in queues do
+		-- drop anyone who can't fight any more
+		for i = #list, 1, -1 do
+			local player = list[i]
+			if not player.Parent or self.Services.DuelService:IsBusy(player) then
+				table.remove(list, i)
+			end
 		end
-	end
-	while #queue >= 2 do
-		local a = table.remove(queue, 1)
-		local b = table.remove(queue, 1)
-		for _, player in { a, b } do
-			self.Services.DuelService.DuelEvent:FireClient(player, "UGQueue", { Searching = false })
-		end
-		local result = self.Services.DuelService:StartMatch(a, b, UG.BestOf, { Mode = "Underground" })
-		if not result.Ok then
+		while #list >= 2 do
+			local a = table.remove(list, 1)
+			local b = table.remove(list, 1)
 			for _, player in { a, b } do
-				tell(self, player, result.Error or "Couldn't start the fight.")
+				self.Services.DuelService.DuelEvent:FireClient(player, "UGQueue", { Searching = false })
+			end
+			local result = self.Services.DuelService:StartMatch(a, b, UG.BestOf, { Mode = "Underground", UGRanked = kind == "Ranked" })
+			if not result.Ok then
+				for _, player in { a, b } do
+					tell(self, player, result.Error or "Couldn't start the fight.")
+				end
 			end
 		end
 	end
@@ -716,7 +768,12 @@ end
 
 -- (used by tests and other services)
 function UndergroundService:IsQueued(player: Player): boolean
-	return table.find(queue, player) ~= nil
+	for _, list in queues do
+		if table.find(list, player) then
+			return true
+		end
+	end
+	return false
 end
 
 function UndergroundService:IsFighter(model: Model?): boolean

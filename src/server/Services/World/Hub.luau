@@ -72,8 +72,10 @@ local function buildGround(root)
 		Kit.Ring(root, CF(c.X, 1.07, c.Z), 70 + k * 20, 0.08, 0.5, 72, RGB(40, 36, 50), M.Slate, glow)
 	end
 
-	-- Rim wall with gaps at the four gates (gates are at 0/90/180/270 degrees here).
-	for _, span in { { 9, 81 }, { 99, 171 }, { 189, 261 }, { 279, 351 } } do
+	-- Rim wall with gaps at the four gates (gates are at 0/90/180/270 degrees here), and one
+	-- more to the south-east: the way out to the Fighting District (WorldDefinitions.District).
+	local gap = WorldDefinitions.District.RimAngles
+	for _, span in { { 9, 81 }, { 99, 171 }, { 189, gap[1] }, { gap[2], 261 }, { 279, 351 } } do
 		Kit.Ring(root, CF(c.X, 2.5, c.Z), R - 1, 3, 2.4, 22, STONE_LIGHT, M.Slate, nil, span[1], span[2])
 		Kit.Ring(root, CF(c.X, 4.1, c.Z), R - 1, 0.25, 2.6, 22, RGB(120, 90, 170), M.Neon, glow, span[1], span[2])
 		for a = span[1] + 6, span[2] - 6, 12 do

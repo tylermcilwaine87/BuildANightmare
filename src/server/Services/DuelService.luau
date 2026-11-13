@@ -318,6 +318,7 @@ function DuelService:SendState(match)
 				Enemies = roster(match, other),
 				AmOut = match.Out[player] == true,
 				Ranked = match.Ranked,
+				UGRanked = match.UGRanked,
 				PhaseEndsAt = match.PhaseEndsAt, -- Workspace:GetServerTimeNow() based
 				ZoneCenter = match.Arena.Center,
 				ZoneStartRadius = PVP.SuddenDeathStartRadius,
@@ -482,7 +483,75 @@ function DuelService:Respond(player: Player, requestId, accept)
 			return { Ok = false, Error = p.DisplayName .. " has no build within the PvP Power budget (100)." }
 		end
 	end
+	if request.Mode == "Underground" then
+		-- (a private Underground fight is never ranked)
+		self.Services.UndergroundService:Leave(from, nil)
+		self.Services.UndergroundService:Leave(player, nil)
+		return self:StartMatch(from, player, Config.Underground.BestOf, { Mode = "Underground" })
+	end
 	return self:StartMatch(from, player, request.BestOf)
+end
+
+-- NIGHTMARE UNDERGROUND's PRIVATE DUEL station (the Fighting District): challenge one player
+-- here to a 1v1 where you both fight AS your Nightmares. Same rules as a duel request.
+function DuelService:ChallengeUnderground(from: Player, targetUserId)
+	if type(targetUserId) ~= "number" then
+		return { Ok = false, Error = "Invalid challenge." }
+	end
+	local target = Players:GetPlayerByUserId(targetUserId)
+	if not target or target == from then
+		return { Ok = false, Error = "That player isn't here." }
+	end
+	if os.clock() - (lastChallenge[from] or 0) < PVP.RequestCooldown then
+		return { Ok = false, Error = "Wait a moment before challenging again." }
+	end
+	for _, p in { from, target } do
+		local busy, why = isBusy(self, p)
+		if busy then
+			return { Ok = false, Error = (p == from and "You're " or (p.DisplayName .. " is ")) .. why .. "." }
+		end
+		if #legalBuilds(self, p) == 0 then
+			return { Ok = false, Error = (p == from and "None of your saved builds fit" or (p.DisplayName .. " has no build within")) .. " the PvP Power budget (100)." }
+		end
+	end
+	local targetProfile = self.Services.PlayerDataService:Get(target)
+	if not targetProfile or (targetProfile.Settings and targetProfile.Settings.AllowDuels == false) then
+		return { Ok = false, Error = target.DisplayName .. " isn't accepting duel requests." }
+	end
+	lastChallenge[from] = os.clock()
+	for id, request in requests do
+		if request.From == from and request.To == target then
+			requests[id] = nil
+		end
+	end
+	local id = HttpService:GenerateGUID(false)
+	requests[id] = { Id = id, From = from, To = target, BestOf = Config.Underground.BestOf, Mode = "Underground", Expires = os.clock() + PVP.RequestTimeout }
+	self.DuelEvent:FireClient(target, "Incoming", { RequestId = id, FromName = from.DisplayName, FromUserId = from.UserId, BestOf = Config.Underground.BestOf, Mode = "Underground", Timeout = PVP.RequestTimeout })
+	task.delay(PVP.RequestTimeout, function()
+		if requests[id] then
+			requests[id] = nil
+			if from.Parent then
+				self.DuelEvent:FireClient(from, "RequestResult", { Text = target.DisplayName .. " didn't respond." })
+			end
+		end
+	end)
+	return { Ok = true }
+end
+
+-- The Underground fights going on right now (the district's LIVE NOW screens).
+function DuelService:UndergroundMatches()
+	local list = {}
+	for _, match in matches do
+		if match.Mode == "Underground" and match.State ~= "Ended" then
+			table.insert(list, {
+				Names = { match.TeamNames[1], match.TeamNames[2] },
+				Score = { match.Score[1], match.Score[2] },
+				Round = match.Round, BestOf = match.BestOf, State = match.State, Ranked = match.UGRanked == true,
+				EndsAt = match.PhaseEndsAt,
+			})
+		end
+	end
+	return list
 end
 
 ------------------------------------------------------------------------------------------
@@ -512,6 +581,7 @@ function DuelService:StartMatch(a, b, bestOf: number, opts)
 		Id = HttpService:GenerateGUID(false),
 		Mode = mode,
 		Ranked = ranked,
+		UGRanked = mode == "Underground" and opts and opts.UGRanked == true or nil, -- (the Underground ranked queue)
 		BestOf = bestOf,
 		Teams = teams,
 		TeamSize = #teams[1],
@@ -551,7 +621,7 @@ function DuelService:StartMatch(a, b, bestOf: number, opts)
 		self.Services.UndergroundService:Leave(player, nil)
 	end
 	if mode == "Underground" then
-		self:Broadcast(match, "Banner", { Title = "NIGHTMARE UNDERGROUND", Subtitle = ("%s  vs  %s  ·  Best of %d  ·  You ARE your Nightmare"):format(match.TeamNames[1], match.TeamNames[2], bestOf) })
+		self:Broadcast(match, "Banner", { Title = match.UGRanked and "NIGHTMARE UNDERGROUND  ·  RANKED" or "NIGHTMARE UNDERGROUND", Subtitle = ("%s  vs  %s  ·  Best of %d  ·  You ARE your Nightmare"):format(match.TeamNames[1], match.TeamNames[2], bestOf) })
 	elseif ranked then
 		local function label(player: Player)
 			local record = RankDefinitions.Record(self.Services.PlayerDataService:Get(player))
@@ -817,6 +887,9 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 					-- (NIGHTMARE UNDERGROUND keeps its own fight record)
 					local record = match.Mode == "Underground" and profile.Underground or profile.PvP
 					record[key] = (record[key] or 0) + 1
+					if match.Mode == "Underground" then
+						self.Services.UndergroundService:AddCareer(match, player, record) -- (the career numbers)
+					end
 					if eligible then
 						table.insert(log, now)
 						summary = self.Services.ProgressionService:Award(player, PVP.Rewards[result])
@@ -1027,6 +1100,8 @@ function DuelService:Start()
 			return { Ok = true }
 		elseif action == "QueueRanked" then
 			return self.Services.RankedService:Join(player)
+		elseif action == "UGChallenge" then
+			return self:ChallengeUnderground(player, a1) -- (the district's private duel station)
 		elseif action == "UGAfter" then
 			return self.Services.UndergroundService:After(player, a1) -- (REMATCH / QUEUE AGAIN)
 		elseif action == "LeaveQueue" then

@@ -92,6 +92,30 @@ local BOARDS = {
 			return value .. (value == 1 and " win" or " wins")
 		end,
 	},
+	-- NIGHTMARE UNDERGROUND (also on the Fighting District's board)
+	{
+		Id = "UGWins",
+		Title = "MOST UNDERGROUND WINS",
+		Value = function(profile)
+			local wins = profile.Underground and profile.Underground.Wins or 0
+			return wins > 0 and wins or nil
+		end,
+		Format = function(value)
+			return value .. (value == 1 and " win" or " wins")
+		end,
+	},
+	{
+		Id = "UGKOs",
+		Title = "MOST UNDERGROUND KNOCKOUTS",
+		Value = function(profile)
+			local ug = profile.Underground
+			local finishes = ug and ((ug.KOs or 0) + (ug.TKOs or 0)) or 0
+			return finishes > 0 and finishes or nil
+		end,
+		Format = function(value)
+			return value .. (value == 1 and " KO" or " KOs")
+		end,
+	},
 	{
 		Id = "Likes",
 		Title = "MOST RESPECTED NIGHTMARES",
@@ -196,6 +220,26 @@ local function nameFor(userId: number): string
 	local ok, name = pcall(Players.GetNameFromUserIdAsync, Players, userId)
 	nameCache[userId] = ok and name or ("Player " .. userId)
 	return nameCache[userId]
+end
+
+-- The latest top list for one board: { Scope, Rows = { { Name, Value, Text } } } (the Fighting
+-- District's own board reads the Underground ones).
+function LeaderboardService:Top(boardId: string)
+	local data = tops[boardId]
+	local def
+	for _, d in BOARDS do
+		if d.Id == boardId then
+			def = d
+		end
+	end
+	if not data or not def then
+		return { Scope = "loading...", Rows = {} }
+	end
+	local rows = {}
+	for _, row in data.Rows do
+		table.insert(rows, { Name = row.Name, Value = row.Value, Text = def.Format(row.Value) })
+	end
+	return { Scope = data.Scope, Rows = rows }
 end
 
 -- Ranking of the players in this server (used when the global store can't be read).

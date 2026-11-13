@@ -163,6 +163,7 @@ AudioDefinitions.Ambience = {
 	StormAmbience = { Id = "rbxassetid://9120020768", Volume = 0.45 }, -- howling wind, rain, thunder ("Thunder Light Rain 2")
 	AbyssAmbience = { Id = "rbxassetid://9113731969", Volume = 0.4 }, -- dripping water, deep groans ("Cave Presence Constant Eerie Musical Hum")
 	GymAmbience = { Id = "rbxassetid://9125446564", Volume = 0.4 }, -- ventilation hum, clanking weights, distant grunts ("Command Room Tone Deep Air Conditioning")
+	DistrictAmbience = { Id = "rbxassetid://9120974911", Volume = 0.22 }, -- the Fighting District: a crowd roaring somewhere inside ("Wrestling Crowd 1")
 }
 
 return AudioDefinitions

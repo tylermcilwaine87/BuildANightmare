@@ -191,6 +191,34 @@ World.Regions.Gym = {
 }
 World.GymRadius = 160
 
+-- NIGHTMARE UNDERGROUND — THE FIGHTING DISTRICT (World/District): the venue for the 1v1 mode,
+-- just outside the Forge's south-east rim, past the Colosseum (a gap in the rim wall and a
+-- short plaza lead to its doors). Center = the middle of the lobby floor; the building faces
+-- the hub.
+World.District = {
+	Center = V3(198, 1, 198),
+	Radius = 92, -- what counts as "in the district" (lighting, ambience, the banner)
+	RimAngles = { 216, 234 }, -- the gap in the hub's rim wall (Hub buildGround's angles)
+}
+World.Regions.District = {
+	Name = "NIGHTMARE UNDERGROUND",
+	Subtitle = "The Fighting District · you ARE your Nightmare",
+	Color = RGB(255, 60, 70),
+	Ambience = "DistrictAmbience",
+	Lighting = {
+		ClockTime = 22.5,
+		Brightness = 2.2,
+		Exposure = 0.15,
+		Ambient = RGB(110, 70, 80),
+		OutdoorAmbient = RGB(140, 90, 105),
+		Atmosphere = { Density = 0.36, Offset = 0.1, Color = RGB(170, 90, 110), Decay = RGB(70, 30, 45), Glare = 0.15, Haze = 1.8 },
+		Grading = { Brightness = 0, Contrast = 0.16, Saturation = 0.08, TintColor = RGB(255, 236, 240) },
+		Bloom = { Intensity = 0.5, Size = 24, Threshold = 1.6 },
+		Clouds = { Cover = 0.55, Density = 0.35, Color = RGB(150, 100, 130) },
+		Sky = { SunSize = 14, MoonSize = 11, Stars = 3000 },
+	},
+}
+
 -- Which region a world position is in (the gym, the hub disc, then the four quarters).
 function World.RegionAt(position: Vector3): string
 	local gym = GymDefinitions.Origin.Position
@@ -198,6 +226,10 @@ function World.RegionAt(position: Vector3): string
 		return "Gym"
 	end
 	local flat = V3(position.X, 0, position.Z)
+	local district = World.District.Center
+	if (flat - V3(district.X, 0, district.Z)).Magnitude <= World.District.Radius then
+		return "District"
+	end
 	if flat.Magnitude <= World.HubRadius + 25 then
 		return "Hub"
 	end

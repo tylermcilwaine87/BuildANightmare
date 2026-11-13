@@ -301,6 +301,7 @@ function PvPController:ApplyState(state)
 	matchState = state
 	if firstState then
 		self:ClosePanel()
+		controllers.DistrictController:CloseAll() -- (the Fighting District's station panels)
 		ui.Results.Visible = false
 		controllers.WorkshopController:Close()
 		setResetEnabled(false)
@@ -562,7 +563,9 @@ function PvPController:Start()
 		end
 		if kind == "Incoming" then
 			incoming = data
-			if data.TeamSize then
+			if data.Mode == "Underground" then
+				ui.PopupText.Text = ("%s challenges you to NIGHTMARE UNDERGROUND: 1v1, best of %d, you both fight AS your Nightmares!"):format(data.FromName, data.BestOf or 3)
+			elseif data.TeamSize then
 				ui.PopupText.Text = ("%s's party challenges your party to a %dv%d Team Duel (Best of %d)!"):format(data.FromName, data.TeamSize, data.TeamSize, data.BestOf)
 			else
 				ui.PopupText.Text = ("%s challenges you to a Best-of-%d Nightmare Duel!"):format(data.FromName, data.BestOf)
