@@ -609,6 +609,8 @@ function PvPController:Start()
 			controllers.UndergroundController:RoundCard(data)
 		elseif kind == "UGRematch" then
 			controllers.UndergroundController:RematchAsked(data)
+		elseif kind == "UGIntro" then
+			controllers.UndergroundController:Intro(data)
 		end
 	end)
 

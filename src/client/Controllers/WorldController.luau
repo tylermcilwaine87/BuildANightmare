@@ -96,6 +96,25 @@ function WorldController:CurrentRegion(): string?
 	return currentRegion
 end
 
+-- A look that isn't a region's (a NIGHTMARE UNDERGROUND arena: UndergroundController): the
+-- same fields as a region's Lighting, and its ambience. ResetRegion hands back to the regions.
+function WorldController:ApplyLook(look, ambience: string?)
+	currentRegion = "__look"
+	Lighting.ClockTime = look.ClockTime
+	TweenService:Create(Lighting, BLEND, { Brightness = look.Brightness, Ambient = look.Ambient, OutdoorAmbient = look.OutdoorAmbient, ExposureCompensation = look.Exposure or 0 }):Play()
+	TweenService:Create(effects.Atmosphere, BLEND, look.Atmosphere):Play()
+	TweenService:Create(effects.Grading, BLEND, look.Grading):Play()
+	TweenService:Create(effects.Bloom, BLEND, look.Bloom):Play()
+	local audio = controllers.AudioController
+	if audio and audio.SetAmbience then
+		audio:SetAmbience(ambience)
+	end
+end
+
+function WorldController:ResetRegion()
+	currentRegion = nil -- (the next check applies wherever you are)
+end
+
 local function regionNow(): string?
 	local bossId = controllers.BossController.GetBossId and controllers.BossController:GetBossId()
 	if controllers.BossController:IsInFight() and bossId and WorldDefinitions.BossRegion[bossId] then
@@ -379,7 +398,8 @@ function WorldController:Start()
 				end
 			end
 
-			local look = currentRegion and WorldDefinitions.Regions[currentRegion].Lighting
+			local region = currentRegion and WorldDefinitions.Regions[currentRegion] -- (nil for an arena's own look)
+			local look = region and region.Lighting
 			if look and look.Lightning and os.clock() >= nextFlash then
 				nextFlash = os.clock() + Random.new():NextNumber(4, 10)
 				lightningFlash()

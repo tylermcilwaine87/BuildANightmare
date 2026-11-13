@@ -319,6 +319,7 @@ function DuelService:SendState(match)
 				AmOut = match.Out[player] == true,
 				Ranked = match.Ranked,
 				UGRanked = match.UGRanked,
+				ArenaTheme = match.Mode == "Underground" and match.Arena and match.Arena.Theme or nil, -- (the venue's lighting)
 				PhaseEndsAt = match.PhaseEndsAt, -- Workspace:GetServerTimeNow() based
 				ZoneCenter = match.Arena.Center,
 				ZoneStartRadius = PVP.SuddenDeathStartRadius,

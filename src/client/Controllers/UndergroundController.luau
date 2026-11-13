@@ -592,6 +592,151 @@ local function pips(won: number, needed: number): string
 	return string.rep("◆", won) .. string.rep("◇", math.max(0, needed - won))
 end
 
+------------------------------------------------------------------------------------------
+-- The venues (Config.Underground.Arenas): their lighting and sound, what a big hit does in
+-- them, and the first round's introductions
+------------------------------------------------------------------------------------------
+local THEME_LOOKS = {
+	-- the stadium: dark stands, the light all on the ring
+	ColossusDome = {
+		Ambience = "DistrictAmbience",
+		ClockTime = 0, Brightness = 1.2, Exposure = 0.35, Ambient = RGB(70, 66, 92), OutdoorAmbient = RGB(60, 58, 80),
+		Atmosphere = { Density = 0.28, Offset = 0, Color = RGB(120, 110, 160), Decay = RGB(40, 34, 70), Glare = 0, Haze = 1.2 },
+		Grading = { Brightness = 0, Contrast = 0.18, Saturation = 0.1, TintColor = RGB(245, 242, 255) },
+		Bloom = { Intensity = 0.6, Size = 26, Threshold = 1.4 },
+	},
+	-- the fight club: grimy, warm, close
+	UndergroundPit = {
+		Ambience = "DistrictAmbience",
+		ClockTime = 0, Brightness = 0.6, Exposure = 0.3, Ambient = RGB(90, 76, 66), OutdoorAmbient = RGB(70, 60, 54),
+		Atmosphere = { Density = 0.4, Offset = 0, Color = RGB(140, 120, 100), Decay = RGB(60, 46, 36), Glare = 0, Haze = 2 },
+		Grading = { Brightness = 0, Contrast = 0.22, Saturation = -0.05, TintColor = RGB(255, 240, 225) },
+		Bloom = { Intensity = 0.5, Size = 24, Threshold = 1.6 },
+	},
+	-- the furnace: hot orange, hazy with smoke
+	IronworksFurnace = {
+		Ambience = "ScrapAmbience",
+		ClockTime = 0, Brightness = 1, Exposure = 0.3, Ambient = RGB(120, 80, 60), OutdoorAmbient = RGB(100, 70, 54),
+		Atmosphere = { Density = 0.36, Offset = 0, Color = RGB(190, 120, 80), Decay = RGB(90, 40, 20), Glare = 0, Haze = 1.8 },
+		Grading = { Brightness = 0, Contrast = 0.16, Saturation = 0.12, TintColor = RGB(255, 236, 220) },
+		Bloom = { Intensity = 0.6, Size = 26, Threshold = 1.5 },
+	},
+}
+
+-- a burst of particles at `position` (dust in the Pit, sparks in the Furnace)
+local function burst(position: Vector3, texture: string, color: Color3, count: number, speed: number, size: number)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Transparency = 1
+	part.Size = Vector3.new(2, 1, 2)
+	part.Position = position
+	part.Parent = Workspace
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = texture
+	emitter.Color = ColorSequence.new(color)
+	emitter.Size = NumberSequence.new(size, size * 2.4)
+	emitter.Transparency = NumberSequence.new(0.3, 1)
+	emitter.Lifetime = NumberRange.new(0.6, 1.4)
+	emitter.Speed = NumberRange.new(speed * 0.5, speed)
+	emitter.SpreadAngle = Vector2.new(80, 80)
+	emitter.Acceleration = Vector3.new(0, -8, 0)
+	emitter.Rate = 0
+	emitter.Parent = part
+	emitter:Emit(count)
+	task.delay(2, function()
+		part:Destroy()
+	end)
+end
+
+-- A heavy blow, a knockdown, in this venue: the Pit's dust and its crowd, the Furnace's sparks
+-- and clang, the Dome erupting.
+local function venueImpact(data)
+	local theme = ui.Theme
+	local position = typeof(data.Position) == "Vector3" and data.Position or nil
+	if not theme or not position then
+		return
+	end
+	local big = data.KnockedDown or data.Heavy or data.GuardBroken
+	if not big then
+		return
+	end
+	local floor = position - Vector3.new(0, 2.5, 0)
+	if theme == "UndergroundPit" then
+		burst(floor, "rbxasset://textures/particles/smoke_main.dds", Color3.fromRGB(150, 130, 110), data.KnockedDown and 24 or 10, 8, 2)
+		if data.KnockedDown then
+			controllers.AudioController:Play("Victory")
+		end
+	elseif theme == "IronworksFurnace" then
+		burst(position, "rbxasset://textures/particles/sparkles_main.dds", Color3.fromRGB(255, 190, 90), data.KnockedDown and 60 or 30, 26, 0.5)
+		controllers.AudioController:Play("MetalClang", position)
+	elseif theme == "ColossusDome" and data.KnockedDown then
+		controllers.AudioController:Play("Victory") -- (the stadium erupts)
+	end
+end
+
+-- The first round: the lights go down, the venue's name, then each corner in turn.
+function UndergroundController:Intro(data)
+	if not ui.Gui then
+		return
+	end
+	local token = (ui.IntroToken or 0) + 1
+	ui.IntroToken = token
+	if not ui.Intro then
+		local frame = UIKit.New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(760, 190), BackgroundTransparency = 1, Visible = false, Parent = ui.Gui })
+		UIKit.AutoScale(frame)
+		ui.Intro = frame
+		ui.IntroTop = UIKit.Label({ Size = UDim2.new(1, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontSmall, TextColor3 = C.SubText, TextStrokeTransparency = 0.3, MaxTextSize = 22, Parent = frame })
+		ui.IntroMain = UIKit.Label({ Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 74), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextStrokeTransparency = 0.1, MaxTextSize = 70, Parent = frame })
+		ui.IntroSub = UIKit.Label({ Position = UDim2.fromOffset(0, 112), Size = UDim2.new(1, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontSmall, TextColor3 = C.Text, TextStrokeTransparency = 0.3, MaxTextSize = 24, Parent = frame })
+		ui.IntroDim = Instance.new("ColorCorrectionEffect")
+		ui.IntroDim.Name = "UGIntroDim"
+		ui.IntroDim.Parent = game:GetService("Lighting")
+	end
+	local function corner(f, label: string)
+		local bits = { "with " .. string.upper(f.Nightmare or "?") }
+		if f.Rank then
+			table.insert(bits, f.Rank)
+		end
+		if f.Record then
+			table.insert(bits, f.Record)
+		end
+		if f.Title then
+			table.insert(bits, "★ " .. f.Title)
+		end
+		return label, string.upper(f.Name or "?"), table.concat(bits, "  ·  ")
+	end
+	local beats = {
+		{ data.Ranked and "RANKED  ·  NIGHTMARE UNDERGROUND" or "NIGHTMARE UNDERGROUND", string.upper(data.Arena or ""), data.Subtitle or "", RGB(255, 210, 90) },
+		{ corner(data.Red or {}, "IN THE RED CORNER") },
+		{ corner(data.Blue or {}, "IN THE BLUE CORNER") },
+	}
+	beats[2][4] = RED
+	beats[3][4] = BLUE
+	TweenService:Create(ui.IntroDim, TweenInfo.new(0.6), { Brightness = -0.25, Contrast = 0.15 }):Play()
+	controllers.AudioController:Play("Victory")
+	ui.Intro.Visible = true
+	task.spawn(function()
+		for _, beat in beats do
+			if ui.IntroToken ~= token then
+				return
+			end
+			ui.IntroTop.Text, ui.IntroMain.Text, ui.IntroSub.Text = beat[1], beat[2], beat[3]
+			ui.IntroMain.TextColor3 = beat[4]
+			local grow = ui.IntroMain:FindFirstChildOfClass("UIScale") or UIKit.New("UIScale", { Parent = ui.IntroMain })
+			grow.Scale = 1.3
+			TweenService:Create(grow, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			task.wait(1.3) -- (three beats inside the 4 s countdown)
+		end
+		if ui.IntroToken == token then
+			ui.Intro.Visible = false
+			TweenService:Create(ui.IntroDim, TweenInfo.new(0.8), { Brightness = 0, Contrast = 0 }):Play()
+		end
+	end)
+end
+
 function UndergroundController:ApplyState(data)
 	if not ui.Gui then
 		return
@@ -599,6 +744,10 @@ function UndergroundController:ApplyState(data)
 	if data.State == "None" or data.Mode ~= "Underground" then
 		if state then
 			controllers.HUDController:SetUndergroundMode(false)
+		end
+		if ui.Theme then
+			ui.Theme = nil
+			controllers.WorldController:ResetRegion() -- (the world's own lighting again)
 		end
 		state = nil
 		ui.Gui.Enabled = false
@@ -611,6 +760,12 @@ function UndergroundController:ApplyState(data)
 		return
 	end
 	controllers.HUDController:SetUndergroundMode(true)
+	-- the venue's own lighting and sound (World/UndergroundArenas)
+	if data.ArenaTheme and data.ArenaTheme ~= ui.Theme and THEME_LOOKS[data.ArenaTheme] then
+		ui.Theme = data.ArenaTheme
+		local look = THEME_LOOKS[data.ArenaTheme]
+		controllers.WorldController:ApplyLook(look, look.Ambience)
+	end
 	if not state or state.Round ~= data.Round then
 		ui.RoundStartedAt = os.clock()
 	end
@@ -773,6 +928,9 @@ local function onFeedback(kind: string, data)
 	if kind == "UGCallout" and type(data) == "table" then
 		onCallout(data)
 		return
+	end
+	if state and type(data) == "table" and (kind == "Damage" or kind == "KnockedDown") then
+		venueImpact(data)
 	end
 	if not state or kind ~= "Damage" or type(data) ~= "table" then
 		return

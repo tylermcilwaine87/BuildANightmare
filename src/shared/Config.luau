@@ -905,10 +905,20 @@ Config.Underground = {
 	Score = { Landed = 1, Counter = 8, Parry = 5, Slip = 3, Combo = 4, Knockdown = 40 },
 	KnockdownPoints = 40,
 	DrawMargin = 5,
-	-- the arenas: closed halls high above the map, out of sight of the hub
-	ArenaOrigin = Vector3.new(0, 400, -2400),
-	ArenaSpacing = 260,
-	MaxArenas = 6,
+	-- THE ARENAS (World/UndergroundArenas): a fight is held in a random one of these. Every
+	-- arena has the same ring, corners and booths; only the venue round it changes. They're
+	-- built the first time they're needed, far out past the map (beyond 3000 studs: the world's
+	-- region lighting leaves them alone, UndergroundController lights them), one row per arena,
+	-- MaxArenas copies of each for fights at the same time.
+	Arenas = {
+		{ Id = "ColossusDome", Name = "THE COLOSSUS DOME", Subtitle = "The championship stadium" },
+		{ Id = "UndergroundPit", Name = "THE UNDERGROUND PIT", Subtitle = "No rules. No exits. No mercy." },
+		{ Id = "IronworksFurnace", Name = "IRONWORKS FURNACE", Subtitle = "Where the Scrap Titan's machines went to die" },
+	},
+	ArenaOrigin = Vector3.new(-6000, 400, -6000),
+	ArenaThemeSpacing = 900,
+	ArenaSpacing = 520,
+	MaxArenas = 3, -- (of each kind)
 	RingHalf = 24, -- the fighting area inside the ropes: 48 x 48 studs
 	CornerInset = 15, -- where each fighter starts, from the centre along the diagonal
 	Rewards = Config.PvP.Rewards,

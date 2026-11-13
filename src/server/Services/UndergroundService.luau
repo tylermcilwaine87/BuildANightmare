@@ -40,6 +40,7 @@ local Net = require(Shared:WaitForChild("Net"))
 local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
 
 local Kit = require(script.Parent:WaitForChild("World"):WaitForChild("Kit"))
+local Arenas = require(script.Parent:WaitForChild("World"):WaitForChild("UndergroundArenas"))
 
 local UndergroundService = {}
 
@@ -52,137 +53,68 @@ local glow = { NoCollide = true, Shadow = false }
 
 local CORNER_COLORS = { RGB(255, 60, 70), RGB(70, 140, 255) } -- side 1 red, side 2 blue
 
-local arenas = {} -- [slot] = arena
+local arenas = {} -- ["Theme:copy"] = arena
+local devNextArena: string? = nil
 local slotInUse = {}
 local queues: { [string]: { Player } } = { Casual = {}, Ranked = {} }
 local joinedAt: { [Player]: number } = {} -- (how long each has been searching: the ranked window)
 
 ------------------------------------------------------------------------------------------
--- The arena: a raised ring in a dark concrete hall, crowds on the bleachers, the
--- Handlers' booths at the red and blue corners
+-- The arenas (World/UndergroundArenas): a random venue for each fight, every one with the
+-- same ring. Each kind is built the first time a fight needs it; MaxArenas of each kind.
 ------------------------------------------------------------------------------------------
-local function buildArena(slot: number)
-	local c = UG.ArenaOrigin + V3((slot - 1) * UG.ArenaSpacing, 0, 0)
-	local root = Workspace:FindFirstChild("UndergroundArenas") or Kit.Folder("UndergroundArenas", Workspace)
-	local a = Kit.Model("Underground" .. slot, root)
-	local half = UG.RingHalf
-	local apron = 3 -- the ring floor's height above the hall floor
-	local floorY = c.Y + apron -- where the fighters stand
-
-	local CONCRETE, DARK, STEEL = RGB(44, 42, 48), RGB(22, 20, 26), RGB(70, 68, 76)
-	local ROPE = RGB(150, 24, 34)
-
-	-- the hall: floor, four walls and a roof (closed: the fight is the only light)
-	local hall = 72
-	P(a, CF(c + V3(0, -0.5, 0)), V3(hall * 2, 1, hall * 2), CONCRETE, M.Concrete, { Name = "HallFloor" })
-	for _, side in { { V3(hall, 20, 0), V3(2, 42, hall * 2) }, { V3(-hall, 20, 0), V3(2, 42, hall * 2) }, { V3(0, 20, hall), V3(hall * 2, 42, 2) }, { V3(0, 20, -hall), V3(hall * 2, 42, 2) } } do
-		P(a, CF(c + side[1]), side[2], DARK, M.Concrete, { Name = "HallWall" })
-	end
-	P(a, CF(c + V3(0, 41, 0)), V3(hall * 2, 2, hall * 2), DARK, M.Concrete, { Name = "HallRoof" })
-
-	-- the ring: a raised apron, the canvas, a red circle in the middle
-	P(a, CF(c + V3(0, apron / 2, 0)), V3(half * 2 + 8, apron, half * 2 + 8), RGB(30, 28, 34), M.Metal, { Name = "Apron" })
-	P(a, CF(c + V3(0, apron + 0.1, 0)), V3(half * 2 + 6, 0.2, half * 2 + 6), RGB(64, 62, 70), M.Fabric, { Name = "Canvas" })
-	Kit.Ring(a, CF(c + V3(0, apron + 0.22, 0)), 8, 0.05, 0.6, 40, ROPE, M.Neon, glow)
-	Kit.Ring(a, CF(c + V3(0, apron + 0.22, 0)), half - 1.5, 0.05, 0.3, 64, RGB(90, 30, 36), M.SmoothPlastic, glow)
-
-	-- corner posts (red, blue and two neutral), three ropes between them
-	local corners = { V3(-half, 0, half), V3(half, 0, -half), V3(half, 0, half), V3(-half, 0, -half) }
-	local postColors = { CORNER_COLORS[1], CORNER_COLORS[2], RGB(210, 210, 220), RGB(210, 210, 220) }
-	for i, corner in corners do
-		local base = c + corner + V3(0, apron, 0)
-		cyl(a, base, base + V3(0, 7, 0), 1.2, postColors[i], M.Metal)
-		cyl(a, base + V3(0, 6.6, 0), base + V3(0, 7.4, 0), 1.6, postColors[i], M.Neon, glow)
-	end
-	local ring = { corners[1], corners[3], corners[2], corners[4] } -- (round the square)
-	for i = 1, 4 do
-		local from, to = ring[i], ring[i % 4 + 1]
-		for _, height in { 2.2, 4, 5.8 } do
-			cyl(a, c + from + V3(0, apron + height, 0), c + to + V3(0, apron + height, 0), 0.35, ROPE, M.SmoothPlastic, glow)
-		end
-		-- the ropes hold: an invisible wall the fighters can't get through or over
-		local mid = c + (from + to) / 2 + V3(0, apron + 8, 0)
-		local along = (to - from)
-		local size = math.abs(along.X) > 0.1 and V3(math.abs(along.X) + 2, 16, 1) or V3(1, 16, math.abs(along.Z) + 2)
-		P(a, CF(mid), size, Color3.new(), M.SmoothPlastic, { Transparency = 1, Shadow = false, Name = "RingWall" })
-	end
-
-	-- the lighting rig over the ring: a square truss, four spotlights straight down
-	local rigY = floorY + 26
-	for i = 1, 4 do
-		local from, to = ring[i], ring[i % 4 + 1]
-		Kit.Rod(a, c + from + V3(0, rigY - c.Y, 0), c + to + V3(0, rigY - c.Y, 0), 1, 1, STEEL, M.DiamondPlate)
-	end
-	for _, corner in corners do
-		local lamp = P(a, CF(c + corner * 0.55 + V3(0, rigY - c.Y - 1, 0)), V3(3, 1.4, 3), RGB(240, 230, 210), M.Neon, glow)
-		Kit.Light(lamp, RGB(255, 240, 220), 4, 46, { Kind = "SpotLight", Face = Enum.NormalId.Bottom, Angle = 70 })
-	end
-	local fill = P(a, CF(c + V3(0, rigY - c.Y + 2, 0)), V3(1, 1, 1), Color3.new(), M.SmoothPlastic, { Transparency = 1, NoCollide = true, Shadow = false })
-	Kit.Light(fill, RGB(255, 120, 130), 1.2, 70)
-
-	-- the crowd: stepped bleachers on all four sides, a packed house of silhouettes
-	local rng = Random.new(slot * 977)
-	for side = 0, 3 do
-		local frame = CF(c) * ANG(0, rad(side * 90), 0)
-		for row = 0, 3 do
-			local z = half + 14 + row * 5
-			local y = 1 + row * 2.4
-			P(a, frame * CF(0, y / 2, z), V3(half * 2 + 30, y, 5), RGB(34, 32, 38), M.Concrete, { Name = "Bleacher" })
-			for x = -half - 12, half + 12, 4.2 do
-				if rng:NextNumber() < 0.82 then
-					local tone = RGB(rng:NextInteger(30, 80), rng:NextInteger(26, 60), rng:NextInteger(30, 70))
-					local spot = frame * CF(x + rng:NextNumber(-0.8, 0.8), y + 1.6, z)
-					P(a, spot, V3(1.8, 2.6, 1.2), tone, M.SmoothPlastic, { Name = "Fan", Shadow = false, NoCollide = true })
-					Kit.Ball(a, (spot * CF(0, 1.9, 0)).Position, 1.3, RGB(rng:NextInteger(60, 120), rng:NextInteger(45, 90), rng:NextInteger(40, 80)), M.SmoothPlastic, { Shadow = false, NoCollide = true })
-				end
+function UndergroundService:ReserveArena()
+	-- a random kind that has a free copy
+	local kinds = {}
+	for index, def in UG.Arenas do
+		for copy = 1, UG.MaxArenas do
+			local key = def.Id .. ":" .. copy
+			if not slotInUse[key] then
+				table.insert(kinds, { Key = key, Def = def, Index = index, Copy = copy })
+				break
 			end
 		end
 	end
-
-	-- the Handlers' corner booths, outside the red and blue corners
-	local booths = {}
-	for side = 1, 2 do
-		local corner = corners[side]
-		local out = V3(math.sign(corner.X), 0, math.sign(corner.Z))
-		local spot = c + corner + out * 7 + V3(0, 0, 0)
-		P(a, CF(spot + V3(0, apron / 2, 0)), V3(7, apron, 7), RGB(30, 28, 34), M.Metal, { Name = "Booth" })
-		P(a, CF(spot + V3(0, apron + 0.1, 0)), V3(6.4, 0.2, 6.4), CORNER_COLORS[side], M.Neon, glow)
-		for _, edge in { V3(3.3, 0, 0), V3(-3.3, 0, 0), V3(0, 0, 3.3), V3(0, 0, -3.3) } do
-			local size = edge.X ~= 0 and V3(0.3, 3, 7) or V3(7, 3, 0.3)
-			P(a, CF(spot + edge + V3(0, apron + 1.5, 0)), size, STEEL, M.Metal, { Name = "BoothRail" })
+	if #kinds == 0 then
+		return nil, nil
+	end
+	local pick = kinds[math.random(1, #kinds)]
+	-- (Studio: DevNextArena chose the next one)
+	if devNextArena then
+		for _, kind in kinds do
+			if kind.Def.Id == devNextArena then
+				pick = kind
+			end
 		end
-		local stand = spot + V3(0, apron + 3.2, 0)
-		booths[side] = CFrame.lookAt(stand, V3(c.X, stand.Y, c.Z))
+		devNextArena = nil
 	end
-
-	-- the name over the hall's far wall
-	Kit.Sign(a, CF(c + V3(0, 30, -hall + 1.2)), V3(70, 9, 0.6), "NIGHTMARE UNDERGROUND", RGB(255, 70, 80), { Color = RGB(14, 12, 18) })
-	Kit.Sign(a, CF(c + V3(0, 30, hall - 1.2)) * ANG(0, rad(180), 0), V3(70, 9, 0.6), "NIGHTMARE UNDERGROUND", RGB(255, 70, 80), { Color = RGB(14, 12, 18) })
-
-	-- the fighters' corners (facing the middle)
-	local starts = {}
-	for side = 1, 2 do
-		local corner = corners[side]
-		local spot = c + V3(math.sign(corner.X) * UG.CornerInset, apron, math.sign(corner.Z) * UG.CornerInset)
-		starts[side] = CFrame.lookAt(spot, V3(c.X, spot.Y, c.Z))
+	slotInUse[pick.Key] = true
+	if not arenas[pick.Key] then
+		local origin = UG.ArenaOrigin + V3((pick.Index - 1) * UG.ArenaThemeSpacing, 0, (pick.Copy - 1) * UG.ArenaSpacing)
+		local ok, built = pcall(Arenas.Build, pick.Def.Id, origin, pick.Index * 100 + pick.Copy)
+		if not ok then
+			warn("[UndergroundService] couldn't build " .. pick.Key .. ": " .. tostring(built))
+			slotInUse[pick.Key] = nil
+			return nil, nil
+		end
+		built.Name, built.Subtitle = pick.Def.Name, pick.Def.Subtitle
+		arenas[pick.Key] = built
 	end
-
-	return { Model = a, Center = V3(c.X, floorY, c.Z), Starts = starts, Booths = booths }
+	return pick.Key, arenas[pick.Key]
 end
 
-function UndergroundService:ReserveArena()
-	for slot = 1, UG.MaxArenas do
-		if not slotInUse[slot] then
-			slotInUse[slot] = true
-			arenas[slot] = arenas[slot] or buildArena(slot)
-			return slot, arenas[slot]
-		end
+-- STUDIO ONLY (DevBridge): the next fight is held in this arena (Config.Underground.Arenas Id).
+function UndergroundService:DevNextArena(themeId)
+	if game:GetService("RunService"):IsStudio() then
+		devNextArena = themeId
 	end
-	return nil, nil
 end
 
-function UndergroundService:ReleaseArena(slot: number)
-	slotInUse[slot] = nil
+function UndergroundService:ReleaseArena(key)
+	slotInUse[key] = nil
+	if arenas[key] then
+		arenas[key].Match = nil
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -447,6 +379,13 @@ end
 
 -- Countdown: everyone in control of their Nightmare, frozen in their corner.
 function UndergroundService:BeginCountdown(match)
+	-- (the arena's screens follow this fight; the first round opens with the introductions)
+	if match.Arena then
+		match.Arena.Match = match
+	end
+	if match.Round == 1 then
+		self:Introduce(match)
+	end
 	-- (this round's work: what each side did, and how often each was floored)
 	match.UG = { Stats = { blankStats(), blankStats() }, Downs = { 0, 0 } }
 	setFrozen(self, match, true)
@@ -743,6 +682,114 @@ function UndergroundService:TryPair()
 end
 
 ------------------------------------------------------------------------------------------
+-- The arena's screens and the introductions
+------------------------------------------------------------------------------------------
+local boardLabels = setmetatable({}, { __mode = "k" }) -- [panel] = its labels
+
+local function boardText(panel: BasePart)
+	local labels = boardLabels[panel]
+	if labels then
+		return labels
+	end
+	local gui = panel:FindFirstChild("Screen")
+	if not gui then
+		return nil
+	end
+	local function label(y: number, h: number, color: Color3, font)
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1
+		l.Position = UDim2.fromScale(0.03, y)
+		l.Size = UDim2.fromScale(0.94, h)
+		l.TextScaled = true
+		l.Font = font or Enum.Font.GothamBlack
+		l.TextColor3 = color
+		l.Parent = gui
+		return l
+	end
+	local function bar(x: number, color: Color3)
+		local back = Instance.new("Frame")
+		back.BackgroundColor3 = RGB(30, 28, 34)
+		back.BorderSizePixel = 0
+		back.Position = UDim2.fromScale(x, 0.83)
+		back.Size = UDim2.fromScale(0.44, 0.1)
+		back.Parent = gui
+		local fill = Instance.new("Frame")
+		fill.BackgroundColor3 = color
+		fill.BorderSizePixel = 0
+		fill.Size = UDim2.fromScale(1, 1)
+		fill.Parent = back
+		return fill
+	end
+	labels = {
+		Arena = label(0.03, 0.14, RGB(255, 200, 80)),
+		Names = label(0.2, 0.22, RGB(240, 236, 244)),
+		Round = label(0.45, 0.16, RGB(200, 195, 210), Enum.Font.GothamBold),
+		Score = label(0.62, 0.18, RGB(255, 210, 90)),
+		Red = bar(0.03, CORNER_COLORS[1]),
+		Blue = bar(0.53, CORNER_COLORS[2]),
+	}
+	boardLabels[panel] = labels
+	return labels
+end
+
+local STATE_TEXT = { Prep = "PICKING FIGHTERS", Countdown = "IN THE CORNERS", Live = "", RoundOver = "BETWEEN ROUNDS", Ended = "FINAL" }
+
+function UndergroundService:RenderBoards(arena)
+	local match = arena.Match
+	for _, panel in arena.Screens do
+		local labels = boardText(panel)
+		if labels then
+			labels.Arena.Text = arena.Name or ""
+			if match then
+				labels.Names.Text = ("%s  vs  %s"):format(string.upper(match.TeamNames[1]), string.upper(match.TeamNames[2]))
+				local clock = ""
+				if match.State == "Live" and match.PhaseEndsAt then
+					local left = math.max(0, match.PhaseEndsAt - Workspace:GetServerTimeNow())
+					clock = ("%d:%02d"):format(left // 60, left % 60)
+				end
+				labels.Round.Text = ("%sROUND %d / %d  ·  %s%s"):format(match.UGRanked and "RANKED  ·  " or "", math.max(match.Round, 1), match.BestOf, STATE_TEXT[match.State] or "", clock)
+				labels.Score.Text = ("%d  —  %d"):format(match.Score[1], match.Score[2])
+				for side, fill in { labels.Red, labels.Blue } do
+					local player = match.Teams[side][1]
+					local body = player and fighterOf(self, player)
+					local humanoid = body and body:FindFirstChildOfClass("Humanoid")
+					fill.Size = UDim2.fromScale(humanoid and math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1) or 0, 1)
+				end
+			else
+				labels.Names.Text = "NIGHTMARE UNDERGROUND"
+				labels.Round.Text = arena.Subtitle or ""
+				labels.Score.Text = ""
+			end
+		end
+	end
+end
+
+-- The first round's introductions: who's in which corner, with what (UndergroundController
+-- runs the show: the lights go down, each corner gets its spotlight and its line).
+function UndergroundService:Introduce(match)
+	local fighters = {}
+	for side = 1, 2 do
+		local player = match.Teams[side][1]
+		local body = player and fighterOf(self, player)
+		local ranked = match.UGRanked and player and self.Services.UGRankedService:Record(player)
+		local division = ranked and (UGRank.ById[ranked.Division] or UGRank.DivisionFor(ranked.Rating))
+		fighters[side] = {
+			Name = player and player.DisplayName or "?",
+			Nightmare = body and body:GetAttribute("NightmareName") or "Nightmare",
+			Rank = ranked and (ranked.Placements > 0 and "PLACEMENTS" or ("%s %d"):format(division.Name, ranked.Rating)) or nil,
+			Title = body and body:GetAttribute("UGTitle") or nil,
+			Record = (function()
+				local profile = player and self.Services.PlayerDataService:Get(player)
+				local ug = profile and profile.Underground
+				return ug and ("%d-%d-%d"):format(ug.Wins or 0, ug.Losses or 0, ug.Draws or 0) or nil
+			end)(),
+		}
+	end
+	local arena = match.Arena
+	self.Services.DuelService:Broadcast(match, "UGIntro", { Arena = arena and arena.Name, Theme = arena and arena.Theme, Subtitle = arena and arena.Subtitle, Red = fighters[1], Blue = fighters[2], Ranked = match.UGRanked == true })
+end
+
+------------------------------------------------------------------------------------------
 -- Lifecycle
 ------------------------------------------------------------------------------------------
 function UndergroundService:Init(services)
@@ -799,6 +846,21 @@ function UndergroundService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		self:Leave(player, nil)
 		publishQueue(self)
+	end)
+
+	-- the arenas' screens: twice a second for every arena with a fight in it
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			for key, arena in arenas do
+				if slotInUse[key] then
+					local ok, err = pcall(self.RenderBoards, self, arena)
+					if not ok then
+						warn("[UndergroundService] boards:", err)
+					end
+				end
+			end
+		end
 	end)
 
 	-- the ranked window widens as fighters wait: look again every couple of seconds
