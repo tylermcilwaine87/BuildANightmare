@@ -507,28 +507,61 @@ end
 ------------------------------------------------------------------------------------------
 -- Boss brain tick
 ------------------------------------------------------------------------------------------
--- Safety net for every arena: a Handler or Nightmare that ends up below the floor
--- (physics glitch, knockback off an edge...) is put back at the arena entrance.
-local FALL_LIMIT = 12 -- studs below the floor
+-- Safety net for every arena: a Handler, Nightmare or the boss that ends up below the floor
+-- (a ragdoll throw or a slam driving a body through it, knockback off an edge...) is put
+-- back. Inside the walls nothing is ever meant to be under the floor (no arena has a pit
+-- inside its walls), so a root more than UNDER below the floor's top there has gone through
+-- it, even if it's stuck just underneath on the rock or slab below; anywhere else, FALL_LIMIT
+-- below. (Runs every tick of every encounter, not only while the boss is fighting.)
+local FALL_LIMIT = 12 -- studs below the floor, outside the walls
+local UNDER = 1.5 -- studs below the floor, inside the walls
 function BossService:RescueFallen(enc)
-	local floor = enc.Arena.GroundY - FALL_LIMIT
-	local spawnCF = enc.Arena.PlayerSpawn
+	local arena = enc.Arena
+	if not arena then
+		return
+	end
+	local ground = arena.GroundY
+	local center = arena.Center
+	local reach = (arena.Radius or 60) + 12
+	local function fallen(root: BasePart?): boolean
+		if not root or not root.Parent then
+			return false
+		end
+		local p = root.Position
+		if p.Y < ground - FALL_LIMIT then
+			return true
+		end
+		local flat = Vector3.new(p.X - center.X, 0, p.Z - center.Z).Magnitude
+		return flat <= reach and p.Y < ground - UNDER
+	end
+	local spawnCF = arena.PlayerSpawn
 	for _, player in enc.Players do
 		if enc.InArena[player] then
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart")
-			if root and root.Position.Y < floor then
+			if fallen(root) then
 				character:PivotTo(spawnCF)
 				root.AssemblyLinearVelocity = Vector3.zero
 				self.Services.NightmareSpawnService:TeleportNightmare(player, spawnCF * CFrame.new(5, 0, 4))
+				warn(("[BossService] %s was under the %s floor (y %.1f, floor %.1f): put back"):format(player.Name, tostring(enc.ArenaType or "arena"), root.Position.Y, ground))
 			else
 				local nightmare = self.Services.NightmareSpawnService:GetNightmare(player)
 				local nightmareRoot = nightmare and nightmare:FindFirstChild("HumanoidRootPart")
-				if nightmareRoot and nightmareRoot.Position.Y < floor and root then
+				if root and fallen(nightmareRoot) then
 					self.Services.NightmareSpawnService:TeleportNightmare(player, root.CFrame * CFrame.new(5, 0, 4))
 				end
 			end
 		end
+	end
+	-- the boss itself: back to its spot, standing on the floor (not while it's anchored: that's a
+	-- scripted move, and the Abyssal Maw's burrow parks it 45 studs underground on purpose)
+	local brain = enc.Brain
+	local bossRoot = brain and brain.Root
+	if bossRoot and bossRoot.Parent and not bossRoot.Anchored and bossRoot.Position.Y < ground - UNDER - (bossRoot.Size.Y / 2) and brain.Humanoid.Health > 0 then
+		local stand = brain.Humanoid.HipHeight + bossRoot.Size.Y / 2
+		brain.Model:PivotTo(arena.BossSpawn + Vector3.new(0, stand, 0))
+		bossRoot.AssemblyLinearVelocity = Vector3.zero
+		warn("[BossService] the boss was under the floor: put back")
 	end
 end
 
@@ -539,7 +572,6 @@ function BossService:Tick(brain, now: number)
 		return
 	end
 
-	self:RescueFallen(enc)
 
 	-- Phase transitions at health thresholds (never heals).
 	local thresholds = ctx.ModeConfig.PhaseThresholds or brain.Definition.PhaseThresholds
@@ -1363,6 +1395,11 @@ function BossService:Start()
 		accumulated = 0
 		local now = os.clock()
 		for _, enc in encounters do
+			-- (the safety net: every encounter, every stage of it)
+			local rescued, rescueErr = pcall(self.RescueFallen, self, enc)
+			if not rescued then
+				warn("[BossService] rescue failed:", rescueErr)
+			end
 			if enc.Brain then
 				local ok, err = pcall(self.Tick, self, enc.Brain, now)
 				if not ok then

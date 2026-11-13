@@ -82,6 +82,11 @@ local function common(folder, origin: CFrame, opts)
 		clearAbove(origin, wallR)
 	end
 
+	-- the CATCHER: a thick invisible slab under every fight floor (the visible floors are only
+	-- 3-4 studs thick in three of the arenas, thin enough for a ragdoll thrown down hard or a
+	-- slam to tunnel a body through). Its top is just inside the floor, so it's never seen.
+	disc(folder, C(0, -9, 0), (wallR + 6) * 2, 16, RGB(20, 18, 24), M.Slate, { Transparency = 1, Shadow = false, Name = "FloorCatcher" })
+
 	-- the approach from the gate out to the plaza
 	local plazaZ = -WorldDefinitions.GateDistance
 	P(folder, C(0, -opts.FloorThickness / 2, (-wallR + plazaZ) / 2 - 2), V3(26, opts.FloorThickness, -plazaZ - wallR + 8), opts.ApproachColor, opts.ApproachMaterial, { Name = "Approach" })
