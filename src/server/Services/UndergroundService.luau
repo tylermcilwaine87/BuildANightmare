@@ -37,6 +37,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
+local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
 
 local Kit = require(script.Parent:WaitForChild("World"):WaitForChild("Kit"))
 
@@ -54,6 +55,7 @@ local CORNER_COLORS = { RGB(255, 60, 70), RGB(70, 140, 255) } -- side 1 red, sid
 local arenas = {} -- [slot] = arena
 local slotInUse = {}
 local queues: { [string]: { Player } } = { Casual = {}, Ranked = {} }
+local joinedAt: { [Player]: number } = {} -- (how long each has been searching: the ranked window)
 
 ------------------------------------------------------------------------------------------
 -- The arena: a raised ring in a dark concrete hall, crowds on the bleachers, the
@@ -230,6 +232,14 @@ function UndergroundService:PrepareFighter(match, player: Player)
 	self.Services.WorldBuilder.SetCollisionGroup(model, self.Services.WorldBuilder.CollisionGroups.UGFighters)
 	-- (fresh stamina, no guard; it reports knockdowns back here: UndergroundService:Knockdown)
 	self.Services.UndergroundFightService:Register(model, player)
+	-- (a ranked fight: the division and rating on the fight plates)
+	local ranked = match.UGRanked and self.Services.UGRankedService:Record(player)
+	if ranked then
+		local division = UGRank.ById[ranked.Division] or UGRank.DivisionFor(ranked.Rating)
+		model:SetAttribute("UGRankText", ranked.Placements > 0 and "PLACEMENTS" or ("%s %d"):format(division.Name, ranked.Rating))
+	else
+		model:SetAttribute("UGRankText", nil)
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -359,6 +369,11 @@ end
 function UndergroundService:AddCareer(match, player: Player, record)
 	local whole = match.UGMatch
 	local side = match.Side[player]
+	-- (every fight counts, even one forfeited before a round was fought)
+	record.Fights = (record.Fights or 0) + 1
+	if match.UGRanked then
+		record.RankedFights = (record.RankedFights or 0) + 1
+	end
 	if not whole or not side then
 		return
 	end
@@ -371,10 +386,6 @@ function UndergroundService:AddCareer(match, player: Player, record)
 		elseif card.Winner == side and card.Method == "TKO" then
 			record.TKOs = (record.TKOs or 0) + 1
 		end
-	end
-	record.Fights = (record.Fights or 0) + 1
-	if match.UGRanked then
-		record.RankedFights = (record.RankedFights or 0) + 1
 	end
 end
 
@@ -517,7 +528,11 @@ function UndergroundService:EndRound(match, winnerSide: number?, reason: string)
 	if stoppage then
 		-- the winner celebrates where it stands while the camera stays on the body going down
 		if winnerSide then
-			act(match.Teams[winnerSide][1], "UG_Victory", 2.6)
+			-- (a season's champion wearing their title celebrates like one)
+			local winner = match.Teams[winnerSide][1]
+			local record = self.Services.UGRankedService:Record(winner)
+			local title = record and record.Title and UGRank.TitleFor(record.Title)
+			act(winner, title and title.Aura == "Gold" and "UG_VictoryChampion" or "UG_Victory", 2.6)
 		end
 		task.delay(UG.KOCamTime, release)
 	else
@@ -643,6 +658,7 @@ function UndergroundService:Leave(player: Player, message: string?)
 	local kind, index = queuedIn(player)
 	if kind then
 		table.remove(queues[kind], index)
+		joinedAt[player] = nil
 		if player.Parent then
 			self.Services.DuelService.DuelEvent:FireClient(player, "UGQueue", { Searching = false })
 			if message then
@@ -674,6 +690,7 @@ function UndergroundService:Join(player: Player, kind: string?)
 		return { Ok = false }
 	end
 	table.insert(queues[kind], player)
+	joinedAt[player] = os.clock()
 	tell(self, player, ("NIGHTMARE UNDERGROUND: %ssearching for an opponent... (use the terminal again to cancel)"):format(QUEUE_TEXT[kind]))
 	publishQueue(self)
 	self:TryPair()
@@ -690,8 +707,27 @@ function UndergroundService:TryPair()
 			end
 		end
 		while #list >= 2 do
-			local a = table.remove(list, 1)
-			local b = table.remove(list, 1)
+			local a, b
+			if kind == "Ranked" then
+				-- by rating: the first pair close enough for how long they've both waited
+				-- (UGRankedService:CanPair); nobody fits yet: try again in a moment
+				local now = os.clock()
+				for i = 1, #list - 1 do
+					for j = i + 1, #list do
+						if not a and self.Services.UGRankedService:CanPair(list[i], list[j], now - (joinedAt[list[i]] or now), now - (joinedAt[list[j]] or now)) then
+							a, b = list[i], list[j]
+						end
+					end
+				end
+				if not a then
+					break
+				end
+				table.remove(list, table.find(list, a))
+				table.remove(list, table.find(list, b))
+			else
+				a = table.remove(list, 1)
+				b = table.remove(list, 1)
+			end
 			for _, player in { a, b } do
 				self.Services.DuelService.DuelEvent:FireClient(player, "UGQueue", { Searching = false })
 			end
@@ -763,6 +799,19 @@ function UndergroundService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		self:Leave(player, nil)
 		publishQueue(self)
+	end)
+
+	-- the ranked window widens as fighters wait: look again every couple of seconds
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			if #queues.Ranked >= 2 then
+				local ok, err = pcall(self.TryPair, self)
+				if not ok then
+					warn("[UndergroundService] ranked pairing:", err)
+				end
+			end
+		end
 	end)
 end
 

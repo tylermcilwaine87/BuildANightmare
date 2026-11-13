@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local BossDefinitions = require(Shared:WaitForChild("BossDefinitions"))
 local RankDefinitions = require(Shared:WaitForChild("RankDefinitions"))
+local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
 
 local LeaderboardService = {}
 local LB = Config.Leaderboards
@@ -92,7 +93,19 @@ local BOARDS = {
 			return value .. (value == 1 and " win" or " wins")
 		end,
 	},
-	-- NIGHTMARE UNDERGROUND (also on the Fighting District's board)
+	-- NIGHTMARE UNDERGROUND (also on the Fighting District's board). The ranked board is one
+	-- per season (its own store), so a new season starts from an empty board.
+	{
+		Id = "UGRating_S" .. UGRank.Season.Id,
+		Title = "UNDERGROUND RANKED · " .. UGRank.Season.Name,
+		Value = function(profile)
+			local ranked = profile.UGRanked
+			return ranked and ranked.Season == UGRank.Season.Id and ranked.Games > 0 and ranked.Placements <= 0 and ranked.Rating or nil
+		end,
+		Format = function(value)
+			return ("%s %d"):format(UGRank.DivisionFor(value).Name, value)
+		end,
+	},
 	{
 		Id = "UGWins",
 		Title = "MOST UNDERGROUND WINS",

@@ -23,6 +23,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local WorldDefinitions = require(Shared:WaitForChild("WorldDefinitions"))
+local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
+local RANKED = "UGRating_S" .. UGRank.Season.Id -- (LeaderboardService: this season's ranked board)
 
 local DistrictService = {}
 
@@ -97,15 +99,15 @@ function DistrictService:BuildBoard(panel: BasePart)
 	pad.Parent = gui
 	label(gui, { Text = "THE UNDERGROUND  ·  TOP FIGHTERS", Size = UDim2.fromScale(1, 0.1), Font = Enum.Font.GothamBlack, TextColor3 = GOLD })
 	local board = { Scope = label(gui, { Position = UDim2.fromScale(0, 0.1), Size = UDim2.fromScale(1, 0.05), Font = Enum.Font.Gotham, TextColor3 = RGB(170, 160, 180) }) }
-	for column, id in { "UGWins", "UGKOs" } do
+	for column, id in { RANKED, "UGKOs" } do
 		local x = (column - 1) * 0.52
-		label(gui, { Text = id == "UGWins" and "MOST WINS" or "MOST KNOCKOUTS", Position = UDim2.fromScale(x, 0.17), Size = UDim2.fromScale(0.48, 0.07), TextColor3 = id == "UGWins" and RED or BLUE })
+		label(gui, { Text = id == RANKED and ("RANKED  ·  " .. UGRank.Season.Name) or "MOST KNOCKOUTS", Position = UDim2.fromScale(x, 0.17), Size = UDim2.fromScale(0.48, 0.07), TextColor3 = id == RANKED and GOLD or BLUE })
 		local rows = {}
 		for i = 1, 10 do
 			local y = 0.26 + (i - 1) * 0.073
 			rows[i] = {
-				Name = label(gui, { Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(0.34, 0.06), TextXAlignment = Enum.TextXAlignment.Left }),
-				Value = label(gui, { Position = UDim2.fromScale(x + 0.34, y), Size = UDim2.fromScale(0.14, 0.06), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = RGB(255, 210, 120) }),
+				Name = label(gui, { Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(0.27, 0.06), TextXAlignment = Enum.TextXAlignment.Left }),
+				Value = label(gui, { Position = UDim2.fromScale(x + 0.27, y), Size = UDim2.fromScale(0.21, 0.06), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = RGB(255, 210, 120) }),
 			}
 		end
 		board[id] = rows
@@ -118,14 +120,21 @@ local MEDALS = { RGB(255, 205, 80), RGB(210, 215, 230), RGB(215, 140, 80) }
 function DistrictService:RenderBoard(board)
 	local leaderboards = self.Services.LeaderboardService
 	local scope = "loading..."
-	for _, id in { "UGWins", "UGKOs" } do
+	for _, id in { RANKED, "UGKOs" } do
 		local top = leaderboards:Top(id)
 		scope = top.Scope
 		for i, row in board[id] do
 			local entry = top.Rows[i]
-			row.Name.Text = entry and ("%d. %s"):format(i, entry.Name) or (i == 1 and "Nobody yet: be the first" or "")
+			row.Name.Text = entry and ("%s%d. %s"):format(id == RANKED and i == 1 and "♛ " or "", i, entry.Name) or (i == 1 and "Nobody yet: be the first" or "")
 			row.Name.TextColor3 = MEDALS[i] or RGB(236, 232, 240)
+			-- (the season's #1 glows)
+			row.Name.TextStrokeColor3 = id == RANKED and i == 1 and entry and GOLD or Color3.new(0, 0, 0)
+			row.Name.TextStrokeTransparency = id == RANKED and i == 1 and entry and 0.3 or 1
 			row.Value.Text = entry and entry.Text or ""
+		end
+		if id == RANKED and board.Plaque then
+			local champion = top.Rows[1]
+			board.Plaque.Text = champion and ("%s  ·  #1  %s"):format(UGRank.Season.Name, string.upper(champion.Name)) or "CHAMPIONSHIP TROPHIES"
 		end
 	end
 	board.Scope.Text = scope == "GLOBAL" and "ALL SERVERS" or scope == "THIS SERVER" and "THIS SERVER (global boards unavailable)" or scope
@@ -177,12 +186,19 @@ function DistrictService:Start()
 		-- the screens
 		local lives = {}
 		local board
+		local plaque
 		for _, part in district:GetDescendants() do
 			if part:IsA("BasePart") and part.Name == "UGLiveBoard" then
 				table.insert(lives, self:BuildLive(part))
 			elseif part:IsA("BasePart") and part.Name == "UGLeaderboard" then
 				board = self:BuildBoard(part)
+			elseif part:IsA("BasePart") and part.Name == "ChampionPlaque" then
+				local gui = part:FindFirstChildOfClass("SurfaceGui")
+				plaque = gui and gui:FindFirstChildOfClass("TextLabel")
 			end
+		end
+		if board then
+			board.Plaque = plaque
 		end
 		local tick = 0
 		while true do

@@ -610,6 +610,14 @@ function DuelService:StartMatch(a, b, bestOf: number, opts)
 		end
 	end
 	matches[match.Id] = match
+	-- (a ranked Underground fight: both ratings as they were going in, so a fighter who leaves
+	-- mid-fight still counts for the one who stayed)
+	if match.UGRanked then
+		match.UGStartRatings = {}
+		for _, player in match.Players do
+			match.UGStartRatings[player.UserId] = self.Services.UGRankedService:Rating(player)
+		end
+	end
 	for _, player in match.Players do
 		playerMatch[player] = match
 		local profile = self.Services.PlayerDataService:Get(player)
@@ -867,6 +875,8 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 		match.Rewarded = true
 		-- Ranked (always 1v1): ratings change once per match, forfeits/leaves included.
 		local ratingChanges = match.Ranked and self.Services.RankedService:ApplyResult(match, winnerSide and match.Teams[winnerSide][1] or nil) or {}
+		-- (NIGHTMARE UNDERGROUND's ranked league: its own ratings, UGRankedService)
+		local ugChanges = match.Mode == "Underground" and match.UGRanked and self.Services.UGRankedService:ApplyResult(match, winnerSide, reason) or {}
 		for _, player in match.Players do
 			if player.Parent then
 				local side = match.Side[player]
@@ -910,6 +920,7 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 					ReturnIn = timing(match, "ResultsTime"),
 					-- (NIGHTMARE UNDERGROUND: how it ended, the round cards, both fighters' numbers)
 					Underground = match.Mode == "Underground" and self.Services.UndergroundService:Results(match, player, winnerSide, reason) or nil,
+					UGRanked = ugChanges[player], -- { Old, New, Delta, Division, Promoted, Demoted, Placement... }
 				})
 				local kind = match.Mode == "Underground" and "Underground" or match.Ranked and "Ranked" or (match.TeamSize > 1 and ("Team%dv%d"):format(match.TeamSize, match.TeamSize) or "Casual")
 				self.Services.GameAnalyticsService:Event(player, "DuelEnd", math.floor(duration), { kind, result, reason })
@@ -1102,6 +1113,8 @@ function DuelService:Start()
 			return self.Services.RankedService:Join(player)
 		elseif action == "UGChallenge" then
 			return self:ChallengeUnderground(player, a1) -- (the district's private duel station)
+		elseif action == "UGTitle" then
+			return self.Services.UGRankedService:EquipTitle(player, a1) -- (the stats terminal)
 		elseif action == "UGAfter" then
 			return self.Services.UndergroundService:After(player, a1) -- (REMATCH / QUEUE AGAIN)
 		elseif action == "LeaveQueue" then

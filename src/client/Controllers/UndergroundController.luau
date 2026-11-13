@@ -27,6 +27,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local UIKit = require(script.Parent:WaitForChild("UIKit"))
+local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
 
 local UndergroundController = {}
 
@@ -393,7 +394,11 @@ function UndergroundController:BuildResults()
 	ui.ResultsThem = UIKit.Label({ Position = UDim2.fromOffset(x + w - 208, 154), Size = UDim2.fromOffset(200, 18), TextXAlignment = Enum.TextXAlignment.Right, Font = UIKit.FontSmall, TextColor3 = BLUE, MaxTextSize = 14, Parent = panel })
 	ui.ResultsFill = statTable(panel, UDim2.fromOffset(x, 174), w)
 	local below = 174 + #STAT_ROWS * ROW_HEIGHT + 8
-	ui.ResultsRewards = UIKit.Label({ Position = UDim2.fromOffset(x, below), Size = UDim2.fromOffset(w, 36), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Warn, MaxTextSize = 15, Parent = panel })
+	ui.ResultsRewards = UIKit.Label({ Position = UDim2.fromOffset(x, below), Size = UDim2.fromOffset(w, 22), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Warn, MaxTextSize = 15, Parent = panel })
+	-- the ranked league (UGRankedService): the rating change and the way to the next division
+	ui.ResultsRank = UIKit.Label({ Position = UDim2.fromOffset(x, below + 24), Size = UDim2.fromOffset(w, 22), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontSmall, TextColor3 = C.Text, MaxTextSize = 16, Parent = panel })
+	ui.ResultsRankBar = UIKit.Bar({ Position = UDim2.fromOffset(x + 40, below + 50), Size = UDim2.fromOffset(w - 80, 8), Color = RGB(255, 200, 60), Parent = panel })
+	ui.ResultsRankBar.Label.Visible = false
 
 	local function choose(choice: string)
 		ui.ResultsChoice = ui.ResultsChoice ~= choice and choice or "None"
@@ -428,6 +433,42 @@ function UndergroundController:RefreshResultsButtons()
 	local choice = ui.ResultsChoice
 	ui.RematchButton.Text = choice == "Rematch" and "REMATCH ✓" or (ui.RematchAsked and "ACCEPT REMATCH" or "REMATCH")
 	ui.QueueButton.Text = choice == "Queue" and "QUEUE AGAIN ✓" or "QUEUE AGAIN"
+end
+
+-- The ranked line on the results: "STEEL 1312 → 1340 (+28) · PROMOTED TO CHROME!", or the
+-- placement count; the bar shows the way to the next division. change = nil: not ranked.
+function UndergroundController:ShowRankChange(change)
+	ui.ResultsRank.Visible = change ~= nil
+	ui.ResultsRankBar.Frame.Visible = change ~= nil
+	if not change then
+		return
+	end
+	local division = UGRank.ById[change.Division] or UGRank.DivisionFor(change.New or UGRank.StartRating)
+	local sign = (change.Delta or 0) >= 0 and "+" or "−"
+	local delta = ("%s%d"):format(sign, math.abs(change.Delta or 0))
+	local text
+	if change.Placement then
+		text = change.PlacementsDone and ("PLACEMENTS DONE  ·  %s %s %d"):format(delta, division.Name, change.New)
+			or ("PLACEMENT %d / %d  ·  %s  ·  rating %d"):format(change.Placement, change.PlacementsTotal or UGRank.Placements, delta, change.New)
+	else
+		text = ("%s %d → %d  (%s)"):format(division.Name, change.Old, change.New, delta)
+		if change.Promoted then
+			text ..= "  ·  PROMOTED TO " .. division.Name .. "!"
+		elseif change.Demoted then
+			text ..= "  ·  DOWN TO " .. division.Name
+		end
+	end
+	if (change.Streak or 0) >= UGRank.StreakBonus.From then
+		text ..= ("  ·  %d WIN STREAK"):format(change.Streak)
+	end
+	if change.Damped then
+		text ..= ("  ·  same opponent again: x%.2g"):format(change.Damped)
+	end
+	ui.ResultsRank.Text = text
+	ui.ResultsRank.TextColor3 = change.Promoted and RGB(255, 210, 90) or division.Color
+	local progress = change.Placement and not change.PlacementsDone and (change.Placement / (change.PlacementsTotal or UGRank.Placements)) or UGRank.Progress(change.New, division.Id)
+	UIKit.SetBar(ui.ResultsRankBar, progress, 1)
+	ui.ResultsRankBar.Fill.BackgroundColor3 = division.Color
 end
 
 local RESULT_TITLES = { Win = "VICTORY", Loss = "DEFEAT", Draw = "DRAW" }
@@ -467,6 +508,7 @@ function UndergroundController:ShowResults(data)
 	ui.ResultsFill(ug.Mine, ug.Theirs)
 	local r = data.Rewards
 	ui.ResultsRewards.Text = r and ("+%d Arena Tokens   ·   +%d XP   ·   +%d coins"):format(r.ArenaTokens or 0, r.XP or 0, r.Coins or 0) or (data.RewardNote or "No rewards this time.")
+	self:ShowRankChange(data.UGRanked)
 	local record = ug.Record
 	ui.ResultsRecord.Text = record and ("UNDERGROUND RECORD   %d W  ·  %d L  ·  %d D"):format(record.Wins or 0, record.Losses or 0, record.Draws or 0) or ""
 	ui.ResultsWinner.Text = ug.WinnerName and string.upper(ug.WinnerName) or "NO WINNER"
@@ -621,7 +663,16 @@ local function updatePlate(p, model: Model?)
 	p.Stamina.Fill.BackgroundColor3 = model:GetAttribute("UGGassed") and C.Bad or RGB(255, 200, 60)
 	local name = model:GetAttribute("NightmareName") or "Nightmare"
 	local archetype = model:GetAttribute("Archetype") or ""
-	p.Sub.Text = ("%s  ·  %s"):format(string.upper(name), string.upper(archetype))
+	local extra = ""
+	local rank = model:GetAttribute("UGRankText") -- (a ranked fight: their division and rating)
+	local title = model:GetAttribute("UGTitle")
+	if rank then
+		extra ..= "  ·  " .. rank
+	end
+	if title then
+		extra ..= "  ·  ★ " .. title
+	end
+	p.Sub.Text = ("%s  ·  %s%s"):format(string.upper(name), string.upper(archetype), extra)
 end
 
 function UndergroundController:UpdateFrame()

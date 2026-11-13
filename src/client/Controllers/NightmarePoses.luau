@@ -2091,10 +2091,27 @@ local UG = {
 			pose(2.6),
 		},
 	},
+	-- THE CHAMPION'S VICTORY (a season's #1 wearing their title): the right fist driven straight
+	-- up and held there, chin raised; the left arm sweeps round pointing out at the crowd; then
+	-- both fists up together and a slow turn to soak it in
+	UG_VictoryChampion = {
+		Duration = 2.6,
+		Curve = "Spline",
+		Markers = { { 0.4, "StepL" }, { 1.6, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.4, { Joint_CorePos = { 0, 0.3, 0.05 }, Joint_Core = { 10, 8, 0 }, Joint_Legs = { -4, -8, 0 }, Joint_Head = { 20, -6, 0 }, Joint_RightArm = { 178, 0, 6 }, Sub_RightArm_Fore = { 4, 0, 0 }, Joint_LeftArm = { 30, 0, -20 }, Sub_LeftArm_Fore = { 60, 0, 0 } }),
+			pose(0.9, { Joint_CorePos = { 0, 0.32, 0.05 }, Joint_Core = { 12, -20, 0 }, Joint_Legs = { -4, 20, 0 }, Joint_Head = { 14, -26, 0 }, Joint_RightArm = { 178, 0, 6 }, Sub_RightArm_Fore = { 4, 0, 0 }, Joint_LeftArm = { 92, 0, -70 }, Sub_LeftArm_Fore = { 4, 0, 0 } }),
+			pose(1.35, { Joint_CorePos = { 0, 0.32, 0.05 }, Joint_Core = { 12, 24, 0 }, Joint_Legs = { -4, -24, 0 }, Joint_Head = { 14, 28, 0 }, Joint_RightArm = { 178, 0, 6 }, Sub_RightArm_Fore = { 4, 0, 0 }, Joint_LeftArm = { 92, 0, 40 }, Sub_LeftArm_Fore = { 4, 0, 0 } }),
+			pose(1.75, { Joint_CorePos = { 0, 0.3, 0.1 }, Joint_Core = { 16, 0, 0 }, Joint_Legs = { -6, 0, 0 }, Joint_Head = { 26, 0, 0 }, Sub_Head_Jaw = { -40, 0, 0 }, Joint_RightArm = { 170, 0, 24 }, Sub_RightArm_Fore = { 14, 0, 0 }, Joint_LeftArm = { 170, 0, -24 }, Sub_LeftArm_Fore = { 14, 0, 0 } }),
+			pose(2.2, { Joint_CorePos = { 0, 0.22, 0.08 }, Joint_Core = { 10, -30, 0 }, Joint_Legs = { -4, 30, 0 }, Joint_Head = { 18, -14, 0 }, Sub_Head_Jaw = { -20, 0, 0 }, Joint_RightArm = { 165, 0, 24 }, Sub_RightArm_Fore = { 20, 0, 0 }, Joint_LeftArm = { 165, 0, -24 }, Sub_LeftArm_Fore = { 20, 0, 0 } }),
+			pose(2.6),
+		},
+	},
 }
 local UGPoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))
 for name, def in UG do
-	if name ~= "UG_Feint" and name ~= "UG_Victory" then
+	if name ~= "UG_Feint" and name ~= "UG_Victory" and name ~= "UG_VictoryChampion" then
 		POSES.Common[name] = UGPoseTools.Punch(def, 0.3)
 	else
 		POSES.Common[name] = def
@@ -2122,7 +2139,7 @@ for name, def in ULTIMATE do
 	POSES.Common[name] = def
 end
 -- (every ability and Ultimate on a four-legged body: its quadruped variant, found before Common)
-local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true, UG_Parried = true, UG_Feint = true, UG_Victory = true }
+local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true, UG_Parried = true, UG_Feint = true, UG_Victory = true, UG_VictoryChampion = true }
 for name, def in POSES.Common do
 	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" or RING_CLIPS[name] then
 		POSES.Quadruped[name] = forQuadruped(def)

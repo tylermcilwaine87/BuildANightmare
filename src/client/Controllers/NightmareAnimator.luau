@@ -107,6 +107,7 @@ local ACTION_ARMS = {
 	UG_Parried = "None",
 	UG_Feint = "None",
 	UG_Victory = "None",
+	UG_VictoryChampion = "None",
 	Gym_Rest = "None",
 	Slip_L = "None",
 	Slip_R = "None",

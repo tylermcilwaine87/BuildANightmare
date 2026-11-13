@@ -436,7 +436,7 @@ local function buildLobby(m, F, rng)
 		trophy.WorldPivot = foot * CF(0, 1.5, 0)
 		Kit.Tag(trophy, "WSpin", { Axis = "Y", Speed = 0.5 })
 	end
-	Kit.Sign(m, C(0, 2, -8.05), V3(12, 1.4, 0.1), "CHAMPIONSHIP TROPHIES", GOLD, { Color = RGB(20, 16, 18) })
+	Kit.Sign(m, C(0, 2, -8.05), V3(12, 1.4, 0.1), "CHAMPIONSHIP TROPHIES", GOLD, { Color = RGB(20, 16, 18) }).Name = "ChampionPlaque" -- (DistrictService: the season's #1)
 	local caseLight = P(m, C(0, 11.2, -4), V3(12, 0.3, 6), RGB(255, 240, 210), M.Neon, glow)
 	Kit.Light(caseLight, RGB(255, 225, 180), 2, 16, { Kind = "SpotLight", Face = Enum.NormalId.Bottom, Angle = 90 })
 
@@ -535,14 +535,14 @@ local function buildLobby(m, F, rng)
 	layout.Parent = gui
 	local LINES = {
 		{ "SEASON 1  ·  THE RANKED LEAGUE", GOLD, 0.14 },
-		{ "Climb the ladder: the ranks and what each one is worth", RGB(200, 195, 210), 0.07 },
-		{ "NIGHTMARE LEGEND  ·  a title, a crown, the Hall's wall", RGB(255, 80, 90), 0.09 },
-		{ "MYTHIC  ·  a mythic finisher pose", RGB(220, 120, 255), 0.09 },
-		{ "TITANIUM  ·  a titanium ring walk", RGB(150, 210, 255), 0.09 },
-		{ "CHROME  ·  a chrome corner banner", RGB(220, 225, 235), 0.09 },
-		{ "STEEL  ·  a steel name plate", RGB(170, 175, 185), 0.09 },
-		{ "IRON  ·  an iron emblem", RGB(150, 130, 120), 0.09 },
+		{ "5 placement fights, then climb. Season end: a title for where you finished", RGB(200, 195, 210), 0.07 },
+		{ "#1  ·  S1 CHAMPION title, a GOLD aura, your name on the trophy case", RGB(255, 205, 70), 0.09 },
+		{ "TOP 20  ·  S1 TOP 20 title and a SILVER aura", RGB(225, 232, 245), 0.09 },
+		{ "NIGHTMARE LEGEND 2000+  ·  MYTHIC 1800+", RGB(255, 80, 90), 0.09 },
+		{ "TITANIUM 1600+  ·  CHROME 1400+", RGB(150, 210, 255), 0.09 },
+		{ "STEEL 1250+  ·  IRON 1100+", RGB(170, 175, 185), 0.09 },
 		{ "RUST  ·  where everybody starts", RGB(190, 110, 70), 0.09 },
+		{ "New season: ratings go halfway back to 1000, 3 placements", RGB(200, 195, 210), 0.08 },
 		{ "Cosmetic only. Nothing you can buy makes you hit harder.", RGB(160, 155, 170), 0.07 },
 	}
 	for i, line in LINES do

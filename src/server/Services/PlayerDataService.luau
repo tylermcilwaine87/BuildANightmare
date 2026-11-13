@@ -34,6 +34,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
 local PartDefinitions = require(Shared:WaitForChild("PartDefinitions"))
 local BuildValidator = require(Shared:WaitForChild("BuildValidator"))
 local Util = require(Shared:WaitForChild("Util"))
@@ -127,6 +128,7 @@ local function makeDefaultProfile()
 		ArenaTokens = 0,
 		PvP = { Wins = 0, Losses = 0, Draws = 0 },
 		Underground = { Wins = 0, Losses = 0, Draws = 0 }, -- NIGHTMARE UNDERGROUND fight record
+		UGRanked = UGRank.NewRecord(), -- NIGHTMARE UNDERGROUND ranked league (UGRankDefinitions)
 		Settings = { AllowDuels = true },
 		Mutations = {}, -- { [partId] = { [mutationId] = count } } (also counted in Inventory)
 		MutationBook = {}, -- { [mutationId] = { Found = n, Parts = { [partId] = true } } }
@@ -271,6 +273,15 @@ local function validate(data)
 		if type(data[key]) ~= type(value) then
 			data[key] = value
 		end
+	end
+	-- (the ranked league record: any field a save is missing or has the wrong type is reset)
+	for key, value in default.UGRanked do
+		if type(data.UGRanked[key]) ~= type(value) and not (key == "Title" and type(data.UGRanked[key]) == "string") then
+			data.UGRanked[key] = value
+		end
+	end
+	if not UGRank.ById[data.UGRanked.Division] then
+		data.UGRanked.Division = UGRank.DivisionFor(data.UGRanked.Rating).Id
 	end
 
 	for id, count in data.Inventory do
@@ -722,6 +733,7 @@ function PlayerDataService:Snapshot(player: Player)
 		ArenaTokens = data.ArenaTokens,
 		PvP = Util.DeepCopy(data.PvP),
 		Underground = Util.DeepCopy(data.Underground),
+		UGRanked = Util.DeepCopy(data.UGRanked),
 		Settings = Util.DeepCopy(data.Settings),
 		Mutations = Util.DeepCopy(data.Mutations),
 		MutationBook = Util.DeepCopy(data.MutationBook),
