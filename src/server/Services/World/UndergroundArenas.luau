@@ -442,7 +442,8 @@ local function ironworksFurnace(a: Model, c: Vector3, rng: Random)
 	end
 
 	-- THE FURNACES along the back wall: huge, glowing, roaring
-	for k = -2, 2 do
+	-- (two each side: the middle of the wall is the big screen and the venue sign)
+	for _, k in { -2, -1, 1, 2 } do
 		local base = c + V3(k * 36, 0, -hall + 18)
 		cyl(a, base, base + V3(0, 40, 0), 22, RUST, M.CorrodedMetal)
 		cyl(a, base + V3(0, 40, 0), base + V3(0, 64, 0), 8, DARK, M.Metal)

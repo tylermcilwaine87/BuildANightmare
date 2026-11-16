@@ -624,7 +624,7 @@ local THEME_LOOKS = {
 }
 
 -- a burst of particles at `position` (dust in the Pit, sparks in the Furnace)
-local function burst(position: Vector3, texture: string, color: Color3, count: number, speed: number, size: number)
+local function burst(position: Vector3, texture: string, color: Color3, count: number, speed: number, size: number, sparks: boolean?)
 	local part = Instance.new("Part")
 	part.Anchored = true
 	part.CanCollide = false
@@ -643,6 +643,24 @@ local function burst(position: Vector3, texture: string, color: Color3, count: n
 	emitter.Speed = NumberRange.new(speed * 0.5, speed)
 	emitter.SpreadAngle = Vector2.new(80, 80)
 	emitter.Acceleration = Vector3.new(0, -8, 0)
+	if sparks then
+		-- hot metal: bright, small, short-lived, thrown out and falling hard, with a flash
+		emitter.LightEmission = 1
+		emitter.LightInfluence = 0
+		emitter.Size = NumberSequence.new(size, 0)
+		emitter.Transparency = NumberSequence.new(0, 0.6)
+		emitter.Lifetime = NumberRange.new(0.35, 0.8)
+		emitter.Acceleration = Vector3.new(0, -60, 0)
+		emitter.Drag = 1.5
+		emitter.SpreadAngle = Vector2.new(70, 70)
+		emitter.EmissionDirection = Enum.NormalId.Top
+		local flash = Instance.new("PointLight")
+		flash.Color = color
+		flash.Range = 14
+		flash.Brightness = 6
+		flash.Parent = part
+		TweenService:Create(flash, TweenInfo.new(0.35), { Brightness = 0 }):Play()
+	end
 	emitter.Rate = 0
 	emitter.Parent = part
 	emitter:Emit(count)
@@ -670,7 +688,7 @@ local function venueImpact(data)
 			controllers.AudioController:Play("Victory")
 		end
 	elseif theme == "IronworksFurnace" then
-		burst(position, "rbxasset://textures/particles/sparkles_main.dds", Color3.fromRGB(255, 190, 90), data.KnockedDown and 60 or 30, 26, 0.5)
+		burst(position, "rbxasset://textures/particles/sparkles_main.dds", Color3.fromRGB(255, 180, 70), data.KnockedDown and 90 or 45, 30, 0.7, true)
 		controllers.AudioController:Play("MetalClang", position)
 	elseif theme == "ColossusDome" and data.KnockedDown then
 		controllers.AudioController:Play("Victory") -- (the stadium erupts)
@@ -953,12 +971,52 @@ local function onFeedback(kind: string, data)
 	end
 end
 
+-- The fight camera sits behind your Nightmare, which in your corner puts the corner post (the
+-- Pit's 15-stud cage post, the Furnace's machinery) between the lens and the fight. Anything of
+-- the arena's between the camera and your Nightmare goes see-through while it's in the way.
+local FADE = 0.8
+local faded: { [BasePart]: boolean } = {}
+
+local function updateCameraFade()
+	local hit: { [BasePart]: boolean } = {}
+	local camera = Workspace.CurrentCamera
+	local subject = camera and camera.CameraSubject
+	local arenas = Workspace:FindFirstChild("UndergroundArenas")
+	if state and arenas and subject and subject:IsA("Humanoid") and subject.RootPart then
+		local root = subject.RootPart.Position
+		local ignore = { subject.Parent :: Instance }
+		local character = Players.LocalPlayer.Character
+		if character then
+			table.insert(ignore, character)
+		end
+		-- every part on the lines from the lens to your Nightmare's hips, chest and head
+		local targets = { root, root + Vector3.new(0, 2, 0), root + Vector3.new(0, 4, 0) }
+		for _, part in camera:GetPartsObscuringTarget(targets, ignore) do
+			if part.Transparency < 1 and part:IsDescendantOf(arenas) then
+				hit[part] = true
+			end
+		end
+	end
+	for part in faded do
+		if not hit[part] then
+			part.LocalTransparencyModifier = 0
+			faded[part] = nil
+		end
+	end
+	for part in hit do
+		part.LocalTransparencyModifier = FADE
+		faded[part] = true
+	end
+end
+
 function UndergroundController:Start()
 	self:BuildGui()
 	Net.Get("CombatFeedback").OnClientEvent:Connect(onFeedback)
 	RunService.RenderStepped:Connect(function()
 		self:UpdateFrame()
 	end)
+	-- (after every camera script: lock-on and the shake move the lens at Camera + 1 and + 2)
+	RunService:BindToRenderStep("UGCameraFade", Enum.RenderPriority.Last.Value, updateCameraFade)
 end
 
 return UndergroundController
