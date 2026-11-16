@@ -565,6 +565,9 @@ function PvPController:Start()
 			incoming = data
 			if data.Mode == "Underground" then
 				ui.PopupText.Text = ("%s challenges you to NIGHTMARE UNDERGROUND: 1v1, best of %d, you both fight AS your Nightmares!"):format(data.FromName, data.BestOf or 3)
+				if type(data.Rival) == "table" then
+					ui.PopupText.Text = ("RIVALRY MATCH!  %s wants another go: NIGHTMARE UNDERGROUND, best of %d. You're %d-%d-%d against them."):format(data.FromName, data.BestOf or 3, data.Rival.W or 0, data.Rival.L or 0, data.Rival.D or 0)
+				end
 			elseif data.TeamSize then
 				ui.PopupText.Text = ("%s's party challenges your party to a %dv%d Team Duel (Best of %d)!"):format(data.FromName, data.TeamSize, data.TeamSize, data.BestOf)
 			else

@@ -127,11 +127,31 @@ function DistrictController:OpenDuel()
 		end
 	end
 	local count = 0
+	-- RIVALS first: anyone here you've fought before, with your record against them
+	local profile = controllers.ClientState.Profile
+	local rivals = profile and profile.Underground and profile.Underground.Rivals or {}
+	local others = {}
 	for _, player in Players:GetPlayers() do
 		if player ~= localPlayer then
+			table.insert(others, player)
+		end
+	end
+	table.sort(others, function(a, b)
+		local ra, rb = rivals[tostring(a.UserId)], rivals[tostring(b.UserId)]
+		if (ra ~= nil) ~= (rb ~= nil) then
+			return ra ~= nil
+		end
+		return a.DisplayName < b.DisplayName
+	end)
+	for _, player in others do
+		do
 			count += 1
-			local row = UIKit.New("Frame", { Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = C.PanelLight, LayoutOrder = count, Parent = ui.DuelList }, { UIKit.Corner(6) })
-			UIKit.Label({ Text = player.DisplayName, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(0.6, -10, 1, 0), MaxTextSize = 16, Parent = row })
+			local rival = rivals[tostring(player.UserId)]
+			local row = UIKit.New("Frame", { Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = rival and RGB(70, 34, 44) or C.PanelLight, LayoutOrder = count, Parent = ui.DuelList }, { UIKit.Corner(6) })
+			UIKit.Label({ Text = player.DisplayName, Position = UDim2.fromOffset(10, rival and 2 or 0), Size = UDim2.new(0.6, -10, rival and 0.55 or 1, 0), MaxTextSize = 16, Parent = row })
+			if rival then
+				UIKit.Label({ Text = ("RIVAL  ·  you're %d-%d-%d against them"):format(rival.W or 0, rival.L or 0, rival.D or 0), Position = UDim2.new(0, 10, 0.55, 0), Size = UDim2.new(0.6, -10, 0.4, 0), TextColor3 = RGB(255, 120, 140), Font = UIKit.FontSmall, MaxTextSize = 12, Parent = row })
+			end
 			UIKit.Button({ Text = "CHALLENGE", Position = UDim2.new(0.62, 0, 0.14, 0), Size = UDim2.new(0.36, 0, 0.72, 0), BackgroundColor3 = RGB(140, 60, 190), MaxTextSize = 14, Parent = row }, function()
 				ui.DuelMessage.Text = "Sending..."
 				local result = controllers.PvPController:Request("UGChallenge", player.UserId)

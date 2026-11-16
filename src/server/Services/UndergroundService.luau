@@ -303,6 +303,37 @@ end
 function UndergroundService:AddCareer(match, player: Player, record)
 	local whole = match.UGMatch
 	local side = match.Side[player]
+	-- RIVALS: your head-to-head against everyone you've fought (the Private Duel station shows
+	-- them first; a rival's challenge is a RIVALRY MATCH)
+	local other = side and match.Teams[3 - side] and match.Teams[3 - side][1]
+	if other then
+		record.Rivals = record.Rivals or {}
+		local key = tostring(other.UserId)
+		local rival = record.Rivals[key] or { W = 0, L = 0, D = 0 }
+		rival.Name = other.DisplayName
+		rival.Last = os.time()
+		if match.WinnerSide == side then
+			rival.W += 1
+		elseif match.WinnerSide then
+			rival.L += 1
+		else
+			rival.D += 1
+		end
+		record.Rivals[key] = rival
+		-- (the 20 most recent)
+		local keys = {}
+		for k in record.Rivals do
+			table.insert(keys, k)
+		end
+		if #keys > 20 then
+			table.sort(keys, function(a, b)
+				return (record.Rivals[a].Last or 0) > (record.Rivals[b].Last or 0)
+			end)
+			for i = 21, #keys do
+				record.Rivals[keys[i]] = nil
+			end
+		end
+	end
 	-- (every fight counts, even one forfeited before a round was fought)
 	record.Fights = (record.Fights or 0) + 1
 	if match.UGRanked then

@@ -527,7 +527,9 @@ function DuelService:ChallengeUnderground(from: Player, targetUserId)
 	end
 	local id = HttpService:GenerateGUID(false)
 	requests[id] = { Id = id, From = from, To = target, BestOf = Config.Underground.BestOf, Mode = "Underground", Expires = os.clock() + PVP.RequestTimeout }
-	self.DuelEvent:FireClient(target, "Incoming", { RequestId = id, FromName = from.DisplayName, FromUserId = from.UserId, BestOf = Config.Underground.BestOf, Mode = "Underground", Timeout = PVP.RequestTimeout })
+	local targetProfile = self.Services.PlayerDataService:Get(target)
+	local rival = targetProfile and targetProfile.Underground and targetProfile.Underground.Rivals and targetProfile.Underground.Rivals[tostring(from.UserId)] -- (you've fought before: a RIVALRY MATCH)
+	self.DuelEvent:FireClient(target, "Incoming", { RequestId = id, FromName = from.DisplayName, FromUserId = from.UserId, BestOf = Config.Underground.BestOf, Mode = "Underground", Timeout = PVP.RequestTimeout, Rival = rival and { W = rival.W, L = rival.L, D = rival.D } or nil })
 	task.delay(PVP.RequestTimeout, function()
 		if requests[id] then
 			requests[id] = nil
