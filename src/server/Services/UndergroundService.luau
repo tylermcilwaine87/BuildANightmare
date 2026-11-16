@@ -39,6 +39,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
 local UGCosmetics = require(Shared:WaitForChild("UGCosmetics"))
+local WorldDefinitions = require(Shared:WaitForChild("WorldDefinitions"))
 
 local Kit = require(script.Parent:WaitForChild("World"):WaitForChild("Kit"))
 local Arenas = require(script.Parent:WaitForChild("World"):WaitForChild("UndergroundArenas"))
@@ -602,6 +603,8 @@ local function queuedIn(player: Player): (string?, number?)
 end
 
 function UndergroundService:Leave(player: Player, message: string?)
+	-- (a fight of your own, or a queue: you stop watching someone else's)
+	self:StopSpectating(player, true)
 	local kind, index = queuedIn(player)
 	if kind then
 		table.remove(queues[kind], index)
@@ -618,6 +621,7 @@ end
 -- kind: "Casual" (default) or "Ranked". Using the same kind of terminal again cancels; the
 -- other kind moves you over.
 function UndergroundService:Join(player: Player, kind: string?)
+	self:StopSpectating(player, true)
 	kind = kind == "Ranked" and "Ranked" or "Casual"
 	local duel = self.Services.DuelService
 	local current = queuedIn(player)
@@ -955,6 +959,127 @@ function UndergroundService:DevCosmetic(player: Player, kind: string, id: string
 end
 
 ------------------------------------------------------------------------------------------
+-- SPECTATING: the district's WATCH LIVE terminal lists every fight going on (DuelService
+-- :UndergroundMatches); WATCH stands you in that arena's spectators' box (UndergroundArenas
+-- .SpectatorBox) with your Nightmare beside you, and SpectatorController gives you the
+-- cameras and the fight on a HUD. Real fights only: there is nothing to watch when nobody is
+-- fighting. You go back to the district when you leave, or a little after the fight ends.
+------------------------------------------------------------------------------------------
+local spectating: { [Player]: any } = {} -- [player] = the match they're watching
+local SPECTATE_AFTER = 6 -- seconds the result stays up before the watchers go home
+
+local function spectatePacket(self, match)
+	local arena = match.Arena
+	local sides = {}
+	for side = 1, 2 do
+		local player = match.Teams[side][1]
+		local body = player and player.Parent and fighterOf(self, player)
+		sides[side] = { Name = match.TeamNames[side], Model = body, Nightmare = body and body:GetAttribute("NightmareName") or nil }
+	end
+	return {
+		Active = true, MatchId = match.Id, Arena = arena and arena.Name, Theme = arena and arena.Theme, Center = arena and arena.Center,
+		Red = sides[1], Blue = sides[2], Round = match.Round, BestOf = match.BestOf, Score = { match.Score[1], match.Score[2] },
+		State = match.State, PhaseEndsAt = match.PhaseEndsAt, Ranked = match.UGRanked == true, Result = match.SpectateResult,
+	}
+end
+
+function UndergroundService:Spectate(player: Player, matchId)
+	local duel = self.Services.DuelService
+	if duel:IsInMatch(player) then
+		return { Ok = false, Error = "You're in a fight yourself." }
+	end
+	local match = duel:FindMatch(matchId)
+	if not match or match.Mode ~= "Underground" or match.State == "Ended" or not match.Arena then
+		return { Ok = false, Error = "That fight has finished." }
+	end
+	local spots = match.Arena.SpectatorSpots
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not spots or not root or not humanoid or humanoid.Health <= 0 then
+		return { Ok = false, Error = "You can't watch right now." }
+	end
+	self:Leave(player, nil) -- (out of any queue; this also ends watching another fight)
+	match.Spectators = match.Spectators or {}
+	local count = 0
+	for _ in match.Spectators do
+		count += 1
+	end
+	local spot = spots[count % #spots + 1]
+	root.Anchored = false
+	character:PivotTo(spot + Vector3.new(0, 3, 0))
+	root.Anchored = true
+	-- your Nightmare stands with you and keeps still (it's no part of this fight)
+	self.Services.NightmareSpawnService:TeleportNightmare(player, spot * CFrame.new(2.5, 0, 1.5))
+	local model = fighterOf(self, player)
+	local brain = model and self.Services.NightmareAIService:GetBrainByModel(model)
+	if brain then
+		brain.scripted = true
+		self.Services.NightmareAIService:Stop(brain)
+	end
+	match.Spectators[player] = true
+	spectating[player] = match
+	player:SetAttribute("UGSpectating", match.Id)
+	duel.DuelEvent:FireClient(player, "UGSpectate", spectatePacket(self, match))
+	return { Ok = true }
+end
+
+-- quiet: they're off to something else (a queue, a fight of their own), no message
+function UndergroundService:StopSpectating(player: Player, quiet: boolean?)
+	local match = spectating[player]
+	if not match then
+		return
+	end
+	spectating[player] = nil
+	if match.Spectators then
+		match.Spectators[player] = nil
+	end
+	if not player.Parent then
+		return
+	end
+	player:SetAttribute("UGSpectating", nil)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root then
+		root.Anchored = false
+		-- back where they started watching from: the district
+		local center = WorldDefinitions.District.Center
+		character:PivotTo(CFrame.new(center + Vector3.new(math.random(-6, 6), 4, math.random(-6, 6))))
+	end
+	local model = fighterOf(self, player)
+	local brain = model and self.Services.NightmareAIService:GetBrainByModel(model)
+	if brain then
+		brain.scripted = false -- (it's far behind now: it catches up with its Handler)
+	end
+	self.Services.DuelService.DuelEvent:FireClient(player, "UGSpectate", { Active = false })
+	if not quiet then
+		tell(self, player, "Back in the Fighting District.")
+	end
+end
+
+-- Every half second: the watchers get the fight; when it ends, the result, then home.
+function UndergroundService:SpectateTick()
+	for player, match in spectating do
+		if not player.Parent then
+			spectating[player] = nil
+		elseif match.State == "Ended" or match.Closed then
+			if not match.SpectateResult then
+				local a, b = match.Score[1], match.Score[2]
+				match.SpectateResult = a == b and "THE FIGHT IS A DRAW" or (string.upper(match.TeamNames[a > b and 1 or 2]) .. " WINS")
+				match.SpectateEndAt = os.clock() + SPECTATE_AFTER
+			end
+			if os.clock() >= match.SpectateEndAt then
+				self:StopSpectating(player)
+			else
+				self.Services.DuelService.DuelEvent:FireClient(player, "UGSpectate", spectatePacket(self, match))
+			end
+		else
+			self.Services.DuelService.DuelEvent:FireClient(player, "UGSpectate", spectatePacket(self, match))
+		end
+	end
+end
+
+------------------------------------------------------------------------------------------
 -- Lifecycle
 ------------------------------------------------------------------------------------------
 function UndergroundService:Init(services)
@@ -1017,6 +1142,10 @@ function UndergroundService:Start()
 	task.spawn(function()
 		while true do
 			task.wait(0.5)
+			local okWatch, watchErr = pcall(self.SpectateTick, self) -- (and the spectators' view of their fight)
+			if not okWatch then
+				warn("[UndergroundService] spectators: " .. tostring(watchErr))
+			end
 			for key, arena in arenas do
 				if slotInUse[key] then
 					local ok, err = pcall(self.RenderBoards, self, arena)

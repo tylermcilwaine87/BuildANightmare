@@ -570,6 +570,9 @@ local function buildLobby(m, F, rng)
 		end
 	end
 	Kit.Sign(m, C(22, 9.8, HALF_Z - 0.3), V3(30, 2.4, 0.2), "SPECTATORS  ·  WATCH THE FIGHTS ON THE SCREENS", RGB(240, 230, 235), { Color = RGB(16, 10, 12) })
+	-- WATCH LIVE: in front of the stands, into any fight going on (UGSpectate: the client's list
+	-- of live fights, then UndergroundService:Spectate)
+	terminal(m, C(22, 1, HALF_Z - 19), RGB(255, 90, 110), "WATCH LIVE", "spectate a fight going on now", "UGSpectate", "Watch a fight", "Nightmare Underground · Spectate")
 end
 
 function District.Build(root)

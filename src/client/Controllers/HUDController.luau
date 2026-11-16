@@ -74,6 +74,14 @@ function HUDController:SetPvPMode(enabled: boolean)
 end
 
 -- NIGHTMARE UNDERGROUND: its fight HUD replaces the normal one's top half (ApplyParts).
+-- Watching someone else's Underground fight (SpectatorController): the fight HUD's layout,
+-- and no ability bar.
+function HUDController:SetSpectating(enabled: boolean)
+	ui.Spectating = enabled or nil
+	self:SetUndergroundMode(enabled)
+	self:ApplyParts()
+end
+
 function HUDController:SetUndergroundMode(enabled: boolean)
 	if ui.Underground ~= enabled then
 		ui.Underground = enabled
@@ -699,7 +707,7 @@ function HUDController:ApplyParts()
 	-- meters and the weapon hotbar step aside; the abilities stay, you use them)
 	local fight = ui.Underground == true
 	ui.StatusPanel.Visible = shown("HudStatus") and not fight
-	ui.AbilityBar.Visible = shown("HudAbilities")
+	ui.AbilityBar.Visible = shown("HudAbilities") and not ui.Spectating -- (watching a fight: nothing of yours to use)
 	ui.Meters.Visible = shown("HudMeters") and not fight
 	ui.TopButtons.Visible = shown("HudButtons") and not fight
 	ui.HurtLayer.Enabled = shown("HudHurtEdges")

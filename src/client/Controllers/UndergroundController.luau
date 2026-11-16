@@ -990,6 +990,22 @@ local function faceOff()
 	end)
 end
 
+-- A venue's lighting for someone who isn't fighting in it (SpectatorController), and back.
+function UndergroundController:ApplyVenue(theme: string?)
+	local look = theme and THEME_LOOKS[theme]
+	if look and ui.Theme ~= theme then
+		ui.Theme = theme
+		controllers.WorldController:ApplyLook(look, look.Ambience)
+	end
+end
+
+function UndergroundController:ResetVenue()
+	if ui.Theme and not state then
+		ui.Theme = nil
+		controllers.WorldController:ResetRegion()
+	end
+end
+
 function UndergroundController:ApplyState(data)
 	if not ui.Gui then
 		return

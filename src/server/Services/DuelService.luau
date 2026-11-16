@@ -540,11 +540,18 @@ function DuelService:ChallengeUnderground(from: Player, targetUserId)
 end
 
 -- The Underground fights going on right now (the district's LIVE NOW screens).
+-- A match by its Id (the spectators' WATCH buttons), while it's still on.
+function DuelService:FindMatch(id): any
+	return type(id) == "string" and matches[id] or nil
+end
+
 function DuelService:UndergroundMatches()
 	local list = {}
 	for _, match in matches do
 		if match.Mode == "Underground" and match.State ~= "Ended" then
 			table.insert(list, {
+				Id = match.Id,
+				Arena = match.Arena and match.Arena.Name or nil,
 				Names = { match.TeamNames[1], match.TeamNames[2] },
 				Score = { match.Score[1], match.Score[2] },
 				Round = match.Round, BestOf = match.BestOf, State = match.State, Ranked = match.UGRanked == true,
@@ -1148,6 +1155,13 @@ function DuelService:Start()
 			return self.Services.UGRankedService:EquipTitle(player, a1) -- (the stats terminal)
 		elseif action == "UGAfter" then
 			return self.Services.UndergroundService:After(player, a1) -- (REMATCH / QUEUE AGAIN)
+		elseif action == "UGLive" then
+			return { Ok = true, List = self:UndergroundMatches() } -- (the WATCH LIVE terminal)
+		elseif action == "UGSpectate" then
+			return self.Services.UndergroundService:Spectate(player, a1)
+		elseif action == "UGStopSpectate" then
+			self.Services.UndergroundService:StopSpectating(player)
+			return { Ok = true }
 		elseif action == "UGSkipIntro" then
 			return self.Services.UndergroundService:SkipIntro(player) -- (both skip: straight to the corners)
 		elseif action == "UGCosmetic" then

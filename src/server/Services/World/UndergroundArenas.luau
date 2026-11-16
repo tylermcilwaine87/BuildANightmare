@@ -551,7 +551,39 @@ function Arenas.Build(themeId: string, origin: Vector3, seed: number)
 		end
 	end
 	local entrances = { Arenas.FindEntrance(a, origin, core, 1), Arenas.FindEntrance(a, origin, core, 2) }
-	return { Model = a, Theme = themeId, Center = core.Center, Starts = core.Starts, Booths = core.Booths, Screens = screens, Entrances = entrances }
+	local spectators = Arenas.SpectatorBox(a, origin, core)
+	return { Model = a, Theme = themeId, Center = core.Center, Starts = core.Starts, Booths = core.Booths, Screens = screens, Entrances = entrances, SpectatorSpots = spectators }
+end
+
+-- THE SPECTATORS' BOX (UndergroundService:Spectate): a raised glass-floored platform off the
+-- neutral corner, over the crowd, where anyone watching a fight from the district stands.
+-- Returns the spots to stand them on (feet level, facing the ring).
+function Arenas.SpectatorBox(a: Model, c: Vector3, core)
+	local m = Kit.Model("SpectatorBox", a)
+	local corner = core.Corners[3]
+	local out = V3(corner.X, 0, corner.Z).Unit
+	local at = c + out * (corner.Magnitude + 12) + V3(0, 13, 0)
+	local face = CFrame.lookAt(at, V3(c.X, at.Y, c.Z))
+	local L, C = Kit.Frame(face)
+	P(m, C(0, -0.25, 0), V3(12, 0.5, 9), RGB(170, 200, 230), M.Glass, { Transparency = 0.55, Name = "BoxFloor" })
+	for _, x in { -5.8, 5.8 } do
+		for _, z in { -4.3, 4.3 } do
+			cyl(m, L(x, -13.5, z), L(x, -0.5, z), 0.6, RGB(50, 48, 56), M.Metal)
+		end
+	end
+	-- the rail on three sides (open at the back where you'd come up)
+	for _, rail in { { V3(0, 1.6, -4.4), V3(12, 0.3, 0.3) }, { V3(-5.9, 1.6, 0), V3(0.3, 0.3, 9) }, { V3(5.9, 1.6, 0), V3(0.3, 0.3, 9) } } do
+		P(m, C(rail[1].X, rail[1].Y, rail[1].Z), rail[2], RGB(255, 200, 80), M.Neon, glow)
+	end
+	P(m, C(0, 0.8, -4.4), V3(12, 1.6, 0.2), RGB(150, 190, 230), M.Glass, { Transparency = 0.6 })
+	Kit.Sign(m, C(0, 6.5, 4.4), V3(10, 1.6, 0.2), "SPECTATORS", RGB(255, 210, 90), { Color = RGB(14, 10, 14) })
+	local lamp = P(m, C(0, 5.8, 3.8), V3(6, 0.3, 1), RGB(255, 235, 200), M.Neon, glow)
+	Kit.Light(lamp, RGB(255, 230, 190), 1.2, 14)
+	local spots = {}
+	for _, x in { -3.5, 3.5, -1.2, 1.2 } do
+		table.insert(spots, CFrame.lookAt(L(x, 0, 1.5), V3(c.X, at.Y, c.Z)))
+	end
+	return spots
 end
 
 -- THE WALK-OUT: for the cinematic entrance (UndergroundService:RunEntrance), a straight walk

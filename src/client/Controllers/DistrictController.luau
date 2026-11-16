@@ -335,9 +335,50 @@ function DistrictController:OpenLocker()
 	ui.Locker.Enabled = true
 end
 
+-- WATCH LIVE: every Underground fight going on in this server, a WATCH button each
+-- (DuelRequest "UGSpectate": UndergroundService stands you in that arena's spectators' box).
+function DistrictController:OpenWatch()
+	if not ui.Watch then
+		local gui, body = panel("WATCH LIVE", RGB(255, 90, 110), Vector2.new(560, 420))
+		ui.Watch = gui
+		UIKit.Label({ Size = UDim2.new(1, 0, 0, 34), TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 13, TextWrapped = true, Parent = body,
+			Text = "Real fights going on right now. You watch from the arena's spectators' box: pick your camera, leave whenever you like." })
+		ui.WatchList = UIKit.New("ScrollingFrame", { Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 1, -70), BackgroundTransparency = 1, ScrollBarThickness = 6, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Parent = body }, { UIKit.List(6) })
+		ui.WatchMessage = UIKit.Label({ AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 24), TextColor3 = C.Warn, MaxTextSize = 14, Parent = body })
+	end
+	for _, child in ui.WatchList:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	ui.WatchMessage.Text = ""
+	local reply = controllers.PvPController:Request("UGLive")
+	local list = reply and reply.Ok and reply.List or {}
+	for order, fight in list do
+		local row = UIKit.New("Frame", { LayoutOrder = order, Size = UDim2.new(1, -8, 0, 58), BackgroundColor3 = C.PanelLight, Parent = ui.WatchList }, { UIKit.Corner(6) })
+		UIKit.Label({ Position = UDim2.fromOffset(10, 4), Size = UDim2.new(1, -130, 0, 24), TextColor3 = C.Text, MaxTextSize = 17,
+			Text = ("%s  vs  %s"):format(string.upper(fight.Names[1] or "?"), string.upper(fight.Names[2] or "?")), Parent = row })
+		local stage = fight.State == "Live" and ("ROUND %d / %d"):format(math.max(fight.Round or 1, 1), fight.BestOf or 3) or (fight.State == "Intro" and "THE ENTRANCES" or (fight.State == "Prep" and "PICKING NIGHTMARES" or (fight.State == "Countdown" and "IN THEIR CORNERS" or "BETWEEN ROUNDS")))
+		UIKit.Label({ Position = UDim2.fromOffset(10, 30), Size = UDim2.new(1, -130, 0, 20), TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 13,
+			Text = ("%s%s  ·  %s  ·  %d – %d"):format(fight.Ranked and "RANKED  ·  " or "", fight.Arena or "Underground", stage, fight.Score[1] or 0, fight.Score[2] or 0), Parent = row })
+		UIKit.Button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(100, 34), BackgroundColor3 = RGB(140, 40, 56), Text = "WATCH", MaxTextSize = 16, Parent = row }, function()
+			local result = controllers.PvPController:Request("UGSpectate", fight.Id)
+			if result and result.Ok then
+				ui.Watch.Enabled = false
+			else
+				ui.WatchMessage.Text = result and result.Error or "Couldn't watch that fight."
+			end
+		end)
+	end
+	if #list == 0 then
+		UIKit.Label({ Size = UDim2.new(1, -8, 0, 40), TextColor3 = C.SubText, MaxTextSize = 15, Text = "Nobody is fighting right now. The screens light up when someone is.", TextWrapped = true, Parent = ui.WatchList })
+	end
+	ui.Watch.Enabled = true
+end
+
 -- A fight is starting: the station panels get out of the way.
 function DistrictController:CloseAll()
-	for _, gui in { ui.Duel, ui.Stats, ui.Locker } do
+	for _, gui in { ui.Duel, ui.Stats, ui.Locker, ui.Watch } do
 		if gui then
 			gui.Enabled = false
 		end
@@ -351,6 +392,8 @@ function DistrictController:Start()
 			self:OpenDuel()
 		elseif prompt.Name == "UGStats" then
 			self:OpenStats()
+		elseif prompt.Name == "UGSpectate" then
+			self:OpenWatch()
 		end
 	end)
 end
