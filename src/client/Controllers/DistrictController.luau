@@ -19,6 +19,7 @@ local TweenService = game:GetService("TweenService")
 
 local UIKit = require(script.Parent:WaitForChild("UIKit"))
 local UGRank = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("UGRankDefinitions"))
+local UGCosmetics = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("UGCosmetics"))
 
 local DistrictController = {}
 
@@ -177,6 +178,9 @@ function DistrictController:OpenStats()
 			ui.StatRows[i] = UIKit.Label({ Position = UDim2.new(0.6, 0, 0, y), Size = UDim2.new(0.4, -8, 0, 20), TextXAlignment = Enum.TextXAlignment.Right, Font = UIKit.FontSmall, TextColor3 = C.Text, MaxTextSize = 14, Parent = left })
 		end
 		ui.StatAccuracy = UIKit.Label({ Position = UDim2.fromOffset(0, 22 + #STAT_LINES * 20 + 4), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = GOLD, MaxTextSize = 15, Parent = left })
+		UIKit.Button({ Position = UDim2.fromOffset(0, 22 + #STAT_LINES * 20 + 30), Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = RGB(60, 40, 30), TextColor3 = GOLD, MaxTextSize = 15, Text = "LOCKER ROOM  ·  ENTRANCES & VICTORY POSES", Parent = left }, function()
+			self:OpenLocker()
+		end)
 
 		-- RIGHT: the ranked league card
 		local right = UIKit.New("Frame", { Position = UDim2.fromOffset(380, 0), Size = UDim2.new(1, -380, 1, 0), BackgroundTransparency = 1, Parent = body })
@@ -277,9 +281,63 @@ function DistrictController:OpenStats()
 	ui.Stats.Enabled = true
 end
 
+-- THE LOCKER ROOM: the entrance your Nightmare makes before round 1 and the pose it strikes
+-- when it wins (UGCosmetics). Earned by fighting; locked ones show how far you are.
+function DistrictController:OpenLocker()
+	if not ui.Locker then
+		local gui, body = panel("THE LOCKER ROOM", GOLD, Vector2.new(860, 500))
+		ui.Locker = gui
+		ui.LockerNote = UIKit.Label({ Size = UDim2.new(1, 0, 0, 20), TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 13, Parent = body,
+			Text = "Cosmetic only: they change how your fights look, never how they go." })
+		ui.LockerCols = {}
+		for i, heading in { "YOUR ENTRANCE  (before round 1)", "YOUR VICTORY POSE" } do
+			local col = UIKit.New("Frame", { Position = UDim2.new((i - 1) * 0.5, i == 1 and 0 or 8, 0, 26), Size = UDim2.new(0.5, -8, 1, -56), BackgroundTransparency = 1, Parent = body })
+			UIKit.Label({ Size = UDim2.new(1, 0, 0, 20), TextColor3 = GOLD, MaxTextSize = 14, Text = heading, Parent = col })
+			ui.LockerCols[i] = UIKit.New("ScrollingFrame", { Position = UDim2.fromOffset(0, 24), Size = UDim2.new(1, 0, 1, -24), BackgroundTransparency = 1, ScrollBarThickness = 5, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Parent = col }, { UIKit.List(6) })
+		end
+		ui.LockerMessage = UIKit.Label({ AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 24), TextColor3 = C.Warn, MaxTextSize = 14, Parent = body })
+	end
+	local profile = controllers.ClientState.Profile
+	local career = profile and profile.Underground or {}
+	for i, kind in { "Intro", "Victory" } do
+		local list = ui.LockerCols[i]
+		for _, child in list:GetChildren() do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+		local defs = kind == "Intro" and UGCosmetics.Intros or UGCosmetics.Victories
+		local wearing = (kind == "Intro" and UGCosmetics.IntroFor(profile) or UGCosmetics.VictoryFor(profile)).Id
+		for order, def in defs do
+			local unlocked, have, need = UGCosmetics.Progress(def, profile)
+			local isOn = def.Id == wearing
+			local row = UIKit.New("Frame", { LayoutOrder = order, Size = UDim2.new(1, -8, 0, 68), BackgroundColor3 = isOn and RGB(60, 50, 26) or C.PanelLight, BackgroundTransparency = unlocked and 0 or 0.4, Parent = list }, { UIKit.Corner(6), isOn and UIKit.Stroke(GOLD, 2, 0) or nil })
+			UIKit.Label({ Position = UDim2.fromOffset(10, 4), Size = UDim2.new(1, -130, 0, 22), TextColor3 = unlocked and C.Text or C.SubText, MaxTextSize = 16, Text = def.Name, Parent = row })
+			UIKit.Label({ Position = UDim2.fromOffset(10, 26), Size = UDim2.new(1, -130, 0, 38), TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 12, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
+				Text = unlocked and def.Desc or ("🔒 %s  (%d / %d)"):format(def.Unlock.Text, have, need), Parent = row })
+			if isOn then
+				UIKit.Label({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(110, 30), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = GOLD, MaxTextSize = 15, Text = "✓ WEARING", Parent = row })
+			elseif unlocked then
+				UIKit.Button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(100, 32), Text = "WEAR", MaxTextSize = 15, Parent = row }, function()
+					local reply = controllers.PvPController:Request("UGCosmetic", kind, def.Id)
+					if reply and reply.Ok then
+						ui.LockerMessage.Text = ""
+						task.delay(0.4, function()
+							self:OpenLocker()
+						end)
+					else
+						ui.LockerMessage.Text = reply and reply.Error or "Couldn't change that."
+					end
+				end)
+			end
+		end
+	end
+	ui.Locker.Enabled = true
+end
+
 -- A fight is starting: the station panels get out of the way.
 function DistrictController:CloseAll()
-	for _, gui in { ui.Duel, ui.Stats } do
+	for _, gui in { ui.Duel, ui.Stats, ui.Locker } do
 		if gui then
 			gui.Enabled = false
 		end

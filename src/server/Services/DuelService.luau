@@ -144,7 +144,7 @@ end
 -- Queries used by other services
 ------------------------------------------------------------------------------------------
 local LIVE_STATES = { Live = true, SuddenDeath = true }
-local FROZEN_STATES = { Prep = true, Countdown = true, RoundOver = true, Ended = true }
+local FROZEN_STATES = { Prep = true, Intro = true, Countdown = true, RoundOver = true, Ended = true }
 
 function DuelService:GetMatch(player: Player?)
 	return player and playerMatch[player] or nil
@@ -705,7 +705,12 @@ function DuelService:BeginPrep(match)
 	local token = match.Token
 	task.delay(prepTime, function()
 		if match.Token == token and match.State == "Prep" then
-			self:BeginCountdown(match)
+			-- (an Underground fight opens with the fighters' entrances: UndergroundService)
+			if match.Mode == "Underground" and match.Round == 0 then
+				self:BeginIntro(match)
+			else
+				self:BeginCountdown(match)
+			end
 		end
 	end)
 end
@@ -727,6 +732,31 @@ function DuelService:SelectBuild(player: Player, index)
 	end
 	self:SendState(match)
 	return { Ok = true }
+end
+
+-- NIGHTMARE UNDERGROUND, before round 1: the entrances (UndergroundService:RunEntrance walks
+-- the bodies; the clients film it). Ends by itself, or as soon as every fighter skips it.
+function DuelService:BeginIntro(match)
+	match.Token += 1
+	match.State = "Intro"
+	local beats = Config.Underground.Entrance
+	local length = beats.Sweep + beats.Beat * 2 + 0.4
+	match.PhaseEndsAt = serverNow() + length
+	match.IntroSkips = {}
+	self:SendState(match)
+	self.Services.UndergroundService:RunEntrance(match)
+	local token = match.Token
+	task.delay(length, function()
+		self:EndIntro(match, token)
+	end)
+end
+
+function DuelService:EndIntro(match, token: number?)
+	if match.State ~= "Intro" or (token and match.Token ~= token) then
+		return
+	end
+	self.Services.UndergroundService:EndEntrance(match)
+	self:BeginCountdown(match)
 end
 
 function DuelService:BeginCountdown(match)
@@ -1118,6 +1148,10 @@ function DuelService:Start()
 			return self.Services.UGRankedService:EquipTitle(player, a1) -- (the stats terminal)
 		elseif action == "UGAfter" then
 			return self.Services.UndergroundService:After(player, a1) -- (REMATCH / QUEUE AGAIN)
+		elseif action == "UGSkipIntro" then
+			return self.Services.UndergroundService:SkipIntro(player) -- (both skip: straight to the corners)
+		elseif action == "UGCosmetic" then
+			return self.Services.UndergroundService:EquipCosmetic(player, a1, a2) -- (the locker room)
 		elseif action == "LeaveQueue" then
 			self.Services.RankedService:Leave(player, "You stopped searching.")
 			return { Ok = true }

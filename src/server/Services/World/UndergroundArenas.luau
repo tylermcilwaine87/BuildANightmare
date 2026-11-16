@@ -550,7 +550,71 @@ function Arenas.Build(themeId: string, origin: Vector3, seed: number)
 			table.insert(screens, d)
 		end
 	end
-	return { Model = a, Theme = themeId, Center = core.Center, Starts = core.Starts, Booths = core.Booths, Screens = screens }
+	local entrances = { Arenas.FindEntrance(a, origin, core, 1), Arenas.FindEntrance(a, origin, core, 2) }
+	return { Model = a, Theme = themeId, Center = core.Center, Starts = core.Starts, Booths = core.Booths, Screens = screens, Entrances = entrances }
+end
+
+-- THE WALK-OUT: for the cinematic entrance (UndergroundService:RunEntrance), a straight walk
+-- on the venue floor that ends at ringside behind this side's corner. Found by testing the
+-- built arena rather than written per venue: candidate lines fanning out from the corner's
+-- diagonal, each checked for floor all the way along and for nothing solid at body height.
+-- Returns { From, To } (floor-level CFrames: From faces the walk, To faces the ring), or the
+-- corner itself (no walk) when nothing fits.
+local ENTRANCE = { Ends = { 44, 50, 56, 62, 68, 74 }, Angles = { 0, 18, -18, 32, -32, 46, -46, 60, -60, 72, -72 }, Lengths = { 26, 21, 16, 12 } }
+
+function Arenas.FindEntrance(a: Model, c: Vector3, core, side: number)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { a }
+	local corner = core.Corners[side]
+	local diagonal = V3(corner.X, 0, corner.Z).Unit
+	-- the venue floor under a point (nil: no floor, or something other than floor there)
+	local function floorAt(p: Vector3): number?
+		local hit = Workspace:Raycast(V3(p.X, c.Y + 7, p.Z), V3(0, -12, 0), params)
+		if not hit or hit.Position.Y > c.Y + 1.2 or hit.Position.Y < c.Y - 2.5 then
+			return nil
+		end
+		return hit.Position.Y
+	end
+	for _, reach in ENTRANCE.Ends do
+		for _, angle in ENTRANCE.Angles do
+			local dir = (CFrame.Angles(0, rad(angle), 0) * CFrame.new(diagonal)).Position.Unit
+			local stop = c + dir * reach
+			local stopY = floorAt(stop)
+			if stopY then
+				for _, length in ENTRANCE.Lengths do
+					local start = stop + dir * length
+					local ok = true
+					for k = 0, length, 3 do
+						local y = floorAt(stop + dir * k)
+						if not y or math.abs(y - stopY) > 1.6 then
+							ok = false
+							break
+						end
+					end
+					-- (a body-sized box swept down the walk: walls, crowd, machinery all stop it)
+					-- (both ways: a cast can't see a part it starts inside)
+					if ok then
+						local a1, b1 = V3(start.X, stopY + 3.6, start.Z) + dir, V3(stop.X, stopY + 3.6, stop.Z) - dir * 2
+						local inward = Workspace:Blockcast(CFrame.lookAt(a1, b1), V3(5, 5, 1), b1 - a1, params)
+						local outward = Workspace:Blockcast(CFrame.lookAt(b1, a1), V3(5, 5, 1), a1 - b1, params)
+						ok = inward == nil and outward == nil
+					end
+					if ok then
+						local floorStop = V3(stop.X, stopY, stop.Z)
+						local floorStart = V3(start.X, stopY, start.Z)
+						return { From = CFrame.lookAt(floorStart, floorStop), To = CFrame.lookAt(floorStop, floorStop - dir), Dir = -dir }
+					end
+				end
+			end
+		end
+	end
+	-- (a tight venue with nothing clear outside the ring: the walk is inside it instead, from
+	-- the corner post out to the fighter's mark)
+	warn(("[UndergroundArenas] no walk-out outside the ring for side %d in %s: walking out from the corner post"):format(side, a.Name))
+	local mark = core.Starts[side]
+	local post = V3(c.X, core.FloorY, c.Z) + V3(corner.X, 0, corner.Z) * 0.9
+	return { From = CFrame.lookAt(post, mark.Position), To = mark, Dir = mark.LookVector }
 end
 
 return Arenas

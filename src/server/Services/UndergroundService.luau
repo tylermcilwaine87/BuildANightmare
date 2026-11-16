@@ -38,6 +38,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local UGRank = require(Shared:WaitForChild("UGRankDefinitions"))
+local UGCosmetics = require(Shared:WaitForChild("UGCosmetics"))
 
 local Kit = require(script.Parent:WaitForChild("World"):WaitForChild("Kit"))
 local Arenas = require(script.Parent:WaitForChild("World"):WaitForChild("UndergroundArenas"))
@@ -383,9 +384,6 @@ function UndergroundService:BeginCountdown(match)
 	if match.Arena then
 		match.Arena.Match = match
 	end
-	if match.Round == 1 then
-		self:Introduce(match)
-	end
 	-- (this round's work: what each side did, and how often each was floored)
 	match.UG = { Stats = { blankStats(), blankStats() }, Downs = { 0, 0 } }
 	setFrozen(self, match, true)
@@ -436,6 +434,11 @@ function UndergroundService:EndRound(match, winnerSide: number?, reason: string)
 	local card = self:RecordRound(match, winnerSide, reason)
 	local stoppage = reason == "NightmareDefeated" or reason == "TKO"
 	local token = match.Token
+	-- (did this round settle the match? Verdict reads the score this round just changed)
+	local decided, matchWinner = self:Verdict(match)
+	local function victory(player: Player)
+		return UGCosmetics.VictoryFor(self.Services.PlayerDataService:Get(player))
+	end
 
 	local function act(player: Player, action: string, duration: number)
 		local model = fighterOf(self, player)
@@ -460,18 +463,23 @@ function UndergroundService:EndRound(match, winnerSide: number?, reason: string)
 			local humanoid = model and model:FindFirstChildOfClass("Humanoid")
 			if humanoid and humanoid.Health > 0 and not model:GetAttribute("Ragdolled") and player.Parent and not match.Left[player] then
 				self.Services.NightmareSpawnService:TeleportNightmare(player, match.Arena.Starts[match.Side[player]])
-				act(player, "Gym_Rest", 3.2)
+				-- (the fight's over on the cards: its winner celebrates; everyone else gets its breath)
+				if decided and match.Side[player] == matchWinner then
+					task.delay(0.3, function()
+						act(player, victory(player).Clip, victory(player).Duration)
+					end)
+				else
+					act(player, "Gym_Rest", 3.2)
+				end
 			end
 		end
 	end
 	if stoppage then
 		-- the winner celebrates where it stands while the camera stays on the body going down
 		if winnerSide then
-			-- (a season's champion wearing their title celebrates like one)
+			-- (its own victory pose: the locker room, UGCosmetics)
 			local winner = match.Teams[winnerSide][1]
-			local record = self.Services.UGRankedService:Record(winner)
-			local title = record and record.Title and UGRank.TitleFor(record.Title)
-			act(winner, title and title.Aura == "Gold" and "UG_VictoryChampion" or "UG_Victory", 2.6)
+			act(winner, victory(winner).Clip, victory(winner).Duration)
 		end
 		task.delay(UG.KOCamTime, release)
 	else
@@ -764,29 +772,186 @@ function UndergroundService:RenderBoards(arena)
 	end
 end
 
--- The first round's introductions: who's in which corner, with what (UndergroundController
--- runs the show: the lights go down, each corner gets its spotlight and its line).
-function UndergroundService:Introduce(match)
-	local fighters = {}
-	for side = 1, 2 do
-		local player = match.Teams[side][1]
-		local body = player and fighterOf(self, player)
-		local ranked = match.UGRanked and player and self.Services.UGRankedService:Record(player)
-		local division = ranked and (UGRank.ById[ranked.Division] or UGRank.DivisionFor(ranked.Rating))
-		fighters[side] = {
-			Name = player and player.DisplayName or "?",
-			Nightmare = body and body:GetAttribute("NightmareName") or "Nightmare",
-			Rank = ranked and (ranked.Placements > 0 and "PLACEMENTS" or ("%s %d"):format(division.Name, ranked.Rating)) or nil,
-			Title = body and body:GetAttribute("UGTitle") or nil,
-			Record = (function()
-				local profile = player and self.Services.PlayerDataService:Get(player)
-				local ug = profile and profile.Underground
-				return ug and ("%d-%d-%d"):format(ug.Wins or 0, ug.Losses or 0, ug.Draws or 0) or nil
-			end)(),
-		}
-	end
+-- THE ENTRANCES (round 1, DuelService "Intro"): the lights go down and the camera sweeps the
+-- crowd; then each fighter in turn walks out from beyond its corner to ringside (the
+-- arena's walk-out: UndergroundArenas.FindEntrance) and performs its entrance (UGCosmetics:
+-- a keyframed clip on its own anatomy). The bodies are walked here; UndergroundController
+-- films it from the same clock ("UGIntro" StartAt) and adds the cards, light and dust.
+local function fighterCard(self, match, side: number)
+	local player = match.Teams[side][1]
+	local body = player and fighterOf(self, player)
+	local profile = player and self.Services.PlayerDataService:Get(player)
+	local ranked = match.UGRanked and player and self.Services.UGRankedService:Record(player)
+	local division = ranked and (UGRank.ById[ranked.Division] or UGRank.DivisionFor(ranked.Rating))
+	local ug = profile and profile.Underground
+	local intro = UGCosmetics.IntroFor(profile)
+	return {
+		Name = player and player.DisplayName or "?",
+		Nightmare = body and body:GetAttribute("NightmareName") or "Nightmare",
+		Rank = ranked and (ranked.Placements > 0 and "PLACEMENTS" or ("%s %d"):format(division.Name, ranked.Rating)) or nil,
+		Title = body and body:GetAttribute("UGTitle") or nil,
+		Record = ug and ("%d-%d-%d"):format(ug.Wins or 0, ug.Losses or 0, ug.Draws or 0) or nil,
+		Intro = intro.Id,
+		IntroName = intro.Name,
+		Model = body,
+	}, intro
+end
+
+function UndergroundService:RunEntrance(match)
 	local arena = match.Arena
-	self.Services.DuelService:Broadcast(match, "UGIntro", { Arena = arena and arena.Name, Theme = arena and arena.Theme, Subtitle = arena and arena.Subtitle, Red = fighters[1], Blue = fighters[2], Ranked = match.UGRanked == true })
+	local beats = UG.Entrance
+	local ai = self.Services.NightmareAIService
+	local token = match.Token
+	local startAt = Workspace:GetServerTimeNow() + 0.35
+	local cards, intros = {}, {}
+	for side = 1, 2 do
+		cards[side], intros[side] = fighterCard(self, match, side)
+		local walk = arena and arena.Entrances and arena.Entrances[side]
+		if walk then
+			cards[side].From, cards[side].To = walk.From, walk.To
+		end
+	end
+	self.Services.DuelService:Broadcast(match, "UGIntro", {
+		Arena = arena and arena.Name, Theme = arena and arena.Theme, Subtitle = arena and arena.Subtitle,
+		Center = arena and arena.Center, StartAt = startAt, Sweep = beats.Sweep, Beat = beats.Beat, Walk = beats.Walk,
+		Red = cards[1], Blue = cards[2], Ranked = match.UGRanked == true,
+	})
+	local function live(): boolean
+		return match.Token == token and match.State == "Intro"
+	end
+	local function bodyOf(side: number)
+		local player = match.Teams[side][1]
+		local model = player and player.Parent and fighterOf(self, player)
+		local brain = model and ai:GetBrainByModel(model)
+		local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+		if not brain or not humanoid or humanoid.Health <= 0 then
+			return nil
+		end
+		return player, model, brain, humanoid
+	end
+	-- out of sight at the far end of their walks while the camera takes in the crowd (this
+	-- service walks them now: their brains stand aside)
+	match.EntranceBrains = {}
+	for side = 1, 2 do
+		local player, _, brain = bodyOf(side)
+		if player and cards[side].From then
+			brain.scripted = true
+			ai:Stop(brain)
+			ai:StopFacing(brain)
+			match.EntranceBrains[side] = brain
+			self.Services.NightmareSpawnService:TeleportNightmare(player, cards[side].From)
+		end
+	end
+	for side = 1, 2 do
+		local beatAt = startAt + beats.Sweep + (side - 1) * beats.Beat
+		task.delay(math.max(0, beatAt - Workspace:GetServerTimeNow()), function()
+			local player, model, brain, humanoid = bodyOf(side)
+			if not live() or not player or not cards[side].From then
+				return
+			end
+			local from, to = cards[side].From.Position, cards[side].To.Position
+			local distance = (to - from).Magnitude
+			humanoid.JumpPower = 0
+			if intros[side].Circle and distance > 6 then
+				-- THE PREDATOR: it comes in on a curve, sizing the ring up
+				local across = cards[side].To.RightVector * math.min(7, distance * 0.35)
+				local bend = from:Lerp(to, 0.5) + across
+				humanoid.WalkSpeed = ((bend - from).Magnitude + (to - bend).Magnitude) / beats.Walk
+				humanoid:MoveTo(bend)
+				task.delay(beats.Walk * 0.5, function()
+					if live() and humanoid.Parent then
+						humanoid:MoveTo(to)
+					end
+				end)
+			else
+				humanoid.WalkSpeed = math.max(distance / beats.Walk, 4)
+				humanoid:MoveTo(to)
+			end
+			-- at ringside: square up to the ring and perform it
+			task.delay(beats.Walk, function()
+				if not live() or not model.Parent then
+					return
+				end
+				humanoid.WalkSpeed = 0
+				ai:Face(brain, (arena and arena.Center or to + cards[side].To.LookVector * 10))
+				ai:PlayAction(brain, intros[side].Clip, 0, intros[side].Duration)
+			end)
+		end)
+	end
+end
+
+-- The entrances are over (or skipped): the brains take their bodies back (the countdown puts
+-- fresh ones in the corners).
+function UndergroundService:EndEntrance(match)
+	for _, brain in match.EntranceBrains or {} do
+		brain.scripted = false
+	end
+	match.EntranceBrains = nil
+end
+
+-- SKIP INTRO: once every fighter has asked, straight to the corners.
+function UndergroundService:SkipIntro(player: Player)
+	local duel = self.Services.DuelService
+	local match = duel:GetMatch(player)
+	if not match or match.Mode ~= "Underground" or match.State ~= "Intro" then
+		return { Ok = false }
+	end
+	match.IntroSkips = match.IntroSkips or {}
+	match.IntroSkips[player] = true
+	local count, needed = 0, 0
+	for _, p in match.Players do
+		if p.Parent and not match.Left[p] then
+			needed += 1
+			if match.IntroSkips[p] then
+				count += 1
+			end
+		end
+	end
+	duel:Broadcast(match, "UGIntroSkip", { Count = count, Needed = needed })
+	if count >= needed then
+		duel:EndIntro(match)
+	end
+	return { Ok = true }
+end
+
+-- THE LOCKER ROOM: wear an entrance ("Intro") or a victory pose ("Victory") you've earned.
+function UndergroundService:EquipCosmetic(player: Player, kind, id)
+	local profile = self.Services.PlayerDataService:Get(player)
+	local list = kind == "Intro" and UGCosmetics.IntroById or kind == "Victory" and UGCosmetics.VictoryById or nil
+	if not profile or not list or type(id) ~= "string" or not list[id] then
+		return { Ok = false, Error = "There's no such thing to wear." }
+	end
+	if not UGCosmetics.Unlocked(list[id], profile) then
+		return { Ok = false, Error = "You haven't earned that yet." }
+	end
+	profile.Underground = profile.Underground or {}
+	profile.Underground[kind] = id
+	self.Services.NightmareBuildService:PushState(player)
+	return { Ok = true }
+end
+
+-- STUDIO ONLY (DevBridge): wear any entrance / victory pose, earned or not (to film them all).
+-- UGCosmetics.IntroFor still checks the unlock, so this also sets the career number it needs.
+function UndergroundService:DevCosmetic(player: Player, kind: string, id: string)
+	if not game:GetService("RunService"):IsStudio() then
+		return false
+	end
+	local profile = self.Services.PlayerDataService:Get(player)
+	local def = (kind == "Intro" and UGCosmetics.IntroById or UGCosmetics.VictoryById)[id]
+	if not profile or not def then
+		return false
+	end
+	profile.Underground = profile.Underground or {}
+	local unlock = def.Unlock
+	if unlock and unlock.Count then
+		profile.Underground[unlock.Stat] = math.max(profile.Underground[unlock.Stat] or 0, unlock.Count)
+	elseif unlock then
+		profile.UGRanked.Titles = profile.UGRanked.Titles or {}
+		profile.UGRanked.Titles["S1_Champion"] = true
+	end
+	profile.Underground[kind] = id
+	self.Services.NightmareBuildService:PushState(player)
+	return true
 end
 
 ------------------------------------------------------------------------------------------

@@ -318,6 +318,15 @@ function UndergroundController:KnockoutCamera(winnerUserId: number?, loserUserId
 		end
 		if k >= 1 then
 			RunService:UnbindFromRenderStep("UGKnockoutCamera")
+			-- (handed back behind your Handler in its booth, looking into the ring: left where
+			-- the shot ended it would face out of the ring at your own Handler)
+			local character = localPlayer.Character
+			local handler = character and character:FindFirstChild("HumanoidRootPart")
+			if handler and loserRoot.Parent then
+				local back = (handler.Position - loserRoot.Position) * Vector3.new(1, 0, 1)
+				back = back.Magnitude > 0.1 and back.Unit or Vector3.zAxis
+				camera.CFrame = CFrame.lookAt(handler.Position + back * 11 + Vector3.new(0, 6, 0), loserRoot.Position)
+			end
 			camera.CameraType = Enum.CameraType.Custom
 			camera.FieldOfView = 70 -- (the round is over: nobody is driving a Nightmare any more)
 			ui.KOCam = false
@@ -695,63 +704,289 @@ local function venueImpact(data)
 	end
 end
 
--- The first round: the lights go down, the venue's name, then each corner in turn.
+-- THE ENTRANCES (round 1: DuelService "Intro", UndergroundService:RunEntrance). The server
+-- walks the bodies; this films them on the same clock (data.StartAt, server time):
+--   the sweep: the lights go down, the camera drifts over the crowd, the venue's name
+--   each corner: the camera waits at ringside as the Nightmare walks out to it, the corner's
+--   card comes up, and it performs its entrance (UGCosmetics) with the staging that goes
+--   with it: the King's golden spotlight, the Machine's sparks, the Beast's slam
+-- SPACE (or the button) asks to skip; when both fighters have, the server moves on.
+local GOLD_LIGHT = RGB(255, 205, 90)
+
+local function stopEntrance(restoreCamera: boolean)
+	ui.IntroToken = (ui.IntroToken or 0) + 1
+	RunService:UnbindFromRenderStep("UGEntranceCam")
+	if ui.Spot then
+		ui.Spot:Destroy()
+		ui.Spot = nil
+	end
+	if ui.Key then
+		ui.Key:Destroy()
+		ui.Key = nil
+	end
+	if ui.Intro then
+		ui.Intro.Visible = false
+		ui.IntroSkip.Visible = false
+	end
+	if ui.IntroDim then
+		TweenService:Create(ui.IntroDim, TweenInfo.new(0.8), { Brightness = 0, Contrast = 0 }):Play()
+	end
+	if ui.Cinematic and restoreCamera then
+		local camera = Workspace.CurrentCamera
+		camera.CameraType = Enum.CameraType.Custom
+		camera.FieldOfView = 70
+	end
+	ui.Cinematic = false
+end
+
+-- the staging for an entrance, `t` seconds after it starts (once per moment)
+local function stageEntrance(card, model: Model, fired, t: number)
+	local root = model and model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	local function once(key: string, at: number, fn)
+		if t >= at and not fired[key] then
+			fired[key] = true
+			fn()
+		end
+	end
+	local floor = root.Position - Vector3.new(0, root.Size.Y / 2 + 2, 0)
+	if card.Intro == "Beast" then
+		once("slam", 1.52, function()
+			burst(floor, "rbxasset://textures/particles/smoke_main.dds", RGB(150, 135, 120), 28, 10, 2.4)
+			controllers.EffectsController:Shake(0.3, 0.35)
+		end)
+	elseif card.Intro == "Machine" then
+		for i, at in { 0.48, 0.84, 1.2, 1.5 } do
+			once("lock" .. i, at, function()
+				local part = (i == 1 and model:FindFirstChild("Head_Root")) or (i == 2 and model:FindFirstChild("RightArm_Upper")) or (i == 3 and model:FindFirstChild("LeftArm_Upper")) or root
+				burst((part or root).Position, "rbxasset://textures/particles/sparkles_main.dds", RGB(140, 220, 255), 26, 18, 0.5, true)
+				controllers.AudioController:Play("MetalClang", root.Position)
+			end)
+		end
+	elseif card.Intro == "Champion" then
+		once("crowd", 0.8, function()
+			controllers.AudioController:Play("Victory")
+		end)
+	end
+end
+
 function UndergroundController:Intro(data)
 	if not ui.Gui then
 		return
 	end
-	local token = (ui.IntroToken or 0) + 1
-	ui.IntroToken = token
+	stopEntrance(false)
+	local token = ui.IntroToken
 	if not ui.Intro then
-		local frame = UIKit.New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(760, 190), BackgroundTransparency = 1, Visible = false, Parent = ui.Gui })
+		local frame = UIKit.New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.6), Size = UDim2.fromOffset(760, 190), BackgroundTransparency = 1, Visible = false, Parent = ui.Gui })
 		UIKit.AutoScale(frame)
 		ui.Intro = frame
 		ui.IntroTop = UIKit.Label({ Size = UDim2.new(1, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontSmall, TextColor3 = C.SubText, TextStrokeTransparency = 0.3, MaxTextSize = 22, Parent = frame })
 		ui.IntroMain = UIKit.Label({ Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 74), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextStrokeTransparency = 0.1, MaxTextSize = 70, Parent = frame })
 		ui.IntroSub = UIKit.Label({ Position = UDim2.fromOffset(0, 112), Size = UDim2.new(1, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontSmall, TextColor3 = C.Text, TextStrokeTransparency = 0.3, MaxTextSize = 24, Parent = frame })
+		ui.IntroTag = UIKit.Label({ Position = UDim2.fromOffset(0, 146), Size = UDim2.new(1, 0, 0, 26), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontSmall, TextColor3 = GOLD_LIGHT, TextStrokeTransparency = 0.3, MaxTextSize = 20, Parent = frame })
 		ui.IntroDim = Instance.new("ColorCorrectionEffect")
 		ui.IntroDim.Name = "UGIntroDim"
 		ui.IntroDim.Parent = game:GetService("Lighting")
+		ui.IntroSkip = UIKit.Button({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, -24), Size = UDim2.fromOffset(260, 40), Text = "SKIP ENTRANCES  [SPACE]", MaxTextSize = 15, Visible = false, Parent = ui.Gui }, function()
+			UndergroundController:SkipIntro()
+		end)
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if not processed and input.KeyCode == Enum.KeyCode.Space and ui.Cinematic then
+				UndergroundController:SkipIntro()
+			end
+		end)
 	end
-	local function corner(f, label: string)
+	ui.Skipped = false
+	ui.IntroSkip.Text = "SKIP ENTRANCES  [SPACE]"
+	ui.IntroSkip.Visible = true
+	ui.Cinematic = true
+	ui.EntranceShown = true
+	controllers.LockOnController:Release()
+	TweenService:Create(ui.IntroDim, TweenInfo.new(0.6), { Brightness = -0.22, Contrast = 0.18 }):Play()
+
+	local center: Vector3 = typeof(data.Center) == "Vector3" and data.Center or Vector3.zero
+	local sweep, beat, walk = data.Sweep or 2.6, data.Beat or 5.2, data.Walk or 2.8
+	local cards = { data.Red or {}, data.Blue or {} }
+	local function cardText(side: number)
+		local f = cards[side]
 		local bits = { "with " .. string.upper(f.Nightmare or "?") }
-		if f.Rank then
-			table.insert(bits, f.Rank)
-		end
 		if f.Record then
 			table.insert(bits, f.Record)
 		end
-		if f.Title then
-			table.insert(bits, "★ " .. f.Title)
+		if f.Rank then
+			table.insert(bits, f.Rank)
 		end
-		return label, string.upper(f.Name or "?"), table.concat(bits, "  ·  ")
+		return side == 1 and "IN THE RED CORNER" or "IN THE BLUE CORNER", string.upper(f.Name or "?"), table.concat(bits, "  ·  "),
+			(f.Title and ("★ " .. f.Title .. "  ·  ") or "") .. (f.IntroName or "")
 	end
-	local beats = {
-		{ data.Ranked and "RANKED  ·  NIGHTMARE UNDERGROUND" or "NIGHTMARE UNDERGROUND", string.upper(data.Arena or ""), data.Subtitle or "", RGB(255, 210, 90) },
-		{ corner(data.Red or {}, "IN THE RED CORNER") },
-		{ corner(data.Blue or {}, "IN THE BLUE CORNER") },
+	local lines = {
+		{ data.Ranked and "RANKED  ·  NIGHTMARE UNDERGROUND" or "NIGHTMARE UNDERGROUND", string.upper(data.Arena or ""), data.Subtitle or "", "", RGB(255, 210, 90) },
+		{ cardText(1) },
+		{ cardText(2) },
 	}
-	beats[2][4] = RED
-	beats[3][4] = BLUE
-	TweenService:Create(ui.IntroDim, TweenInfo.new(0.6), { Brightness = -0.25, Contrast = 0.15 }):Play()
+	lines[2][5], lines[3][5] = RED, BLUE
+	local shown = 0
+	local fired = { {}, {} }
+	-- the sweep starts on the far side from the red corner's walk-out, turning toward it
+	local redOut = cards[1].To and (cards[1].To.Position - center) * Vector3.new(1, 0, 1) or Vector3.xAxis
+	local a0 = math.atan2(redOut.Z, redOut.X) + math.rad(110)
+	local camera = Workspace.CurrentCamera
 	controllers.AudioController:Play("Victory")
-	ui.Intro.Visible = true
-	task.spawn(function()
-		for _, beat in beats do
-			if ui.IntroToken ~= token then
-				return
-			end
-			ui.IntroTop.Text, ui.IntroMain.Text, ui.IntroSub.Text = beat[1], beat[2], beat[3]
-			ui.IntroMain.TextColor3 = beat[4]
+
+	RunService:BindToRenderStep("UGEntranceCam", Enum.RenderPriority.Last.Value + 3, function()
+		if ui.IntroToken ~= token then
+			return
+		end
+		local t = Workspace:GetServerTimeNow() - (data.StartAt or 0)
+		local which = t < sweep and 1 or (t < sweep + beat and 2 or (t < sweep + beat * 2 and 3 or 4))
+		if which >= 4 then
+			-- (the server's countdown takes over in a moment: hold the last shot)
+			return
+		end
+		-- the card for this beat
+		if which ~= shown then
+			shown = which
+			local line = lines[which]
+			ui.IntroTop.Text, ui.IntroMain.Text, ui.IntroSub.Text, ui.IntroTag.Text = line[1], line[2], line[3], line[4]
+			ui.IntroMain.TextColor3 = line[5]
+			ui.Intro.Visible = true
 			local grow = ui.IntroMain:FindFirstChildOfClass("UIScale") or UIKit.New("UIScale", { Parent = ui.IntroMain })
 			grow.Scale = 1.3
 			TweenService:Create(grow, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-			task.wait(1.3) -- (three beats inside the 4 s countdown)
+			if ui.Spot then
+				ui.Spot:Destroy()
+				ui.Spot = nil
+			end
 		end
-		if ui.IntroToken == token then
-			ui.Intro.Visible = false
-			TweenService:Create(ui.IntroDim, TweenInfo.new(0.8), { Brightness = 0, Contrast = 0 }):Play()
+		camera.CameraType = Enum.CameraType.Scriptable
+		if which == 1 then
+			-- up over the ring, turning: first across the crowd in the stands, then settling down
+			-- onto the ring
+			local k = t / sweep
+			local a = a0 - math.rad(80) * k
+			local out = Vector3.new(math.cos(a), 0, math.sin(a))
+			local ahead = Vector3.new(math.cos(a - math.rad(150)), 0, math.sin(a - math.rad(150)))
+			local settle = k * k * (3 - 2 * k)
+			local crowd = center + ahead * 70 + Vector3.new(0, 16, 0)
+			camera.FieldOfView = 64
+			camera.CFrame = CFrame.lookAt(center + out * (28 + 10 * k) + Vector3.new(0, 20 - 6 * k, 0), crowd:Lerp(center + Vector3.new(0, 3, 0), settle))
+			return
 		end
+		-- a corner's walk-out: the camera at ringside, the fighter walking out to it
+		local side = which - 1
+		local card = cards[side]
+		local bt = t - sweep - (side - 1) * beat
+		local model = card.Model
+		local root = model and model.Parent and model:FindFirstChild("HumanoidRootPart")
+		local stop: CFrame = card.To or CFrame.new(center)
+		local look = stop.LookVector
+		local right = stop.RightVector
+		local k = math.clamp(bt / beat, 0, 1)
+		-- (up and to one side of where it stops: over the barriers and the boards, looking down
+		-- the walk at it coming out)
+		-- (framed by its size: a hulking Nightmare needs the camera further back)
+		if not card.Height and root then
+			card.Height = math.clamp(math.max(model:GetExtentsSize().Y, (root.Position.Y - stop.Position.Y) * 1.8), 7, 16)
+		end
+		local h = card.Height or 8
+		local eye = stop.Position + look * (h * 0.6 + 2.5 - k) + right * (h * 0.95 + 3.5 - 1.5 * k) + Vector3.new(0, h * 0.6 + 2.5 - k, 0)
+		local focus = root and (root.Position + Vector3.new(0, h * 0.08, 0)) or (stop.Position + Vector3.new(0, 3, 0))
+		camera.FieldOfView = 55
+		camera.CFrame = CFrame.lookAt(eye, focus)
+		-- a key light on whoever is walking out (the house lights are down), in its corner's
+		-- colour from behind and white from the front
+		if root then
+			if not ui.Key then
+				local key = Instance.new("Part")
+				key.Anchored, key.CanCollide, key.CanQuery, key.CanTouch = true, false, false, false
+				key.Transparency, key.Size = 1, Vector3.new(1, 1, 1)
+				local front = Instance.new("PointLight")
+				front.Name, front.Color, front.Brightness, front.Range = "Front", RGB(255, 240, 225), 0.9, 14
+				front.Parent = key
+				local rim = Instance.new("Attachment")
+				rim.Parent = key
+				local back = Instance.new("PointLight")
+				back.Name, back.Brightness, back.Range = "Rim", 1.6, 12
+				back.Parent = rim
+				key.Parent = Workspace
+				ui.Key = key
+			end
+			ui.Key.CFrame = CFrame.new(root.Position:Lerp(eye, 0.45) + Vector3.new(0, 1.5, 0))
+			ui.Key.Attachment.WorldPosition = root.Position - look * 4 + Vector3.new(0, 4, 0)
+			ui.Key.Attachment.Rim.Color = side == 1 and RED or BLUE
+		end
+		-- THE KING: a golden spotlight on it the whole way
+		if card.Intro == "King" and root then
+			if not ui.Spot then
+				local spot = Instance.new("Part")
+				spot.Anchored, spot.CanCollide, spot.CanQuery, spot.CanTouch = true, false, false, false
+				spot.Transparency, spot.Size = 1, Vector3.new(1, 1, 1)
+				local light = Instance.new("SpotLight")
+				light.Face, light.Color, light.Brightness, light.Range, light.Angle = Enum.NormalId.Bottom, GOLD_LIGHT, 4, 34, 30
+				light.Parent = spot
+				spot.Parent = Workspace
+				ui.Spot = spot
+			end
+			ui.Spot.CFrame = CFrame.new(root.Position + Vector3.new(0, 16, 0))
+		end
+		if bt >= walk and model then
+			stageEntrance(card, model, fired[side], bt - walk)
+		end
+	end)
+end
+
+function UndergroundController:SkipIntro()
+	if not ui.Cinematic or ui.Skipped then
+		return
+	end
+	ui.Skipped = true
+	ui.IntroSkip.Text = "SKIPPING  ·  waiting for the other fighter"
+	controllers.PvPController:Request("UGSkipIntro")
+end
+
+-- the other fighter asked too / one of you did ("UGIntroSkip")
+function UndergroundController:IntroSkipCount(data)
+	if ui.IntroSkip and ui.Cinematic and type(data) == "table" then
+		ui.IntroSkip.Text = ("SKIP  ·  %d / %d ready"):format(data.Count or 0, data.Needed or 2)
+	end
+end
+
+-- Round 1's countdown, after the entrances: the face-off. From the side of the line between
+-- the two corners, both fighters in the shot, for a moment before the fight camera.
+local function faceOff()
+	local camera = Workspace.CurrentCamera
+	local started = os.clock()
+	ui.Cinematic = true
+	local token = ui.IntroToken
+	local holdFrom: number? = nil
+	RunService:BindToRenderStep("UGEntranceCam", Enum.RenderPriority.Last.Value + 3, function()
+		-- (the countdown puts fresh bodies in the corners as it starts: wait for them to arrive)
+		local mine, theirs = fighters()
+		local a = mine and mine:FindFirstChild("HumanoidRootPart")
+		local b = theirs and theirs:FindFirstChild("HumanoidRootPart")
+		if a and b and not holdFrom then
+			holdFrom = os.clock()
+		end
+		local k = holdFrom and (os.clock() - holdFrom) / 2.1 or 0
+		if k >= 1 or ui.IntroToken ~= token or (not holdFrom and os.clock() - started > 1.5) then
+			RunService:UnbindFromRenderStep("UGEntranceCam")
+			camera.CameraType = Enum.CameraType.Custom
+			camera.FieldOfView = 70
+			ui.Cinematic = false
+			return
+		end
+		if not a or not b then
+			return
+		end
+		local mid = (a.Position + b.Position) / 2
+		local across = (b.Position - a.Position) * Vector3.new(1, 0, 1)
+		across = across.Magnitude > 0.1 and across.Unit or Vector3.xAxis
+		local side = across:Cross(Vector3.yAxis)
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.FieldOfView = 50
+		camera.CFrame = CFrame.lookAt(mid + side * (19 - 3 * k) + Vector3.new(0, 3.5, 0), mid + Vector3.new(0, 2, 0))
 	end)
 end
 
@@ -760,6 +995,9 @@ function UndergroundController:ApplyState(data)
 		return
 	end
 	if data.State == "None" or data.Mode ~= "Underground" then
+		if ui.Cinematic then
+			stopEntrance(true)
+		end
 		if state then
 			controllers.HUDController:SetUndergroundMode(false)
 		end
@@ -796,6 +1034,15 @@ function UndergroundController:ApplyState(data)
 	end
 	if data.State ~= "RoundOver" and data.State ~= "Ended" then
 		ui.Card.Visible = false
+	end
+	-- the entrances end when the server moves on (their time is up, or both skipped); round
+	-- 1's countdown opens on the face-off
+	if data.State ~= "Intro" and ui.Cinematic and (not state or state.State == "Intro") then
+		stopEntrance(true)
+	end
+	if data.State == "Countdown" and data.Round == 1 and ui.EntranceShown then
+		ui.EntranceShown = false
+		faceOff()
 	end
 	state = data
 	ui.Gui.Enabled = true
@@ -878,6 +1125,9 @@ function UndergroundController:UpdateFrame()
 	elseif phase == "Prep" then
 		ui.Timer.Text = ("PICK %d"):format(math.ceil(left))
 		ui.Timer.TextColor3 = C.SubText
+	elseif phase == "Intro" then
+		ui.Timer.Text = "VS"
+		ui.Timer.TextColor3 = C.Warn
 	else
 		ui.Timer.Text = "—"
 		ui.Timer.TextColor3 = C.SubText
@@ -892,7 +1142,7 @@ function UndergroundController:UpdateFrame()
 	elseif mine and mine:GetAttribute("Guarding") then
 		status = mine:GetAttribute("GuardLow") and "LOW GUARD (body)" or "HIGH GUARD (head)"
 	else
-		status = phase == "Live" and "FIGHTING" or (phase == "Countdown" and "IN YOUR CORNER" or "BETWEEN ROUNDS")
+		status = phase == "Live" and "FIGHTING" or (phase == "Countdown" and "IN YOUR CORNER" or (phase == "Intro" and "THE ENTRANCES" or "BETWEEN ROUNDS"))
 	end
 	if mine and mine:GetAttribute("UGGassed") then
 		status ..= "  ·  GASSED"
@@ -982,7 +1232,8 @@ local function updateCameraFade()
 	local camera = Workspace.CurrentCamera
 	local subject = camera and camera.CameraSubject
 	local arenas = Workspace:FindFirstChild("UndergroundArenas")
-	if state and arenas and subject and subject:IsA("Humanoid") and subject.RootPart then
+	-- (not while a cinematic camera is filming: the entrances, the face-off, a knockout)
+	if state and not ui.Cinematic and not ui.KOCam and arenas and subject and subject:IsA("Humanoid") and subject.RootPart then
 		local root = subject.RootPart.Position
 		local ignore = { subject.Parent :: Instance }
 		local character = Players.LocalPlayer.Character

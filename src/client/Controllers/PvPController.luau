@@ -611,6 +611,8 @@ function PvPController:Start()
 			controllers.UndergroundController:RematchAsked(data)
 		elseif kind == "UGIntro" then
 			controllers.UndergroundController:Intro(data)
+		elseif kind == "UGIntroSkip" then
+			controllers.UndergroundController:IntroSkipCount(data)
 		end
 	end)
 

@@ -2108,10 +2108,212 @@ local UG = {
 			pose(2.6),
 		},
 	},
+	---------------------------------------------------------------------------------------
+	-- THE ENTRANCES (UGCosmetics.Intros): performed at ringside after the walk-out, facing
+	-- the ring. Built on the fighting stance like everything else here, so a four-legged
+	-- body gets its own version (RING_CLIPS) and a body without arms just keeps its guard.
+	---------------------------------------------------------------------------------------
+	-- THE CONTENDER: loose, bouncing on its feet, a quick jab-cross into the air, gloves
+	-- touched together, back to the guard
+	UG_IntroContender = {
+		Duration = 2.2,
+		Curve = "Spline",
+		Markers = { { 0.34, "Whoosh" }, { 0.74, "Whoosh" }, { 1.6, "StepL" }, { 1.9, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.18, { Joint_CorePos = { 0, -0.04, 0 } }),
+			blow(0.4, P_JAB),
+			pose(0.58, P_JAB_BACK),
+			blow(0.8, P_CROSS),
+			pose(1.02),
+			pose(1.28, { Joint_CorePos = { 0, 0.05, -0.1 }, Joint_Core = { -10, 0, 0 }, Joint_Legs = { 10, 0, 0 }, Joint_Head = { -18, 0, 0 }, Joint_RightArm = { 80, 0, -34 }, Sub_RightArm_Fore = { 70, 0, 0 }, Joint_LeftArm = { 80, 0, 34 }, Sub_LeftArm_Fore = { 70, 0, 0 } }),
+			pose(1.5, { Joint_CorePos = { 0, 0.22, 0 } }),
+			pose(1.75, { Joint_CorePos = { 0, 0.0, 0 } }),
+			pose(2.2),
+		},
+	},
+	-- THE CHAMPION: chest out, arms down and easy, then both thrown up in a wide V, turning
+	-- to one side of the house and then the other
+	UG_IntroChampion = {
+		Duration = 2.2,
+		Curve = "Spline",
+		Markers = { { 0.3, "StepL" }, { 1.3, "StepR" } },
+		Keys = {
+			pose(0),
+			pose(0.35, { Joint_CorePos = { 0, 0.22, 0.05 }, Joint_Core = { 10, 0, 0 }, Joint_Legs = { -4, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 8, 0, 14 }, Sub_RightArm_Fore = { 14, 0, 0 }, Joint_LeftArm = { 8, 0, -14 }, Sub_LeftArm_Fore = { 14, 0, 0 } }),
+			pose(0.8, { Joint_CorePos = { 0, 0.32, 0.05 }, Joint_Core = { 12, 0, 0 }, Joint_Legs = { -6, 0, 0 }, Joint_Head = { 20, 0, 0 }, Sub_Head_Jaw = { -20, 0, 0 }, Joint_RightArm = { 160, 0, 40 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 160, 0, -40 }, Sub_LeftArm_Fore = { 10, 0, 0 } }),
+			pose(1.3, { Joint_CorePos = { 0, 0.32, 0.05 }, Joint_Core = { 12, 26, 0 }, Joint_Legs = { -6, -26, 0 }, Joint_Head = { 18, 16, 0 }, Sub_Head_Jaw = { -10, 0, 0 }, Joint_RightArm = { 164, 0, 36 }, Sub_RightArm_Fore = { 8, 0, 0 }, Joint_LeftArm = { 164, 0, -36 }, Sub_LeftArm_Fore = { 8, 0, 0 } }),
+			pose(1.78, { Joint_CorePos = { 0, 0.32, 0.05 }, Joint_Core = { 12, -26, 0 }, Joint_Legs = { -6, 26, 0 }, Joint_Head = { 18, -16, 0 }, Sub_Head_Jaw = { -10, 0, 0 }, Joint_RightArm = { 164, 0, 36 }, Sub_RightArm_Fore = { 8, 0, 0 }, Joint_LeftArm = { 164, 0, -36 }, Sub_LeftArm_Fore = { 8, 0, 0 } }),
+			pose(2.2),
+		},
+	},
+	-- THE BEAST: reared back, arms flung wide, jaw open and roaring; both arms up, then
+	-- slammed down into the floor from a deep crouch (the dust: the Land marker); glaring up
+	UG_IntroBeast = {
+		Duration = 2.4,
+		Curve = "Spline",
+		Markers = { { 1.52, "Land" } },
+		Keys = {
+			pose(0),
+			pose(0.32, { Joint_CorePos = { 0, 0.2, 0.25 }, Joint_Core = { 20, 0, 0 }, Joint_Legs = { -10, 0, 0 }, Joint_Head = { 30, 0, 0 }, Sub_Head_Jaw = { -55, 0, 0 }, Joint_RightArm = { 60, 0, 75 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 60, 0, -75 }, Sub_LeftArm_Fore = { 40, 0, 0 } }),
+			pose(0.75, { Joint_CorePos = { 0, 0.22, 0.25 }, Joint_Core = { 22, 6, 0 }, Joint_Legs = { -10, -6, 0 }, Joint_Head = { 32, 10, 0 }, Sub_Head_Jaw = { -60, 0, 0 }, Joint_RightArm = { 64, 0, 80 }, Sub_RightArm_Fore = { 36, 0, 0 }, Joint_LeftArm = { 64, 0, -80 }, Sub_LeftArm_Fore = { 36, 0, 0 } }),
+			pose(1.0, { Joint_CorePos = { 0, 0.22, 0.25 }, Joint_Core = { 22, -6, 0 }, Joint_Legs = { -10, 6, 0 }, Joint_Head = { 32, -10, 0 }, Sub_Head_Jaw = { -60, 0, 0 }, Joint_RightArm = { 64, 0, 80 }, Sub_RightArm_Fore = { 36, 0, 0 }, Joint_LeftArm = { 64, 0, -80 }, Sub_LeftArm_Fore = { 36, 0, 0 } }),
+			pose(1.3, { Joint_CorePos = { 0, 0.35, 0.15 }, Joint_Core = { 14, 0, 0 }, Joint_Legs = { -6, 0, 0 }, Joint_Head = { 10, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Joint_RightArm = { 172, 0, 18 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 172, 0, -18 }, Sub_LeftArm_Fore = { 30, 0, 0 } }),
+			{ T = 1.52, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.95, -0.45 }, Joint_Core = { -46, 0, 0 }, Joint_Legs = { 42, 0, 0 }, Joint_Head = { -6, 0, 0 }, Sub_Head_Jaw = { -35, 0, 0 }, Joint_RightArm = { 42, 0, -8 }, Sub_RightArm_Fore = { 8, 0, 0 }, Joint_LeftArm = { 42, 0, 8 }, Sub_LeftArm_Fore = { 8, 0, 0 }, Sub_Legs_L = { 46, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
+			{ T = 2.0, Joint_CorePos = { 0, -0.8, -0.4 }, Joint_Core = { -40, 0, 0 }, Joint_Legs = { 38, 0, 0 }, Joint_Head = { 22, 0, 0 }, Sub_Head_Jaw = { -18, 0, 0 }, Joint_RightArm = { 46, 0, -10 }, Sub_RightArm_Fore = { 14, 0, 0 }, Joint_LeftArm = { 46, 0, 10 }, Sub_LeftArm_Fore = { 14, 0, 0 }, Sub_Legs_L = { 44, 0, 0 }, Sub_Legs_R = { -8, 0, 0 } },
+			pose(2.4),
+		},
+	},
+	-- THE MACHINE: switched off and slumped; it boots joint by joint, each one locking with
+	-- a jolt (UndergroundController throws the sparks): the head, the right arm, the left,
+	-- the torso; a scan left and right; into the stance
+	UG_IntroMachine = (function()
+		local SLUMP = { Joint_CorePos = { 0, -0.35, 0.05 }, Joint_Core = { -28, 0, 0 }, Joint_Legs = { 14, 0, 0 }, Joint_Head = { -42, 0, 0 }, Sub_Head_Jaw = { -10, 0, 0 }, Joint_RightArm = { 4, 0, 10 }, Sub_RightArm_Fore = { 4, 0, 0 }, Joint_LeftArm = { 4, 0, -10 }, Sub_LeftArm_Fore = { 4, 0, 0 }, Sub_Legs_L = { 6, 0, 0 }, Sub_Legs_R = { -2, 0, 0 } }
+		local headUp = with(SLUMP, { Joint_Head = { -4, 0, 0 }, Sub_Head_Jaw = { 0, 0, 0 } })
+		local rightOn = with(headUp, { Joint_RightArm = BOXER.Joint_RightArm, Sub_RightArm_Fore = BOXER.Sub_RightArm_Fore })
+		local leftOn = with(rightOn, { Joint_LeftArm = BOXER.Joint_LeftArm, Sub_LeftArm_Fore = BOXER.Sub_LeftArm_Fore })
+		local function snap(t, base)
+			local key = at(t, base)
+			key.Ease, key.Stop = "Snap", true
+			return key
+		end
+		return {
+			Duration = 2.4,
+			Curve = "Linear",
+			Markers = { { 1.5, "StepL" } },
+			Keys = {
+				pose(0),
+				at(0.22, SLUMP),
+				at(0.4, SLUMP),
+				snap(0.48, headUp),
+				at(0.76, headUp),
+				snap(0.84, rightOn),
+				at(1.12, rightOn),
+				snap(1.2, leftOn),
+				at(1.42, leftOn),
+				snap(1.5, BOXER),
+				snap(1.72, with(BOXER, { Joint_Head = { -10, 40, 0 } })),
+				at(1.86, with(BOXER, { Joint_Head = { -10, 40, 0 } })),
+				snap(1.98, with(BOXER, { Joint_Head = { -10, -30, 0 } })),
+				at(2.12, with(BOXER, { Joint_Head = { -10, -30, 0 } })),
+				snap(2.24, BOXER),
+				pose(2.4),
+			},
+		}
+	end)(),
+	-- THE PREDATOR: down low and coiled, claws forward, the head cocked one way and then
+	-- the other; a twitch toward its prey
+	UG_IntroPredator = (function()
+		local LOW = { Joint_CorePos = { 0, -0.6, -0.15 }, Joint_Core = { -30, 0, 0 }, Joint_Legs = { 24, 0, 0 }, Joint_Head = { 22, 0, 0 }, Joint_RightArm = { 54, 0, -26 }, Sub_RightArm_Fore = { 46, 0, 0 }, Joint_LeftArm = { 54, 0, 26 }, Sub_LeftArm_Fore = { 46, 0, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -12, 0, 0 } }
+		return {
+			Duration = 2.4,
+			Curve = "Spline",
+			Markers = { { 0.4, "StepL" }, { 1.0, "StepR" } },
+			Keys = {
+				pose(0),
+				at(0.35, BOXER, LOW),
+				at(0.85, BOXER, with(LOW, { Joint_Head = { 22, 10, 22 } })),
+				at(1.35, BOXER, with(LOW, { Joint_Head = { 22, -10, -22 }, Sub_Head_Jaw = { -18, 0, 0 } })),
+				{ T = 1.72, Ease = "Snap", Stop = true, Joint_CorePos = { 0, -0.5, -0.55 }, Joint_Core = { -34, 0, 0 }, Joint_Legs = { 26, 0, 0 }, Joint_Head = { 26, 0, 0 }, Sub_Head_Jaw = { -42, 0, 0 }, Joint_RightArm = { 70, 0, -20 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 70, 0, 20 }, Sub_LeftArm_Fore = { 30, 0, 0 }, Sub_Legs_L = { 40, 0, 0 }, Sub_Legs_R = { -14, 0, 0 } },
+				at(2.05, BOXER, LOW),
+				pose(2.4),
+			},
+		}
+	end)(),
+	-- THE KING: tall, chin up, arms folded across the chest; a slow look round the house; one
+	-- arm swept out to them; folded again
+	UG_IntroKing = (function()
+		local FOLDED = { Joint_CorePos = { 0, 0.26, 0.05 }, Joint_Core = { 8, 0, 0 }, Joint_Legs = { -4, 0, 0 }, Joint_Head = { 16, 0, 0 }, Joint_RightArm = { 78, 0, -62 }, Sub_RightArm_Fore = { 122, 0, 0 }, Joint_LeftArm = { 72, 0, 62 }, Sub_LeftArm_Fore = { 122, 0, 0 } }
+		return {
+			Duration = 2.4,
+			Curve = "Spline",
+			Markers = { { 0.3, "StepL" } },
+			Keys = {
+				pose(0),
+				at(0.4, BOXER, FOLDED),
+				at(0.95, BOXER, with(FOLDED, { Joint_Head = { 16, 28, 0 }, Joint_Core = { 8, 10, 0 } })),
+				at(1.65, BOXER, with(FOLDED, { Joint_Head = { 18, -26, 0 }, Joint_Core = { 8, -12, 0 }, Joint_RightArm = { 96, 0, 64 }, Sub_RightArm_Fore = { 8, 0, 0 } })),
+				at(2.05, BOXER, FOLDED),
+				pose(2.4),
+			},
+		}
+	end)(),
+	---------------------------------------------------------------------------------------
+	-- THE VICTORY POSES (UGCosmetics.Victories; UG_Victory and UG_VictoryChampion above)
+	---------------------------------------------------------------------------------------
+	-- THE FLEX: a front double-biceps, squeezed; turned to each side to show it off
+	UG_VictoryFlex = (function()
+		local FLEX = { Joint_CorePos = { 0, 0.18, 0.05 }, Joint_Core = { 6, 0, 0 }, Joint_Legs = { -4, 0, 0 }, Joint_Head = { 8, 0, 0 }, Sub_Head_Jaw = { -24, 0, 0 }, Joint_RightArm = { 88, 0, 82 }, Sub_RightArm_Fore = { 118, 0, 0 }, Joint_LeftArm = { 88, 0, -82 }, Sub_LeftArm_Fore = { 118, 0, 0 } }
+		return {
+			Duration = 2.6,
+			Curve = "Spline",
+			Markers = { { 1.3, "StepR" }, { 1.8, "StepL" } },
+			Keys = {
+				pose(0),
+				at(0.35, BOXER, FLEX),
+				at(0.75, BOXER, with(FLEX, { Joint_CorePos = { 0, 0.12, 0.05 }, Joint_Core = { 2, 0, 0 }, Sub_RightArm_Fore = { 130, 0, 0 }, Sub_LeftArm_Fore = { 130, 0, 0 }, Sub_Head_Jaw = { -40, 0, 0 } })),
+				at(1.3, BOXER, with(FLEX, { Joint_Core = { 6, 38, 0 }, Joint_Legs = { -4, -38, 0 }, Joint_Head = { 8, 10, 0 } })),
+				at(1.8, BOXER, with(FLEX, { Joint_Core = { 6, -38, 0 }, Joint_Legs = { -4, 38, 0 }, Joint_Head = { 8, -10, 0 } })),
+				at(2.2, BOXER, FLEX),
+				pose(2.6),
+			},
+		}
+	end)(),
+	-- THE CHEST POUND: left, right, left, right on its own chest, then a roar with its arms
+	-- flung wide
+	UG_VictoryChest = (function()
+		local OUT_R = { Joint_RightArm = { 58, 0, 30 }, Sub_RightArm_Fore = { 86, 0, 0 } }
+		local HIT_R = { Joint_RightArm = { 74, 0, -58 }, Sub_RightArm_Fore = { 128, 0, 0 } }
+		local OUT_L = { Joint_LeftArm = { 58, 0, -30 }, Sub_LeftArm_Fore = { 86, 0, 0 } }
+		local HIT_L = { Joint_LeftArm = { 74, 0, 58 }, Sub_LeftArm_Fore = { 128, 0, 0 } }
+		local TALL = { Joint_CorePos = { 0, 0.2, 0.05 }, Joint_Core = { 8, 0, 0 }, Joint_Legs = { -4, 0, 0 }, Joint_Head = { 10, 0, 0 } }
+		local function hit(t, change)
+			local key = at(t, BOXER, with(TALL, change))
+			key.Ease, key.Stop = "Snap", true
+			return key
+		end
+		return {
+			Duration = 2.6,
+			Curve = "Spline",
+			Markers = { { 0.4, "Land" }, { 0.75, "Land" }, { 1.1, "Land" }, { 1.45, "Land" } },
+			Keys = {
+				pose(0),
+				at(0.24, BOXER, with(TALL, OUT_L, HIT_R)),
+				hit(0.4, with(HIT_L, HIT_R)),
+				at(0.58, BOXER, with(TALL, OUT_R, HIT_L)),
+				hit(0.75, with(HIT_R, HIT_L)),
+				at(0.93, BOXER, with(TALL, OUT_L, HIT_R)),
+				hit(1.1, with(HIT_L, HIT_R)),
+				at(1.28, BOXER, with(TALL, OUT_R, HIT_L)),
+				hit(1.45, with(HIT_R, HIT_L)),
+				at(1.85, BOXER, { Joint_CorePos = { 0, 0.3, 0.15 }, Joint_Core = { 18, 0, 0 }, Joint_Legs = { -8, 0, 0 }, Joint_Head = { 30, 0, 0 }, Sub_Head_Jaw = { -58, 0, 0 }, Joint_RightArm = { 110, 0, 70 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 110, 0, -70 }, Sub_LeftArm_Fore = { 30, 0, 0 } }),
+				at(2.25, BOXER, { Joint_CorePos = { 0, 0.28, 0.15 }, Joint_Core = { 16, 0, 0 }, Joint_Head = { 26, 0, 0 }, Sub_Head_Jaw = { -50, 0, 0 }, Joint_RightArm = { 112, 0, 72 }, Sub_RightArm_Fore = { 26, 0, 0 }, Joint_LeftArm = { 112, 0, -72 }, Sub_LeftArm_Fore = { 26, 0, 0 } }),
+				pose(2.6),
+			},
+		}
+	end)(),
+	-- THE BOW: upright, then a deep bow from the waist to the beaten fighter, held; back up
+	-- with one fist raised
+	UG_VictoryBow = {
+		Duration = 2.6,
+		Curve = "Spline",
+		Markers = { { 0.3, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.35, { Joint_CorePos = { 0, 0.24, 0 }, Joint_Core = { 2, 0, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { 0, 0, 0 }, Joint_RightArm = { 4, 0, 10 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 70, 0, 50 }, Sub_LeftArm_Fore = { 110, 0, 0 } }),
+			pose(0.85, { Joint_CorePos = { 0, 0.0, -0.2 }, Joint_Core = { -55, 0, 0 }, Joint_Legs = { 8, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 2, 0, 8 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 70, 0, 50 }, Sub_LeftArm_Fore = { 112, 0, 0 } }),
+			pose(1.35, { Joint_CorePos = { 0, 0.0, -0.2 }, Joint_Core = { -55, 0, 0 }, Joint_Legs = { 8, 0, 0 }, Joint_Head = { -10, 0, 0 }, Joint_RightArm = { 2, 0, 8 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 70, 0, 50 }, Sub_LeftArm_Fore = { 112, 0, 0 } }),
+			pose(1.85, { Joint_CorePos = { 0, 0.3, 0.05 }, Joint_Core = { 10, 0, 0 }, Joint_Legs = { -4, 0, 0 }, Joint_Head = { 16, 0, 0 }, Sub_Head_Jaw = { -20, 0, 0 }, Joint_RightArm = { 176, 0, 8 }, Sub_RightArm_Fore = { 6, 0, 0 }, Joint_LeftArm = { 10, 0, -14 }, Sub_LeftArm_Fore = { 14, 0, 0 } }),
+			pose(2.25, { Joint_CorePos = { 0, 0.3, 0.05 }, Joint_Core = { 10, 0, 0 }, Joint_Legs = { -4, 0, 0 }, Joint_Head = { 18, 0, 0 }, Sub_Head_Jaw = { -30, 0, 0 }, Joint_RightArm = { 176, 0, 8 }, Sub_RightArm_Fore = { 6, 0, 0 }, Joint_LeftArm = { 10, 0, -14 }, Sub_LeftArm_Fore = { 14, 0, 0 } }),
+			pose(2.6),
+		},
+	},
 }
 local UGPoseTools = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PoseTools"))
 for name, def in UG do
-	if name ~= "UG_Feint" and name ~= "UG_Victory" and name ~= "UG_VictoryChampion" then
+	-- (the strikes get the punch treatment; the feint, the entrances and the celebrations are
+	-- whole-body performances, played as written)
+	if name ~= "UG_Feint" and name:sub(1, 8) ~= "UG_Intro" and name:sub(1, 10) ~= "UG_Victory" then
 		POSES.Common[name] = UGPoseTools.Punch(def, 0.3)
 	else
 		POSES.Common[name] = def
@@ -2140,6 +2342,11 @@ for name, def in ULTIMATE do
 end
 -- (every ability and Ultimate on a four-legged body: its quadruped variant, found before Common)
 local RING_CLIPS = { Guard_Crumble = true, Slip_R = true, Slip_L = true, RollUnder = true, PullBack = true, Gym_SlipCounter = true, Gym_RollHook = true, Gym_PullCounter = true, Gym_DuckUpper = true, Gym_Weave = true, UG_Parried = true, UG_Feint = true, UG_Victory = true, UG_VictoryChampion = true }
+for name in UG do
+	if name:sub(1, 8) == "UG_Intro" or name:sub(1, 10) == "UG_Victory" then
+		RING_CLIPS[name] = true -- (the entrances and celebrations: a four-legged version too)
+	end
+end
 for name, def in POSES.Common do
 	if name:sub(1, 8) == "Ability_" or name:sub(1, 9) == "Ultimate_" or RING_CLIPS[name] then
 		POSES.Quadruped[name] = forQuadruped(def)

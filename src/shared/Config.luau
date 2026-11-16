@@ -876,7 +876,11 @@ Config.PvP = {
 Config.Underground = {
 	BestOf = 3,
 	PrepTime = 10, -- pick the Nightmare you'll fight as (PvP-legal builds)
-	CountdownTime = 4, -- in your corner, in control, frozen until FIGHT
+	-- THE ENTRANCES (round 1 only, after the pick): the lights go down and the camera sweeps
+	-- the crowd (Sweep), then each fighter in turn (Beat): it walks out to ringside (Walk) and
+	-- performs its entrance (UGCosmetics). Both players pressing SKIP ends it early.
+	Entrance = { Sweep = 2.6, Beat = 5.2, Walk = 2.8 },
+	CountdownTime = 4, -- in your corner, in control, frozen until FIGHT (round 1 opens on the face-off)
 	RoundTime = 90, -- then a decision
 	BetweenRoundsTime = 7, -- the scorecard is up, the knocked-out body stays down this long
 	KOCamTime = 2.6, -- after a knockout: the fight camera stays on the body going down
