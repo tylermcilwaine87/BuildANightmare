@@ -264,7 +264,9 @@ function UndergroundFightService:Throw(player: Player, brain, state, kind: strin
 		if state.Gassed or state.Stamina < def.Cost * 0.5 then
 			self:Callout(brain.model, "GASSED", "Bad")
 			return false
-		elseif now < state.PowerReadyAt then
+		-- (a power shot that carries a string on, the Titan Impact's slam, isn't held back by the
+		-- last one's cooldown: only a fresh one is)
+		elseif now < state.PowerReadyAt and seq == kind then
 			return false
 		end
 	end
@@ -365,7 +367,9 @@ function UndergroundFightService:Guard(player: Player, wanted: boolean, low: boo
 		brain.busyUntil = now + F.Feint.Recover
 		brain.cancelableAt = brain.busyUntil
 		state.Current = nil
-		state.Chain = ""
+		-- (the feint is part of the string: jab, cross, feint, overhand is the STEEL BREAKER)
+		state.Chain = current.Seq:sub(1, -2) .. "F"
+		state.ChainResetAt = now + F.Feint.Recover + F.ResetTime
 		state.CounterStrikeUntil = 0
 		state.PowerReadyAt = now + F.Feint.Recover
 		spend(model, state, F.Feint.Cost, now)

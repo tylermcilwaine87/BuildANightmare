@@ -976,6 +976,12 @@ Config.Underground = {
 				UG_Overhand = { Action = "UG_Overhand", Duration = 1.15, Recovery = 0.32, Display = "OVERHAND", Cost = 18, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.5, 2.0, 22, true } } },
 				UG_Launcher = { Action = "UG_Launcher", Duration = 1.1, Recovery = 0.36, Display = "LAUNCHER", Cost = 20, Height = "Head", Power = true, Tags = { "Finisher" }, Hits = { { 0.44, 2.2, 0, true, { Lift = 34, Push = 8, Spin = 3 }, { Force = true, Up = 3 } } } },
 				UG_BodyBlast = { Action = "UG_BodyBlast", Duration = 1.05, Recovery = 0.3, Display = "BODY BLAST", Cost = 16, Height = "Body", Drain = 24, Power = true, Tags = { "GuardBreak" }, Hits = { { 0.42, 1.7, 16, true } } },
+				-- THE ADVANCED COMBINATIONS' strikes (Strings below): the Steel Breaker's overhand, the
+				-- Cyclone Crusher's spinning backfist and roundhouse kick, the Titan Impact's slam
+				UG_SteelBreaker = { Action = "UG_Overhand", Duration = 1.15, Recovery = 0.32, Display = "STEEL BREAKER", Cost = 16, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.5, 2.6, 26, true } } },
+				UG_SpinBackfist = { Action = "UG_SpinBackfist", Duration = 1.2, Recovery = 0.18, Display = "SPINNING BACKFIST", Cost = 13, Height = "Head", Hits = { { 0.5, 1.5, 14 } } },
+				UG_Roundhouse = { Action = "Gym_Roundhouse", Duration = 1.5, Recovery = 0.3, Display = "ROUNDHOUSE KICK", Cost = 18, Height = "Head", Power = true, Tags = { "Finisher" }, Hits = { { 0.5, 2.2, 20, true } } },
+				UG_DoubleSlam = { Action = "UG_DoubleSlam", Duration = 1.2, Recovery = 0.34, Display = "TWO-HANDED SLAM", Cost = 18, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.52, 2.3, 18, true } } },
 			},
 			-- four legs: rakes, a headbutt, a rear-up and a crashing smash (the same buttons)
 			Quadruped = {
@@ -987,6 +993,10 @@ Config.Underground = {
 				UG_Overhand = { Action = "Rage_Smash", Duration = 1.4, Recovery = 0.3, Display = "CRASH DOWN", Cost = 18, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.52, 2.0, 22, true } } },
 				UG_Launcher = { Action = "Rage_Uppercut", Duration = 1.1, Recovery = 0.3, Display = "LAUNCHER", Cost = 20, Height = "Head", Power = true, Tags = { "Finisher" }, Hits = { { 0.34, 2.2, 0, true, { Lift = 34, Push = 8, Spin = 3 }, { Force = true, Up = 4 } } } },
 				UG_BodyBlast = { Action = "Beast_TailWhip", Duration = 1.2, Recovery = 0.3, Display = "TAIL WHIP", Cost = 16, Height = "Body", Drain = 24, Power = true, Tags = { "GuardBreak" }, Hits = { { 0.52, 1.7, 16, true } } },
+				UG_SteelBreaker = { Action = "Rage_Smash", Duration = 1.4, Recovery = 0.3, Display = "STEEL BREAKER", Cost = 16, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.52, 2.6, 26, true } } },
+				UG_SpinBackfist = { Action = "Beast_TailWhip", Duration = 1.2, Recovery = 0.18, Display = "TAIL LASH", Cost = 13, Height = "Head", Hits = { { 0.52, 1.5, 14 } } },
+				UG_Roundhouse = { Action = "Beast_Pounce", Duration = 1.3, Recovery = 0.3, Display = "POUNCE", Cost = 18, Height = "Head", Power = true, Tags = { "Finisher" }, Hits = { { 0.5, 2.2, 20, true } } },
+				UG_DoubleSlam = { Action = "Rage_Smash", Duration = 1.4, Recovery = 0.34, Display = "CRUSHING SLAM", Cost = 18, Height = "Head", Power = true, Tags = { "GuardBreak" }, Hits = { { 0.52, 2.3, 18, true } } },
 			},
 		},
 		-- INPUT STRINGS: L = attack (click / R2 / ATTACK), H = power (right-click / X / KICK).
@@ -994,13 +1004,18 @@ Config.Underground = {
 		Strings = {
 			L = "UG_Jab", LL = "UG_Cross", LLL = "UG_HookL", LLLL = "UG_Uppercut",
 			H = "UG_Overhand", LH = "UG_LiverHook", LHL = "UG_HookL", LLH = "UG_Overhand", LLLH = "UG_Launcher", LHH = "UG_BodyBlast",
+			-- the advanced combinations: F is a feinted power shot (guard during its wind-up)
+			LLFH = "UG_SteelBreaker", -- jab, cross, feint, overhand
+			LHLH = "UG_SpinBackfist", LHLHH = "UG_Roundhouse", -- body-head, spinning backfist, roundhouse
+			HH = "UG_DoubleSlam", -- overhand (it breaks guards), two-handed slam
 		},
 		-- what the string reads as when it lands (combo callouts)
 		Names = {
 			LL = "ONE-TWO", LLL = "ONE-TWO-THREE", LLLL = "FOUR-PIECE", LH = "JAB TO THE BODY", LHL = "BODY-HEAD",
 			LLH = "ONE-TWO-OVERHAND", LLLH = "THREE AND THE LAUNCHER", LHH = "DIG TO THE BODY",
+			LLFH = "STEEL BREAKER", LHLH = "BODY-HEAD-BACKFIST", LHLHH = "CYCLONE CRUSHER", HH = "TITAN IMPACT",
 		},
-		Ends = { LLLL = true, LLLH = true, LHL = true, LLH = true, LHH = true, H = true },
+		Ends = { LLLL = true, LLLH = true, LLH = true, LHH = true, LLFH = true, LHLHH = true, HH = true },
 		PowerCooldown = 0.9, -- after a power shot, before the next one
 	},
 }
@@ -1008,7 +1023,7 @@ Config.Underground = {
 -- how each Underground strike lands on the body it hits (NightmarePoses Reactions)
 do
 	local reactions = Config.Nightmare.Reactions
-	for action, react in { UG_Jab = "Jab", UG_Cross = "Cross", UG_HookL = "HookL", UG_Uppercut = "Upper", UG_LiverHook = "Body", UG_Overhand = "Heavy", UG_Launcher = "Upper", UG_BodyBlast = "Body" } do
+	for action, react in { UG_Jab = "Jab", UG_Cross = "Cross", UG_HookL = "HookL", UG_Uppercut = "Upper", UG_LiverHook = "Body", UG_Overhand = "Heavy", UG_Launcher = "Upper", UG_BodyBlast = "Body", UG_SteelBreaker = "Heavy", UG_SpinBackfist = "HookL", UG_Roundhouse = "Heavy", UG_DoubleSlam = "Heavy" } do
 		reactions[action] = reactions[action] or { react }
 	end
 end

@@ -139,7 +139,7 @@ function UndergroundController:BuildGui()
 	ui.Score = UIKit.Label({ Position = UDim2.fromOffset(0, 68), Size = UDim2.new(1, 0, 0, 26), TextXAlignment = Enum.TextXAlignment.Center, Font = UIKit.FontDisplay, TextColor3 = C.Warn, MaxTextSize = 24, Parent = clock })
 
 	-- your stance and the controls, bottom left
-	local hints = UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.fromOffset(500, 104), BackgroundColor3 = STEEL, BackgroundTransparency = 0.25, Parent = gui }, { UIKit.Corner(6), UIKit.Padding(8) })
+	local hints = UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.fromOffset(500, 120), BackgroundColor3 = STEEL, BackgroundTransparency = 0.25, Parent = gui }, { UIKit.Corner(6), UIKit.Padding(8) })
 	UIKit.AutoScale(hints)
 	ui.Stance = UIKit.Label({ Size = UDim2.new(1, 0, 0, 20), TextColor3 = C.Warn, MaxTextSize = 15, Parent = hints })
 	ui.Controls = UIKit.Label({ Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -22), TextColor3 = C.SubText, Font = UIKit.FontBody, TextYAlignment = Enum.TextYAlignment.Top, MaxTextSize = 12, Parent = hints })
@@ -1170,8 +1170,8 @@ function UndergroundController:UpdateFrame()
 	local G, D = touch and "GUARD" or pad and "L2" or "Ctrl", touch and "DIVE" or pad and "B" or "Shift"
 	-- (the strings, Config.Underground.Fight Strings: presses of one button chain, the power
 	-- button finishes)
-	ui.Controls.Text = ("%s ×1-4: jab, cross, hook, uppercut  ·  %s: overhand\n%s then %s: liver  ·  ×2 then %s: overhand  ·  ×3 then %s: LAUNCHER\n%s: guard (+back: low)  ·  just as they swing: PARRY  ·  %s+dir: slip\nRULES  best of 3  ·  the bell: judge decides  ·  3 knockdowns in a round = TKO")
-		:format(L, H, L, H, H, H, G, D)
+	ui.Controls.Text = ("%s ×1-4: jab, cross, hook, uppercut  ·  %s: overhand\n%s then %s: liver  ·  ×2 then %s: overhand  ·  ×3 then %s: LAUNCHER\n%s: guard (+back: low)  ·  just as they swing: PARRY  ·  %s+dir: slip\nCOMBOS  %s %s, %s, feint it, %s: STEEL BREAKER  ·  %s %s %s %s %s: CYCLONE CRUSHER  ·  %s %s: TITAN IMPACT\nRULES  best of 3  ·  the bell: judge decides  ·  3 knockdowns in a round = TKO")
+		:format(L, H, L, H, H, H, G, D, L, L, H, H, L, H, L, H, H, H, H)
 end
 
 -- A callout from the server (UndergroundFightService): under the plate of the fighter it's

@@ -2063,6 +2063,39 @@ local UG = {
 			pose(0.7),
 		},
 	},
+	-- SPINNING BACKFIST (the Cyclone Crusher): step across and turn the back on them, eyes over
+	-- the shoulder, and come all the way round with the rear arm flung out straight, the back of
+	-- the fist leading at head height; round out of it into the stance
+	UG_SpinBackfist = {
+		Duration = 1.2,
+		Curve = "Spline",
+		Markers = { { 0.14, "StepR" }, { 0.42, "Whoosh" }, { 0.5, "Strike" }, { 0.85, "StepL" } },
+		Keys = {
+			pose(0),
+			pose(0.12, { Joint_CorePos = { 0, 0.1, 0 } }),
+			pose(0.3, { Joint_Core = { 0, -100, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { 0, 75, 0 }, Sub_Legs_R = { 26, 0, 0 }, Joint_CorePos = { 0, 0.05, 0 }, Joint_RightArm = { 70, 0, -50 }, Sub_RightArm_Fore = { 90, 0, 0 } }),
+			pose(0.42, { Joint_Core = { 6, -175, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -4, 85, 0 }, Joint_CorePos = { 0, 0.12, -0.15 }, Joint_RightArm = { 85, 0, 40 }, Sub_RightArm_Fore = { 55, 0, 0 } }),
+			blow(0.5, { Joint_Core = { 8, -215, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -8, 60, 0 }, Joint_CorePos = { 0, 0.16, -0.35 }, Joint_RightArm = { 92, 0, 92 }, Sub_RightArm_Fore = { 6, 0, 0 }, Joint_LeftArm = { 60, 0, 40 }, Sub_LeftArm_Fore = { 100, 0, 0 } }),
+			pose(0.68, { Joint_Core = { 4, -270, 0 }, Joint_Legs = { 0, 0, 0 }, Joint_Head = { -8, 30, 0 }, Joint_RightArm = { 70, 0, 50 }, Sub_RightArm_Fore = { 50, 0, 0 } }),
+			pose(0.92, { Joint_Core = { -4, -345, 0 }, Joint_Legs = { 4, 0, 0 } }),
+			pose(1.2, { Joint_Core = { -6, -370, 0 } }),
+		},
+	},
+	-- TWO-HANDED SLAM (the Titan Impact): both fists locked together and hauled up over the
+	-- head, the whole body rising onto its toes, then hammered straight down onto them from the
+	-- top, bent right over the follow-through
+	UG_DoubleSlam = {
+		Duration = 1.2,
+		Curve = "Spline",
+		Markers = { { 0.4, "Whoosh" }, { 0.52, "Strike" }, { 0.56, "Land" } },
+		Keys = {
+			pose(0),
+			pose(0.3, { Joint_CorePos = { 0, 0.32, 0.15 }, Joint_Core = { 16, 0, 0 }, Joint_Legs = { -8, 0, 0 }, Joint_Head = { 8, 0, 0 }, Joint_RightArm = { 175, 0, -22 }, Sub_RightArm_Fore = { 40, 0, 0 }, Joint_LeftArm = { 175, 0, 22 }, Sub_LeftArm_Fore = { 40, 0, 0 } }),
+			blow(0.52, { Joint_CorePos = { 0, -0.35, -0.7 }, Joint_Core = { -40, 0, 0 }, Joint_Legs = { 30, 0, 0 }, Joint_Head = { -12, 0, 0 }, Joint_RightArm = { 70, 0, -28 }, Sub_RightArm_Fore = { 10, 0, 0 }, Joint_LeftArm = { 70, 0, 28 }, Sub_LeftArm_Fore = { 10, 0, 0 }, Sub_Legs_L = { 34, 0, 0 }, Sub_Legs_R = { -16, 0, 0 } }),
+			pose(0.75, { Joint_CorePos = { 0, -0.3, -0.6 }, Joint_Core = { -36, 0, 0 }, Joint_Legs = { 28, 0, 0 }, Joint_Head = { -4, 0, 0 }, Joint_RightArm = { 50, 0, -30 }, Sub_RightArm_Fore = { 30, 0, 0 }, Joint_LeftArm = { 50, 0, 30 }, Sub_LeftArm_Fore = { 30, 0, 0 } }),
+			pose(1.2),
+		},
+	},
 	-- FEINT: the power shot's load pulled back into the stance before it goes
 	UG_Feint = {
 		Duration = 0.45,
