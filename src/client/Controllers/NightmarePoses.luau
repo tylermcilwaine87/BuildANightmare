@@ -2292,6 +2292,27 @@ local UG = {
 			},
 		}
 	end)(),
+	-- THE TROPHY LIFT (a tournament champion): both hands together low as if taking hold of
+	-- the cup, hoisted straight up over the head and held there, turned to one side of the house
+	-- and the other, brought down to the chest
+	UG_VictoryTrophy = (function()
+		local HOLD_LOW = { Joint_CorePos = { 0, 0.05, -0.05 }, Joint_Core = { -10, 0, 0 }, Joint_Legs = { 8, 0, 0 }, Joint_Head = { -14, 0, 0 }, Joint_RightArm = { 52, 0, -38 }, Sub_RightArm_Fore = { 60, 0, 0 }, Joint_LeftArm = { 52, 0, 38 }, Sub_LeftArm_Fore = { 60, 0, 0 } }
+		local HOIST = { Joint_CorePos = { 0, 0.34, 0.05 }, Joint_Core = { 12, 0, 0 }, Joint_Legs = { -6, 0, 0 }, Joint_Head = { 26, 0, 0 }, Sub_Head_Jaw = { -36, 0, 0 }, Joint_RightArm = { 172, 0, -14 }, Sub_RightArm_Fore = { 18, 0, 0 }, Joint_LeftArm = { 172, 0, 14 }, Sub_LeftArm_Fore = { 18, 0, 0 } }
+		return {
+			Duration = 2.6,
+			Curve = "Spline",
+			Markers = { { 0.6, "StepL" }, { 1.5, "StepR" } },
+			Keys = {
+				pose(0),
+				at(0.3, BOXER, HOLD_LOW),
+				at(0.7, BOXER, HOIST),
+				at(1.15, BOXER, with(HOIST, { Joint_Core = { 12, 30, 0 }, Joint_Legs = { -6, -30, 0 }, Joint_Head = { 24, 14, 0 } })),
+				at(1.65, BOXER, with(HOIST, { Joint_Core = { 12, -30, 0 }, Joint_Legs = { -6, 30, 0 }, Joint_Head = { 24, -14, 0 } })),
+				at(2.05, BOXER, with(HOLD_LOW, { Joint_CorePos = { 0, 0.2, 0 }, Joint_Core = { 6, 0, 0 }, Joint_Head = { 10, 0, 0 }, Joint_RightArm = { 80, 0, -50 }, Sub_RightArm_Fore = { 110, 0, 0 }, Joint_LeftArm = { 80, 0, 50 }, Sub_LeftArm_Fore = { 110, 0, 0 } })),
+				pose(2.6),
+			},
+		}
+	end)(),
 	-- THE BOW: upright, then a deep bow from the waist to the beaten fighter, held; back up
 	-- with one fist raised
 	UG_VictoryBow = {

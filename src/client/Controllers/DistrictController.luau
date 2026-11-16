@@ -376,9 +376,117 @@ function DistrictController:OpenWatch()
 	ui.Watch.Enabled = true
 end
 
+-- THE UNDERGROUND TOURNAMENT (UGTournamentService): sign up, and the bracket as it's played.
+-- The server sends "UGTourney" whenever it changes while the panel is open (or you're in it).
+local ORANGE = RGB(255, 170, 60)
+
+function DistrictController:OpenTourney()
+	if not ui.Tourney then
+		local gui, body = panel("THE UNDERGROUND TOURNAMENT", ORANGE, Vector2.new(900, 520))
+		ui.Tourney = gui
+		ui.TourneyState = UIKit.Label({ Size = UDim2.new(1, 0, 0, 24), TextColor3 = C.Text, MaxTextSize = 17, Parent = body })
+		ui.TourneyNote = UIKit.Label({ Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 20), TextColor3 = C.SubText, Font = UIKit.FontBody, MaxTextSize = 13, Parent = body })
+		ui.TourneyBody = UIKit.New("Frame", { Position = UDim2.fromOffset(0, 52), Size = UDim2.new(1, 0, 1, -100), BackgroundTransparency = 1, ClipsDescendants = true, Parent = body })
+		ui.TourneyButtons = UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, Parent = body })
+		ui.TourneyMessage = UIKit.Label({ AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, -6), Size = UDim2.new(0.5, 0, 0, 28), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C.Warn, MaxTextSize = 14, Parent = body })
+		gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if not gui.Enabled then
+				controllers.PvPController:Request("UGTourney", "Unwatch")
+			end
+		end)
+	end
+	ui.TourneyMessage.Text = ""
+	local reply = controllers.PvPController:Request("UGTourney", "Watch")
+	self:TourneyUpdate(reply and reply.State or { Phase = "None" })
+	ui.Tourney.Enabled = true
+end
+
+local function tourneyButton(text: string, x: number, color: Color3?, action: string)
+	UIKit.Button({ Position = UDim2.fromOffset(x, 0), Size = UDim2.fromOffset(150, 38), BackgroundColor3 = color, Text = text, MaxTextSize = 15, Parent = ui.TourneyButtons }, function()
+		local reply = controllers.PvPController:Request("UGTourney", action)
+		ui.TourneyMessage.Text = (reply and not reply.Ok) and (reply.Error or "Couldn't do that.") or ""
+	end)
+end
+
+function DistrictController:TourneyUpdate(state)
+	if not ui.Tourney or type(state) ~= "table" then
+		return
+	end
+	for _, holder in { ui.TourneyBody, ui.TourneyButtons } do
+		for _, child in holder:GetChildren() do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+	end
+	local phase = state.Phase
+	if phase == "None" or phase == "Signup" then
+		local entrants = state.Entrants or {}
+		ui.TourneyState.Text = phase == "None" and "SIGN-UPS OPEN  ·  nobody yet" or ("SIGN-UPS OPEN  ·  %d / %d fighters  ·  host: %s"):format(#entrants, state.Size or 8, state.Host or "?")
+		ui.TourneyNote.Text = ("Knockout, best of 3 every fight, never ranked. The host starts it with %d or more; it starts by itself at %d.%s"):format(state.Minimum or 4, state.Size or 8, state.Champion and ("   Last champion: " .. state.Champion) or "")
+		local grid = UIKit.New("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = ui.TourneyBody }, { UIKit.Grid and UIKit.Grid(UDim2.fromOffset(200, 36), UDim2.fromOffset(8, 8)) or nil })
+		if not grid:FindFirstChildOfClass("UIGridLayout") then
+			local layout = Instance.new("UIGridLayout")
+			layout.CellSize, layout.CellPadding = UDim2.fromOffset(200, 36), UDim2.fromOffset(8, 8)
+			layout.Parent = grid
+		end
+		for i, name in entrants do
+			UIKit.Label({ LayoutOrder = i, BackgroundColor3 = C.PanelLight, BackgroundTransparency = 0, TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Text, MaxTextSize = 15, Text = ("%d.  %s"):format(i, string.upper(name)), Parent = grid })
+		end
+		if state.Joined then
+			tourneyButton("LEAVE", 0, RGB(110, 40, 50), "Leave")
+			if state.IsHost then
+				tourneyButton(("START  (%d)"):format(#entrants), 160, RGB(40, 110, 50), "Start")
+			end
+		else
+			tourneyButton("SIGN UP", 0, RGB(150, 90, 20), "Join")
+		end
+		return
+	end
+	-- the bracket: one column a round, the winners in gold
+	local rounds = state.Rounds or {}
+	local total = 1
+	while 2 ^ total < (#(rounds[1] or {}) * 2) do
+		total += 1
+	end
+	if phase == "Done" then
+		ui.TourneyState.Text = ("CHAMPION:  %s"):format(string.upper(state.Champion or "nobody"))
+		ui.TourneyState.TextColor3 = GOLD
+		ui.TourneyNote.Text = "The bracket stays up for a minute, then sign-ups open again."
+	else
+		ui.TourneyState.TextColor3 = C.Text
+		local fightsLeft = #(rounds[state.Round] or {})
+		ui.TourneyState.Text = fightsLeft == 1 and "THE FINAL" or ("ROUND %d OF %d"):format(state.Round or 1, total)
+		ui.TourneyNote.Text = state.NextAt and ("Next round in %d seconds"):format(math.max(0, math.ceil(state.NextAt - workspace:GetServerTimeNow()))) or "Watch any fight from the WATCH LIVE terminal by the stands."
+	end
+	local columnWidth = 1 / math.max(total, 1)
+	for r = 1, total do
+		local fights = rounds[r]
+		local count = #(rounds[1] or {}) / (2 ^ (r - 1))
+		local column = UIKit.New("Frame", { Position = UDim2.new(columnWidth * (r - 1), 4, 0, 0), Size = UDim2.new(columnWidth, -8, 1, 0), BackgroundTransparency = 1, Parent = ui.TourneyBody })
+		UIKit.Label({ Size = UDim2.new(1, 0, 0, 18), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = ORANGE, MaxTextSize = 13, Text = r == total and "FINAL" or (r == total - 1 and "SEMI-FINALS" or ("ROUND %d"):format(r)), Parent = column })
+		for i = 1, count do
+			local fight = fights and fights[i]
+			local slotHeight = (1 / count)
+			local box = UIKit.New("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, slotHeight * (i - 0.5), 10), Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = C.PanelLight, Parent = column }, { UIKit.Corner(5) })
+			for k, who in { fight and fight.A or "—", fight and fight.B or "—" } do
+				local won = fight and fight.Winner and fight.Winner == who
+				UIKit.Label({ Position = UDim2.fromOffset(8, (k - 1) * 24 + 3), Size = UDim2.new(1, -16, 0, 22), MaxTextSize = 14, TextColor3 = won and GOLD or (fight and fight.Winner and C.SubText or C.Text),
+					Text = (won and "★ " or "") .. string.upper(who), Parent = box })
+			end
+			if fight and fight.Status == "Fighting" then
+				UIKit.Label({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 2), Size = UDim2.fromOffset(60, 14), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = RED, MaxTextSize = 11, Text = "● LIVE", Parent = box })
+			end
+		end
+	end
+	if state.Joined and phase == "Running" then
+		tourneyButton("WITHDRAW", 0, RGB(110, 40, 50), "Leave")
+	end
+end
+
 -- A fight is starting: the station panels get out of the way.
 function DistrictController:CloseAll()
-	for _, gui in { ui.Duel, ui.Stats, ui.Locker, ui.Watch } do
+	for _, gui in { ui.Duel, ui.Stats, ui.Locker, ui.Watch, ui.Tourney } do
 		if gui then
 			gui.Enabled = false
 		end
@@ -394,6 +502,8 @@ function DistrictController:Start()
 			self:OpenStats()
 		elseif prompt.Name == "UGSpectate" then
 			self:OpenWatch()
+		elseif prompt.Name == "UGTourney" then
+			self:OpenTourney()
 		end
 	end)
 end

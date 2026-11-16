@@ -57,6 +57,7 @@ local LOAD_ORDER = {
 	"UndergroundService",
 	"UndergroundFightService",
 	"UGRankedService",
+	"UGTournamentService",
 	"CraftingService",
 	"ChallengeService",
 	"PartyService",

@@ -573,6 +573,8 @@ local function buildLobby(m, F, rng)
 	-- WATCH LIVE: in front of the stands, into any fight going on (UGSpectate: the client's list
 	-- of live fights, then UndergroundService:Spectate)
 	terminal(m, C(22, 1, HALF_Z - 19), RGB(255, 90, 110), "WATCH LIVE", "spectate a fight going on now", "UGSpectate", "Watch a fight", "Nightmare Underground · Spectate")
+	-- THE UNDERGROUND TOURNAMENT: sign up, the bracket (UGTourney: UGTournamentService)
+	terminal(m, C(-20, 1, HALF_Z - 6), RGB(255, 170, 60), "TOURNAMENT", "knockout bracket · sign up here", "UGTourney", "Enter the tournament", "Nightmare Underground · Tournament")
 end
 
 function District.Build(root)

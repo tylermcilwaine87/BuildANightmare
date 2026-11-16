@@ -118,6 +118,7 @@ local ACTION_ARMS = {
 	UG_VictoryFlex = "None",
 	UG_VictoryChest = "None",
 	UG_VictoryBow = "None",
+	UG_VictoryTrophy = "None",
 	Gym_Rest = "None",
 	Slip_L = "None",
 	Slip_R = "None",

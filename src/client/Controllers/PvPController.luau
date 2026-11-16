@@ -611,6 +611,8 @@ function PvPController:Start()
 			controllers.UndergroundController:RematchAsked(data)
 		elseif kind == "UGIntro" then
 			controllers.UndergroundController:Intro(data)
+		elseif kind == "UGTourney" then
+			controllers.DistrictController:TourneyUpdate(data)
 		elseif kind == "UGSpectate" then
 			controllers.SpectatorController:Update(data)
 		elseif kind == "UGIntroSkip" then

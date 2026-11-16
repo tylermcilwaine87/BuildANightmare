@@ -102,6 +102,14 @@ UGCosmetics.Victories = {
 		Unlock = { Stat = "Fights", Count = 10, Text = "Fight 10 Underground fights" },
 	},
 	{
+		Id = "Trophy",
+		Name = "THE TROPHY LIFT",
+		Clip = "UG_VictoryTrophy",
+		Duration = 2.6,
+		Desc = "Hoists the tournament trophy over its head with both hands and shows it round.",
+		Unlock = { Stat = "TournamentWins", Count = 1, Text = "Win an Underground Tournament" },
+	},
+	{
 		Id = "Champion",
 		Name = "THE CHAMPION'S SALUTE",
 		Clip = "UG_VictoryChampion",

@@ -536,6 +536,9 @@ function UndergroundService:After(player: Player, choice)
 	if not match or match.Mode ~= "Underground" or match.State ~= "Ended" or (choice ~= "Rematch" and choice ~= "Queue" and choice ~= "None") then
 		return { Ok = false, Error = "The fight isn't over." }
 	end
+	if match.Tournament and choice == "Rematch" then
+		return { Ok = false, Error = "It's a tournament: the bracket decides your next fight." }
+	end
 	match.UGAfter = match.UGAfter or {}
 	match.UGAfter[player] = choice ~= "None" and choice or nil
 	if choice == "Rematch" then

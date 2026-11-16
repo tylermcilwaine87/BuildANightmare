@@ -590,6 +590,7 @@ function DuelService:StartMatch(a, b, bestOf: number, opts)
 		Mode = mode,
 		Ranked = ranked,
 		UGRanked = mode == "Underground" and opts and opts.UGRanked == true or nil, -- (the Underground ranked queue)
+		Tournament = mode == "Underground" and opts and opts.Tournament or nil, -- (UGTournamentService: its bracket slot)
 		BestOf = bestOf,
 		Teams = teams,
 		TeamSize = #teams[1],
@@ -906,6 +907,7 @@ function DuelService:EndMatch(match, winnerSide: number?, reason: string)
 	end
 	match.Token += 1
 	match.State = "Ended"
+	match.WinnerSide, match.EndReason = winnerSide, reason -- (a tournament reads who went through)
 	local duration = os.clock() - match.StartTime
 
 	-- Rewards: exactly once, never for instant forfeits, capped per hour.
@@ -1002,6 +1004,7 @@ function DuelService:Cleanup(match)
 	if match.Mode == "Underground" then
 		self.Services.UndergroundService:ReleaseArena(match.Slot)
 		self.Services.UndergroundService:AfterCleanup(match) -- (a rematch, or back in the queue)
+		self.Services.UGTournamentService:MatchOver(match) -- (a tournament fight: the bracket moves on)
 	else
 		slotInUse[match.Slot] = nil
 	end
@@ -1155,6 +1158,8 @@ function DuelService:Start()
 			return self.Services.UGRankedService:EquipTitle(player, a1) -- (the stats terminal)
 		elseif action == "UGAfter" then
 			return self.Services.UndergroundService:After(player, a1) -- (REMATCH / QUEUE AGAIN)
+		elseif action == "UGTourney" then
+			return self.Services.UGTournamentService:Request(player, a1) -- (the TOURNAMENT terminal)
 		elseif action == "UGLive" then
 			return { Ok = true, List = self:UndergroundMatches() } -- (the WATCH LIVE terminal)
 		elseif action == "UGSpectate" then

@@ -880,6 +880,10 @@ Config.Underground = {
 	-- the crowd (Sweep), then each fighter in turn (Beat): it walks out to ringside (Walk) and
 	-- performs its entrance (UGCosmetics). Both players pressing SKIP ends it early.
 	Entrance = { Sweep = 2.6, Beat = 5.2, Walk = 2.8 },
+	-- THE UNDERGROUND TOURNAMENT (UGTournamentService): a knockout bracket for this server's
+	-- players; the host starts it once Minimum have signed up (Studio: StudioMinimum), it starts
+	-- by itself at Size
+	Tournament = { Size = 8, Minimum = 4, StudioMinimum = 2, BestOf = 3, NextRoundDelay = 12, PrizeCoins = 500, ShowResultFor = 60 },
 	CountdownTime = 4, -- in your corner, in control, frozen until FIGHT (round 1 opens on the face-off)
 	RoundTime = 90, -- then a decision
 	BetweenRoundsTime = 7, -- the scorecard is up, the knocked-out body stays down this long
